@@ -7,47 +7,47 @@ const brands = [
   {
     name: "HP",
     href: "/articles?marque=HP",
-    logo: "/images/brands/hp.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/HP_logo_2025.svg/960px-HP_logo_2025.svg.png",
   },
   {
     name: "ASUS",
     href: "/articles?marque=ASUS",
-    logo: "/images/brands/asus.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/ASUS_Logo.svg/500px-ASUS_Logo.svg.png",
   },
   {
     name: "Dell",
     href: "/articles?marque=Dell",
-    logo: "/images/brands/dell.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Dell_Logo.svg/330px-Dell_Logo.svg.png",
   },
   {
     name: "Logitech",
     href: "/articles?marque=Logitech",
-    logo: "/images/brands/logitech.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Logitech_logo.svg/960px-Logitech_logo.svg.png",
   },
   {
     name: "Lenovo",
     href: "/articles?marque=Lenovo",
-    logo: "/images/brands/lenovo.svg",
+    logo: "/images/Brands/lenevo.png",
   },
   {
     name: "MSI",
     href: "/articles?marque=MSI",
-    logo: "/images/brands/msi.svg",
+    logo: "/images/Brands/Msi.png",
   },
   {
     name: "Intel",
     href: "/articles?marque=Intel",
-    logo: "/images/brands/intel.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Intel_logo_2023.svg/960px-Intel_logo_2023.svg.png",
   },
   {
     name: "Microsoft",
     href: "/articles?marque=Microsoft",
-    logo: "/images/brands/microsoft.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/960px-Microsoft_logo.svg.png",
   },
   {
     name: "AMD",
     href: "/articles?marque=AMD",
-    logo: "/images/brands/amd.svg",
+    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/AMD_Logo.svg/960px-AMD_Logo.svg.png",
   },
 ];
 
