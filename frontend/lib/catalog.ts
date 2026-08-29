@@ -143,3 +143,29 @@ export function productMatchesCategory(product: Product, category?: string | nul
   if (category === "ordinateurs") return product.category === "ordinateurs-portables" || product.category === "pc-fixes";
   return product.category === category;
 }
+
+import { apiFetch, backendUrl } from "@/lib/api";
+
+type BackendArticle = Record<string, any>;
+export function mapApiProduct(a: BackendArticle): Product {
+  const images = Array.isArray(a.images) ? a.images.map((i:any)=>backendUrl(i.url)) : [];
+  const mainImage = backendUrl(a.image || a.image_url || images[0]);
+  const promotion = Number(a.promotion_value || 0);
+  const basePrice = Number(a.price || 0);
+  let salePrice = basePrice;
+  if (promotion > 0) salePrice = a.promotion_type === "MONTANT" ? Math.max(0, basePrice - promotion) : Math.max(0, basePrice - basePrice * promotion / 100);
+  return {
+    id:Number(a.id), slug:String(a.slug||""), name:String(a.name||""), shortName:String(a.short_name||a.shortName||a.name||""),
+    category:String(a.category_slug||a.category||""), categoryLabel:String(a.category_label||a.category_name||"Catalogue"), brand:String(a.brand||a.marque_name||"DOCTECH"),
+    price:Number(salePrice.toFixed(2)), oldPrice:salePrice<basePrice?basePrice:(a.old_price?Number(a.old_price):undefined), rating:4.8, reviews:0,
+    image:mainImage, gallery:images.length?images:[mainImage], description:String(a.description||a.short_description||""),
+    features:Array.isArray(a.features)?a.features:[], stock:Number(a.stock||0), isNew:false, isFeatured:Boolean(a.featured),
+  };
+}
+export async function fetchCatalog(params: Record<string,string|number|undefined|null> = {}) {
+  const qs = new URLSearchParams(); Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=="")qs.set(k,String(v))});
+  const r = await apiFetch<BackendArticle[]>(`/public/articles${qs.size?`?${qs}`:""}`);
+  return { products:(r.data||[]).map(mapApiProduct), pagination:r.pagination };
+}
+export async function fetchCategories(){const r=await apiFetch<any[]>("/public/categories");return (r.data||[]).map((c:any)=>({slug:c.slug,label:c.name,description:c.description||"",image:backendUrl(c.image_url)})) as CatalogCategory[]}
+export async function fetchProductBySlug(slug:string){const r=await apiFetch<BackendArticle>(`/public/articles/${encodeURIComponent(slug)}`);return { product:mapApiProduct(r.data||{}), raw:r.data as any } }

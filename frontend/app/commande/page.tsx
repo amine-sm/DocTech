@@ -31,6 +31,7 @@ import Header from "@/components/Header";
 import CheckoutHero from "@/components/CheckoutHero";
 import { clearCart, getCart, getCartSubtotal, type CartItem } from "@/lib/cart";
 import { formatPrice } from "@/lib/catalog";
+import { apiFetch } from "@/lib/api";
 
 const wilayas = [
   "Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa", "Biskra", "Béchar", "Blida", "Bouira",
@@ -59,15 +60,31 @@ export default function OrderPage() {
   const total = subtotal + deliveryFee;
   const totalQuantity = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
 
-  function submitOrder(event: FormEvent<HTMLFormElement>) {
+  async function submitOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!items.length) return;
-
-    const reference = `DT-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    setOrderNumber(reference);
-    setSubmitted(true);
-    clearCart();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const form = new FormData(event.currentTarget);
+    try {
+      const result = await apiFetch<any>("/public/commandes", {
+        method: "POST",
+        bodyJson: {
+          customerName: String(form.get("name") || ""),
+          phone: String(form.get("phone") || ""),
+          wilaya: deliveryType === "home" ? String(form.get("wilaya") || "") : null,
+          commune: deliveryType === "home" ? String(form.get("commune") || "") : null,
+          address: deliveryType === "home" ? String(form.get("address") || "") : null,
+          note: String(form.get("note") || ""),
+          deliveryType: deliveryType === "store" ? "STORE" : "HOME",
+          items: items.map((item) => ({ articleId: item.product.id, quantity: item.quantity })),
+        },
+      });
+      setOrderNumber(String(result.trackingNumber || result.data?.trackingNumber || ""));
+      setSubmitted(true);
+      clearCart();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error: any) {
+      window.alert(error?.message || "Impossible de créer la commande.");
+    }
   }
 
   if (submitted) {
