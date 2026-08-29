@@ -82,7 +82,7 @@ const products = [
     discount: "-10%",
     rating: "4.9",
     image: "/images/categories/pc-portable.png",
-    href: "/articles",
+    href: "/article?slug=hp-elitebook-840-g8",
   },
   {
     id: 2,
@@ -93,7 +93,7 @@ const products = [
     discount: "",
     rating: "4.7",
     image: "/images/categories/ecran.png",
-    href: "/articles",
+    href: "/article?slug=ecran-24-full-hd-ips",
   },
   {
     id: 3,
@@ -104,7 +104,7 @@ const products = [
     discount: "-13%",
     rating: "4.8",
     image: "/images/categories/peripheriques.png",
-    href: "/articles",
+    href: "/article?slug=logitech-gaming-mouse",
   },
   {
     id: 4,
@@ -115,7 +115,7 @@ const products = [
     discount: "",
     rating: "4.9",
     image: "/images/categories/accessoires.png",
-    href: "/articles",
+    href: "/article?slug=casque-gaming-pro",
   },
 ];
 

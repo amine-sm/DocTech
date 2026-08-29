@@ -26,6 +26,8 @@ import {
   useState,
 } from "react";
 
+import { CART_EVENT, getCartCount } from "@/lib/cart";
+
 /* =========================================================
    NAVIGATION
 ========================================================= */
@@ -79,6 +81,19 @@ export default function Header() {
   const [isSearchFocused, setIsSearchFocused] =
     useState(false);
 
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    const refreshCartCount = () => setCartCount(getCartCount());
+    refreshCartCount();
+    window.addEventListener(CART_EVENT, refreshCartCount);
+    window.addEventListener("storage", refreshCartCount);
+    return () => {
+      window.removeEventListener(CART_EVENT, refreshCartCount);
+      window.removeEventListener("storage", refreshCartCount);
+    };
+  }, []);
+
   /* =======================================================
      BLOQUER SCROLL QUAND MENU MOBILE OUVERT
   ======================================================= */
@@ -129,7 +144,7 @@ export default function Header() {
     pathname.startsWith("/favoris");
 
   const panierActive =
-    pathname.startsWith("/panier");
+    pathname.startsWith("/panier") || pathname.startsWith("/commande");
 
   return (
     <>
@@ -560,7 +575,7 @@ export default function Header() {
                       shadow-sm
                     "
                   >
-                    0
+                    {cartCount}
                   </span>
                 </div>
 
@@ -587,7 +602,7 @@ export default function Header() {
                       text-slate-800
                     "
                   >
-                    0 article
+                    {cartCount} article{cartCount > 1 ? "s" : ""}
                   </span>
                 </div>
               </Link>
@@ -1296,7 +1311,7 @@ export default function Header() {
                   text-[9px]
                 "
               >
-                0
+                {cartCount}
               </span>
             </Link>
           </div>
@@ -1729,7 +1744,7 @@ export default function Header() {
                   shadow-sm
                 "
               >
-                0
+                {cartCount}
               </span>
             </div>
 
