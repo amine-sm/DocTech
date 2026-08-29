@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import {
   ArrowRight,
@@ -72,6 +72,31 @@ const navigation = [
 
 export default function Header() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentCategory = searchParams.get("categorie");
+
+  const isNavigationItemActive = (
+    href: string,
+    promotion?: boolean,
+  ) => {
+    if (href === "/") {
+      return pathname === "/";
+    }
+
+    if (promotion) {
+      return pathname.startsWith("/promotions");
+    }
+
+    const query = href.split("?")[1] ?? "";
+    const itemCategory =
+      new URLSearchParams(query).get("categorie");
+
+    return (
+      pathname === "/articles" &&
+      itemCategory !== null &&
+      currentCategory === itemCategory
+    );
+  };
 
   const [mobileMenuOpen, setMobileMenuOpen] =
     useState(false);
@@ -794,15 +819,11 @@ export default function Header() {
             "
           >
             {navigation.map((item) => {
-              const baseHref =
-                item.href.split("?")[0];
-
               const active =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(
-                      baseHref,
-                    );
+                isNavigationItemActive(
+                  item.href,
+                  item.promotion,
+                );
 
               const Icon = item.icon;
 
@@ -1094,15 +1115,11 @@ export default function Header() {
             {navigation.map((item) => {
               const Icon = item.icon;
 
-              const baseHref =
-                item.href.split("?")[0];
-
               const active =
-                item.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(
-                      baseHref,
-                    );
+                isNavigationItemActive(
+                  item.href,
+                  item.promotion,
+                );
 
               return (
                 <Link

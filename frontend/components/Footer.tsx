@@ -55,30 +55,12 @@ const GOOGLE_MAP_EMBED_URL =
 ========================================================= */
 
 const boutiqueLinks = [
-  {
-    label: "PC Portables",
-    href: "/articles?categorie=ordinateurs-portables",
-  },
-  {
-    label: "PC Fixes",
-    href: "/articles?categorie=pc-fixes",
-  },
-  {
-    label: "Écrans",
-    href: "/articles?categorie=ecrans",
-  },
-  {
-    label: "Périphériques",
-    href: "/articles?categorie=peripheriques",
-  },
-  {
-    label: "Accessoires",
-    href: "/articles?categorie=accessoires",
-  },
-  {
-    label: "Promotions",
-    href: "/promotions",
-  },
+  { label: "PC Portables", href: "/articles?categorie=ordinateurs-portables" },
+  { label: "PC Fixes", href: "/articles?categorie=pc-fixes" },
+  { label: "Écrans", href: "/articles?categorie=ecrans" },
+  { label: "Périphériques", href: "/articles?categorie=peripheriques" },
+  { label: "Accessoires", href: "/articles?categorie=accessoires" },
+  { label: "Promotions", href: "/promotions" },
 ];
 
 /* =========================================================
@@ -86,26 +68,11 @@ const boutiqueLinks = [
 ========================================================= */
 
 const informationLinks = [
-  {
-    label: "À propos",
-    href: "/a-propos",
-  },
-  {
-    label: "Livraison",
-    href: "/livraison",
-  },
-  {
-    label: "Garantie",
-    href: "/garantie",
-  },
-  {
-    label: "Suivi de commande",
-    href: "/suivi",
-  },
-  {
-    label: "Contact",
-    href: "/contact",
-  },
+  { label: "À propos", href: "/a-propos" },
+  { label: "Livraison", href: "/livraison" },
+  { label: "Garantie", href: "/garantie" },
+  { label: "Suivi de commande", href: "/suivi" },
+  { label: "Contact", href: "/contact" },
 ];
 
 /* =========================================================
@@ -132,7 +99,7 @@ export default function Footer() {
   return (
     <footer className="relative overflow-hidden bg-[#050d1f] text-white">
       {/* =====================================================
-          BACKGROUND
+          BACKGROUND (gardé)
       ====================================================== */}
 
       <div
@@ -175,376 +142,235 @@ export default function Footer() {
       />
 
       {/* =====================================================
-          AVANTAGES
+          AVANTAGES – version cartes avec icônes plus grandes
       ====================================================== */}
 
       <div className="relative border-b border-white/10">
         <div
           className="
             mx-auto
-            grid
             max-w-[1450px]
-            grid-cols-1
-            gap-4
             px-4
-            py-7
-            sm:grid-cols-2
+            py-10
             sm:px-6
-            lg:grid-cols-4
             lg:px-8
           "
         >
-          <FooterBenefit
-            icon={<Truck size={21} />}
-            title="Livraison nationale"
-            text="Disponible dans 48 wilayas"
-          />
-
-          <FooterBenefit
-            icon={<CreditCard size={21} />}
-            title="Paiement sécurisé"
-            text="Achetez en toute confiance"
-          />
-
-          <FooterBenefit
-            icon={<ShieldCheck size={21} />}
-            title="Produits garantis"
-            text="Garantie jusqu'à 12 mois"
-          />
-
-          <FooterBenefit
-            icon={<Headphones size={21} />}
-            title="Support DOCTECH"
-            text="Une équipe à votre écoute"
-          />
+          <div
+            className="
+              grid
+              grid-cols-1
+              gap-6
+              sm:grid-cols-2
+              lg:grid-cols-4
+            "
+          >
+            <BenefitCard
+              icon={<Truck size={24} />}
+              title="Livraison nationale"
+              text="Disponible dans 48 wilayas"
+            />
+            <BenefitCard
+              icon={<CreditCard size={24} />}
+              title="Paiement sécurisé"
+              text="Achetez en toute confiance"
+            />
+            <BenefitCard
+              icon={<ShieldCheck size={24} />}
+              title="Produits garantis"
+              text="Garantie jusqu'à 12 mois"
+            />
+            <BenefitCard
+              icon={<Headphones size={24} />}
+              title="Support DOCTECH"
+              text="Une équipe à votre écoute"
+            />
+          </div>
         </div>
       </div>
 
       {/* =====================================================
-          CONTENU PRINCIPAL
+          CONTENU PRINCIPAL – nouvelle disposition avec colonnes équilibrées
       ====================================================== */}
 
       <div
         className="
           relative
           mx-auto
-          grid
           max-w-[1450px]
-          gap-12
           px-4
           py-16
           sm:px-6
-          md:grid-cols-2
-          lg:grid-cols-[1.45fr_0.8fr_0.8fr_1fr]
           lg:px-8
         "
       >
-        {/* =================================================
-            DOCTECH
-        ================================================= */}
-
-        <div>
-          <Link
-            href="/"
-            className="
-              inline-flex
-              items-center
-              transition-transform
-              duration-300
-              hover:scale-[1.02]
-            "
-          >
-            <div
+        <div
+          className="
+            grid
+            gap-12
+            md:grid-cols-2
+            lg:grid-cols-[1.5fr_1fr_1fr_1.2fr]
+          "
+        >
+          {/* Colonne 1 : Logo + description + contact rapide */}
+          <div>
+            <Link
+              href="/"
               className="
-                relative
-                h-[64px]
-                w-[180px]
-                overflow-hidden
-                rounded-2xl
-                bg-white
-                shadow-[0_15px_35px_rgba(0,0,0,0.18)]
+                inline-block
+                transition-transform
+                duration-300
+                hover:scale-[1.02]
               "
             >
-              <Image
-                src="/images/logo-doctech.webp"
-                alt="DOCTECH"
-                fill
-                sizes="180px"
-                className="object-contain p-3"
+              <div
+                className="
+                  relative
+                  h-[64px]
+                  w-[180px]
+                  overflow-hidden
+                  rounded-2xl
+                  bg-white
+                  shadow-[0_15px_35px_rgba(0,0,0,0.18)]
+                "
+              >
+                <Image
+                  src="/images/logo-doctech.webp"
+                  alt="DOCTECH"
+                  fill
+                  sizes="180px"
+                  className="object-contain p-3"
+                />
+              </div>
+            </Link>
+
+            <p
+              className="
+                mt-6
+                max-w-[380px]
+                text-[13px]
+                font-medium
+                leading-7
+                text-slate-400
+              "
+            >
+              DOCTECH est votre spécialiste du matériel informatique
+              à Es Sénia. Découvrez nos ordinateurs, écrans,
+              périphériques et accessoires issus des plus grandes
+              marques.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-4">
+              <ContactCompact icon={<Phone size={16} />} label="Téléphone" value={STORE_PHONE_DISPLAY} href={`tel:${STORE_PHONE_LINK}`} />
+              <ContactCompact icon={<Mail size={16} />} label="Email" value={STORE_EMAIL} href={`mailto:${STORE_EMAIL}`} />
+              <ContactCompact icon={<MapPin size={16} />} label="Adresse" value="Es Sénia, Oran" href={GOOGLE_MAP_URL} external />
+            </div>
+
+            <div className="mt-8 flex items-center gap-3">
+              <SocialButton
+                label="Facebook"
+                href="#"
+                icon={<FacebookIcon />}
+              />
+              <SocialButton
+                label="Instagram"
+                href="#"
+                icon={<InstagramIcon />}
+              />
+              <SocialButton
+                label="WhatsApp"
+                href={`https://wa.me/${STORE_PHONE_LINK.replace("+", "")}`}
+                icon={<MessageCircle size={20} />}
               />
             </div>
-          </Link>
-
-          <p
-            className="
-              mt-6
-              max-w-[380px]
-              text-[12px]
-              font-medium
-              leading-7
-              text-slate-400
-            "
-          >
-            DOCTECH est votre spécialiste du matériel informatique
-            à Es Sénia. Découvrez nos ordinateurs, écrans,
-            périphériques et accessoires issus des plus grandes
-            marques.
-          </p>
-
-          {/* TELEPHONE */}
-
-          <div className="mt-7 flex flex-col gap-3">
-            <a
-              href={`tel:${STORE_PHONE_LINK}`}
-              className="
-                group
-                flex
-                w-fit
-                items-center
-                gap-3
-                text-[12px]
-                font-semibold
-                text-slate-400
-                transition-all
-                duration-300
-                hover:text-white
-              "
-            >
-              <span
-                className="
-                  flex
-                  h-9
-                  w-9
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-white/5
-                  text-blue-400
-                  transition-all
-                  duration-300
-                  group-hover:bg-blue-600
-                  group-hover:text-white
-                "
-              >
-                <Phone size={16} />
-              </span>
-
-              {STORE_PHONE_DISPLAY}
-            </a>
-
-            {/* EMAIL */}
-
-            <a
-              href={`mailto:${STORE_EMAIL}`}
-              className="
-                group
-                flex
-                w-fit
-                items-center
-                gap-3
-                text-[12px]
-                font-semibold
-                text-slate-400
-                transition-all
-                duration-300
-                hover:text-white
-              "
-            >
-              <span
-                className="
-                  flex
-                  h-9
-                  w-9
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-white/5
-                  text-blue-400
-                  transition-all
-                  duration-300
-                  group-hover:bg-blue-600
-                  group-hover:text-white
-                "
-              >
-                <Mail size={16} />
-              </span>
-
-              {STORE_EMAIL}
-            </a>
-
-            {/* LOCATION */}
-
-            <a
-              href={GOOGLE_MAP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="
-                group
-                flex
-                w-fit
-                items-center
-                gap-3
-                text-[12px]
-                font-semibold
-                text-slate-400
-                transition-all
-                duration-300
-                hover:text-white
-              "
-            >
-              <span
-                className="
-                  flex
-                  h-9
-                  w-9
-                  items-center
-                  justify-center
-                  rounded-xl
-                  bg-white/5
-                  text-blue-400
-                  transition-all
-                  duration-300
-                  group-hover:bg-blue-600
-                  group-hover:text-white
-                "
-              >
-                <MapPin size={16} />
-              </span>
-
-              Es Sénia, Oran
-            </a>
           </div>
 
-          {/* SOCIAL */}
+          {/* Colonne 2 : Boutique */}
+          <FooterColumn title="Boutique" links={boutiqueLinks} />
 
-          <div className="mt-7 flex items-center gap-2">
-            <SocialButton
-              label="Facebook"
-              href="#"
-              icon={<FacebookIcon />}
-            />
+          {/* Colonne 3 : Informations */}
+          <FooterColumn title="Informations" links={informationLinks} />
 
-            <SocialButton
-              label="Instagram"
-              href="#"
-              icon={<InstagramIcon />}
-            />
+          {/* Colonne 4 : Contact + suivi commande */}
+          <div>
+            <FooterTitle>Nous contacter</FooterTitle>
 
-            <SocialButton
-              label="WhatsApp"
-              href={`https://wa.me/${STORE_PHONE_LINK.replace("+", "")}`}
-              icon={<MessageCircle size={18} />}
-            />
-          </div>
-        </div>
-
-        {/* =================================================
-            BOUTIQUE
-        ================================================= */}
-
-        <FooterColumn
-          title="Boutique"
-          links={boutiqueLinks}
-        />
-
-        {/* =================================================
-            INFORMATIONS
-        ================================================= */}
-
-        <FooterColumn
-          title="Informations"
-          links={informationLinks}
-        />
-
-        {/* =================================================
-            CONTACT
-        ================================================= */}
-
-        <div>
-          <FooterTitle>Nous contacter</FooterTitle>
-
-          <div className="mt-7 space-y-5">
-            <ContactRow
-              icon={<MapPin size={17} />}
-              title="Adresse"
-              value="Es Sénia, Oran, Algérie"
-            />
-
-            <ContactRow
-              icon={<Phone size={17} />}
-              title="Téléphone"
-              value={STORE_PHONE_DISPLAY}
-            />
-
-            <ContactRow
-              icon={<Mail size={17} />}
-              title="E-mail"
-              value={STORE_EMAIL}
-            />
-
-            <ContactRow
-              icon={<Clock3 size={17} />}
-              title="Horaires"
-              value="Fermeture à 19h00"
-            />
-          </div>
-
-          {/* SUIVI COMMANDE */}
-
-          <Link
-            href="/suivi"
-            className="
-              group
-              mt-7
-              flex
-              items-center
-              gap-3
-              rounded-2xl
-              border
-              border-blue-500/15
-              bg-blue-500/5
-              p-4
-              transition-all
-              duration-300
-              hover:border-blue-500/30
-              hover:bg-blue-500/10
-            "
-          >
-            <div
-              className="
-                flex
-                h-10
-                w-10
-                shrink-0
-                items-center
-                justify-center
-                rounded-xl
-                bg-blue-600/15
-                text-blue-400
-                transition-all
-                duration-300
-                group-hover:bg-blue-600
-                group-hover:text-white
-              "
-            >
-              <PackageCheck size={20} />
+            <div className="mt-7 space-y-5">
+              <ContactRow
+                icon={<MapPin size={17} />}
+                title="Adresse"
+                value={STORE_ADDRESS}
+              />
+              <ContactRow
+                icon={<Phone size={17} />}
+                title="Téléphone"
+                value={STORE_PHONE_DISPLAY}
+              />
+              <ContactRow
+                icon={<Mail size={17} />}
+                title="E-mail"
+                value={STORE_EMAIL}
+              />
+              <ContactRow
+                icon={<Clock3 size={17} />}
+                title="Horaires"
+                value="Fermeture à 19h00"
+              />
             </div>
 
-            <div>
-              <p className="text-[11px] font-extrabold text-white">
-                Suivi de commande
-              </p>
-
-              <p className="mt-1 text-[9px] leading-4 text-slate-500">
-                Consultez facilement votre commande.
-              </p>
-            </div>
-          </Link>
+            <Link
+              href="/suivi"
+              className="
+                group
+                mt-8
+                flex
+                items-center
+                gap-4
+                rounded-2xl
+                border
+                border-blue-500/15
+                bg-blue-500/5
+                p-4
+                transition-all
+                duration-300
+                hover:border-blue-500/30
+                hover:bg-blue-500/10
+              "
+            >
+              <div
+                className="
+                  flex
+                  h-11
+                  w-11
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  bg-blue-600/15
+                  text-blue-400
+                  transition-all
+                  duration-300
+                  group-hover:bg-blue-600
+                  group-hover:text-white
+                "
+              >
+                <PackageCheck size={22} />
+              </div>
+              <div>
+                <p className="text-[12px] font-extrabold text-white">
+                  Suivi de commande
+                </p>
+                <p className="mt-0.5 text-[10px] text-slate-500">
+                  Consultez facilement votre commande.
+                </p>
+              </div>
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* =====================================================
-          GOOGLE MAPS
+          GOOGLE MAPS – style intégré avec ombre et badge
       ====================================================== */}
 
       <div
@@ -575,27 +401,21 @@ export default function Footer() {
               overflow-hidden
               rounded-[26px]
               bg-[#08142c]
-              lg:grid-cols-[0.36fr_0.64fr]
+              lg:grid-cols-[0.4fr_0.6fr]
             "
           >
-            {/* ===============================================
-                INFORMATIONS MAGASIN
-            ================================================ */}
-
+            {/* Partie gauche : infos magasin */}
             <div
               className="
                 relative
                 flex
                 flex-col
                 justify-center
-                overflow-hidden
-                p-7
-                sm:p-9
-                lg:p-10
+                p-8
+                sm:p-10
+                lg:p-12
               "
             >
-              {/* LIGHT */}
-
               <div
                 className="
                   pointer-events-none
@@ -609,7 +429,6 @@ export default function Footer() {
                   blur-[80px]
                 "
               />
-
               <div
                 className="
                   pointer-events-none
@@ -625,13 +444,11 @@ export default function Footer() {
               />
 
               <div className="relative z-10">
-                {/* ICON */}
-
                 <div
                   className="
                     flex
-                    h-13
-                    w-13
+                    h-14
+                    w-14
                     items-center
                     justify-center
                     rounded-2xl
@@ -640,10 +457,8 @@ export default function Footer() {
                     shadow-[0_14px_35px_rgba(37,99,235,0.35)]
                   "
                 >
-                  <MapPin size={24} />
+                  <MapPin size={26} />
                 </div>
-
-                {/* BADGE */}
 
                 <span
                   className="
@@ -659,60 +474,30 @@ export default function Footer() {
                   Notre magasin
                 </span>
 
-                {/* TITLE */}
-
-                <h3
-                  className="
-                    mt-2
-                    text-3xl
-                    font-black
-                    tracking-tight
-                    text-white
-                  "
-                >
+                <h3 className="mt-2 text-3xl font-black tracking-tight text-white">
                   DOCTECH
                 </h3>
 
-                <p
-                  className="
-                    mt-2
-                    text-sm
-                    font-semibold
-                    text-blue-300
-                  "
-                >
+                <p className="mt-1 text-sm font-semibold text-blue-300">
                   Magasin d&apos;informatique
                 </p>
 
-                <p
-                  className="
-                    mt-4
-                    max-w-sm
-                    text-[12px]
-                    leading-6
-                    text-slate-400
-                  "
-                >
+                <p className="mt-4 max-w-sm text-[13px] leading-7 text-slate-400">
                   Venez nous rendre visite à Es Sénia et découvrez
-                  notre sélection de matériel informatique,
-                  ordinateurs, écrans et accessoires.
+                  notre sélection de matériel informatique.
                 </p>
-
-                {/* ===========================================
-                    ADRESSE
-                ============================================ */}
 
                 <div
                   className="
-                    mt-7
+                    mt-6
                     rounded-2xl
                     border
                     border-white/[0.07]
                     bg-white/[0.035]
-                    p-4
+                    p-5
                   "
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-4">
                     <div
                       className="
                         flex
@@ -728,73 +513,24 @@ export default function Footer() {
                     >
                       <MapPin size={18} />
                     </div>
-
                     <div>
-                      <p
-                        className="
-                          text-[9px]
-                          font-black
-                          uppercase
-                          tracking-[0.12em]
-                          text-slate-600
-                        "
-                      >
+                      <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-600">
                         Localisation
                       </p>
-
-                      <p
-                        className="
-                          mt-1
-                          text-[12px]
-                          font-bold
-                          text-slate-300
-                        "
-                      >
+                      <p className="mt-1 text-[13px] font-bold text-slate-300">
                         {STORE_ADDRESS}
                       </p>
-
-                      <p
-                        className="
-                          mt-1
-                          text-[10px]
-                          font-medium
-                          text-slate-500
-                        "
-                      >
+                      <p className="mt-1 text-[10px] font-medium text-slate-500">
                         {STORE_PLUS_CODE}
                       </p>
-
-                      <p
-                        className="
-                          mt-1
-                          text-[9px]
-                          font-medium
-                          text-slate-600
-                        "
-                      >
+                      <p className="mt-1 text-[9px] font-medium text-slate-600">
                         {STORE_LATITUDE}, {STORE_LONGITUDE}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* ===========================================
-                    BUTTONS
-                ============================================ */}
-
-                <div
-                  className="
-                    mt-6
-                    flex
-                    flex-col
-                    gap-2.5
-                    sm:flex-row
-                    lg:flex-col
-                    xl:flex-row
-                  "
-                >
-                  {/* ITINERAIRE */}
-
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
                   <a
                     href={GOOGLE_DIRECTIONS_URL}
                     target="_blank"
@@ -808,8 +544,8 @@ export default function Footer() {
                       gap-2
                       rounded-xl
                       bg-blue-600
-                      px-5
-                      text-[11px]
+                      px-6
+                      text-[12px]
                       font-extrabold
                       text-white
                       shadow-[0_12px_30px_rgba(37,99,235,0.25)]
@@ -820,9 +556,7 @@ export default function Footer() {
                     "
                   >
                     <Navigation size={16} />
-
                     Itinéraire
-
                     <ExternalLink
                       size={14}
                       className="
@@ -833,8 +567,6 @@ export default function Footer() {
                       "
                     />
                   </a>
-
-                  {/* MAP */}
 
                   <a
                     href={GOOGLE_MAP_URL}
@@ -851,8 +583,8 @@ export default function Footer() {
                       border
                       border-white/10
                       bg-white/[0.06]
-                      px-5
-                      text-[11px]
+                      px-6
+                      text-[12px]
                       font-extrabold
                       text-white
                       transition-all
@@ -863,7 +595,6 @@ export default function Footer() {
                     "
                   >
                     Google Maps
-
                     <ExternalLink
                       size={14}
                       className="
@@ -878,10 +609,7 @@ export default function Footer() {
               </div>
             </div>
 
-            {/* ===============================================
-                MAP
-            ================================================ */}
-
+            {/* Partie droite : iframe map */}
             <div
               className="
                 relative
@@ -908,8 +636,7 @@ export default function Footer() {
                 "
               />
 
-              {/* TOP BADGE */}
-
+              {/* Badge en haut à gauche */}
               <div
                 className="
                   pointer-events-none
@@ -944,20 +671,13 @@ export default function Footer() {
                 >
                   <MapPin size={17} />
                 </div>
-
                 <div>
-                  <p className="text-[11px] font-black text-white">
-                    DOCTECH
-                  </p>
-
-                  <p className="mt-0.5 text-[9px] text-slate-400">
-                    Es Sénia, Oran
-                  </p>
+                  <p className="text-[11px] font-black text-white">DOCTECH</p>
+                  <p className="mt-0.5 text-[9px] text-slate-400">Es Sénia, Oran</p>
                 </div>
               </div>
 
-              {/* PHONE BADGE */}
-
+              {/* Bouton téléphone en bas à droite */}
               <a
                 href={`tel:${STORE_PHONE_LINK}`}
                 className="
@@ -974,7 +694,7 @@ export default function Footer() {
                   bg-[#050d1f]/90
                   px-4
                   py-3
-                  text-[10px]
+                  text-[11px]
                   font-bold
                   text-white
                   shadow-2xl
@@ -985,7 +705,6 @@ export default function Footer() {
                 "
               >
                 <Phone size={14} />
-
                 {STORE_PHONE_DISPLAY}
               </a>
             </div>
@@ -994,7 +713,7 @@ export default function Footer() {
       </div>
 
       {/* =====================================================
-          MARQUES
+          MARQUES – style "pills"
       ====================================================== */}
 
       <div
@@ -1013,11 +732,10 @@ export default function Footer() {
             flex-wrap
             items-center
             justify-center
-            gap-x-8
-            gap-y-4
+            gap-3
             border-t
             border-white/10
-            py-8
+            py-10
           "
         >
           {brands.map((brand) => (
@@ -1025,13 +743,21 @@ export default function Footer() {
               key={brand}
               className="
                 cursor-default
+                rounded-full
+                border
+                border-white/5
+                bg-white/[0.03]
+                px-5
+                py-2
                 text-[10px]
                 font-black
-                tracking-[0.1em]
-                text-slate-600
+                tracking-[0.06em]
+                text-slate-500
                 transition-all
                 duration-300
                 hover:-translate-y-0.5
+                hover:border-blue-500/30
+                hover:bg-blue-500/10
                 hover:text-blue-400
               "
             >
@@ -1045,14 +771,7 @@ export default function Footer() {
           COPYRIGHT
       ====================================================== */}
 
-      <div
-        className="
-          relative
-          border-t
-          border-white/10
-          bg-black/10
-        "
-      >
+      <div className="relative border-t border-white/10 bg-black/10">
         <div
           className="
             mx-auto
@@ -1071,9 +790,7 @@ export default function Footer() {
         >
           <p className="text-[10px] font-medium text-slate-500">
             © 2026{" "}
-            <span className="font-extrabold text-slate-300">
-              DOCTECH
-            </span>
+            <span className="font-extrabold text-slate-300">DOCTECH</span>
             . Tous droits réservés.
           </p>
 
@@ -1082,7 +799,7 @@ export default function Footer() {
               flex
               flex-wrap
               items-center
-              gap-x-5
+              gap-x-6
               gap-y-2
               text-[10px]
               font-medium
@@ -1095,14 +812,12 @@ export default function Footer() {
             >
               Politique de confidentialité
             </Link>
-
             <Link
               href="/conditions"
               className="transition hover:text-white"
             >
               Conditions d&apos;utilisation
             </Link>
-
             <Link
               href="/contact"
               className="transition hover:text-white"
@@ -1117,99 +832,13 @@ export default function Footer() {
 }
 
 /* =========================================================
-   FOOTER TITLE
+   COMPOSANTS
 ========================================================= */
 
-function FooterTitle({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  return (
-    <div>
-      <h3 className="text-sm font-black text-white">
-        {children}
-      </h3>
-
-      <div
-        className="
-          mt-3
-          h-[3px]
-          w-8
-          rounded-full
-          bg-gradient-to-r
-          from-blue-600
-          to-cyan-400
-        "
-      />
-    </div>
-  );
-}
-
-/* =========================================================
-   FOOTER COLUMN
-========================================================= */
-
-function FooterColumn({
-  title,
-  links,
-}: {
-  title: string;
-  links: {
-    label: string;
-    href: string;
-  }[];
-}) {
-  return (
-    <div>
-      <FooterTitle>{title}</FooterTitle>
-
-      <div className="mt-7 flex flex-col gap-3.5">
-        {links.map((item) => (
-          <Link
-            key={item.label}
-            href={item.href}
-            className="
-              group
-              flex
-              w-fit
-              items-center
-              gap-2.5
-              text-[12px]
-              font-medium
-              text-slate-400
-              transition-all
-              duration-300
-              hover:translate-x-1
-              hover:text-white
-            "
-          >
-            <span
-              className="
-                h-1.5
-                w-1.5
-                rounded-full
-                bg-slate-700
-                transition-all
-                duration-300
-                group-hover:bg-blue-500
-                group-hover:shadow-[0_0_8px_rgba(59,130,246,0.8)]
-              "
-            />
-
-            {item.label}
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
-   FOOTER BENEFIT
-========================================================= */
-
-function FooterBenefit({
+// -------------------------------------
+// BenefitCard (avantages en cartes)
+// -------------------------------------
+function BenefitCard({
   icon,
   title,
   text,
@@ -1224,54 +853,114 @@ function FooterBenefit({
         group
         flex
         items-center
-        gap-3
+        gap-4
         rounded-2xl
-        p-2
-        transition-colors
+        border
+        border-white/5
+        bg-white/[0.03]
+        p-5
+        transition-all
         duration-300
-        hover:bg-white/[0.03]
+        hover:border-blue-500/20
+        hover:bg-white/[0.06]
+        hover:shadow-[0_10px_30px_rgba(0,0,0,0.2)]
       "
     >
       <div
         className="
           flex
-          h-11
-          w-11
+          h-12
+          w-12
           shrink-0
           items-center
           justify-center
           rounded-xl
-          border
-          border-blue-500/10
           bg-blue-600/10
           text-blue-400
           transition-all
           duration-300
-          group-hover:border-blue-500/20
           group-hover:bg-blue-600
           group-hover:text-white
         "
       >
         {icon}
       </div>
-
       <div>
-        <p className="text-[11px] font-extrabold text-white">
-          {title}
-        </p>
-
-        <p className="mt-1 text-[9px] font-medium text-slate-500">
-          {text}
-        </p>
+        <p className="text-[13px] font-extrabold text-white">{title}</p>
+        <p className="mt-0.5 text-[10px] font-medium text-slate-500">{text}</p>
       </div>
     </div>
   );
 }
 
-/* =========================================================
-   CONTACT
-========================================================= */
+// -------------------------------------
+// FooterTitle (titre avec trait)
+// -------------------------------------
+function FooterTitle({ children }: { children: ReactNode }) {
+  return (
+    <div>
+      <h3 className="text-sm font-black text-white">{children}</h3>
+      <div className="mt-3 h-[3px] w-8 rounded-full bg-gradient-to-r from-blue-600 to-cyan-400" />
+    </div>
+  );
+}
 
+// -------------------------------------
+// FooterColumn (liste de liens)
+// -------------------------------------
+function FooterColumn({
+  title,
+  links,
+}: {
+  title: string;
+  links: { label: string; href: string }[];
+}) {
+  return (
+    <div>
+      <FooterTitle>{title}</FooterTitle>
+      <ul className="mt-7 space-y-4">
+        {links.map((item) => (
+          <li key={item.label}>
+            <Link
+              href={item.href}
+              className="
+                group
+                flex
+                items-center
+                gap-3
+                text-[13px]
+                font-medium
+                text-slate-400
+                transition-all
+                duration-300
+                hover:translate-x-1
+                hover:text-white
+              "
+            >
+              <span
+                className="
+                  h-1.5
+                  w-1.5
+                  rounded-full
+                  bg-slate-700
+                  transition-all
+                  duration-300
+                  group-hover:bg-blue-500
+                  group-hover:shadow-[0_0_8px_rgba(59,130,246,0.8)]
+                "
+              />
+              {item.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// -------------------------------------
+// ContactRow (pour la colonne contact)
+// -------------------------------------
 function ContactRow({
   icon,
   title,
@@ -1282,7 +971,7 @@ function ContactRow({
   value: string;
 }) {
   return (
-    <div className="group flex items-start gap-3">
+    <div className="group flex items-start gap-4">
       <div
         className="
           mt-0.5
@@ -1303,29 +992,11 @@ function ContactRow({
       >
         {icon}
       </div>
-
       <div>
-        <p
-          className="
-            text-[9px]
-            font-bold
-            uppercase
-            tracking-wider
-            text-slate-600
-          "
-        >
+        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-600">
           {title}
         </p>
-
-        <p
-          className="
-            mt-1
-            text-[11px]
-            font-semibold
-            leading-5
-            text-slate-400
-          "
-        >
+        <p className="mt-1 text-[12px] font-semibold leading-5 text-slate-400">
           {value}
         </p>
       </div>
@@ -1333,10 +1004,72 @@ function ContactRow({
   );
 }
 
-/* =========================================================
-   SOCIAL BUTTON
-========================================================= */
+// -------------------------------------
+// ContactCompact (pour la colonne 1)
+// -------------------------------------
+function ContactCompact({
+  icon,
+  label,
+  value,
+  href,
+  external = false,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  href: string;
+  external?: boolean;
+}) {
+  const isExternal = external || href.startsWith("http");
+  return (
+    <a
+      href={href}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noopener noreferrer" : undefined}
+      className="
+        group
+        flex
+        items-center
+        gap-4
+        text-[13px]
+        font-semibold
+        text-slate-400
+        transition-all
+        duration-300
+        hover:text-white
+      "
+    >
+      <span
+        className="
+          flex
+          h-9
+          w-9
+          items-center
+          justify-center
+          rounded-xl
+          bg-white/5
+          text-blue-400
+          transition-all
+          duration-300
+          group-hover:bg-blue-600
+          group-hover:text-white
+        "
+      >
+        {icon}
+      </span>
+      <span>
+        <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-600">
+          {label}
+        </span>
+        <span className="block text-[12px] font-semibold">{value}</span>
+      </span>
+    </a>
+  );
+}
 
+// -------------------------------------
+// SocialButton
+// -------------------------------------
 function SocialButton({
   icon,
   label,
@@ -1346,16 +1079,17 @@ function SocialButton({
   label: string;
   href: string;
 }) {
+  const isExternal = href !== "#";
   return (
     <a
       href={href}
       aria-label={label}
-      target={href !== "#" ? "_blank" : undefined}
-      rel={href !== "#" ? "noopener noreferrer" : undefined}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noopener noreferrer" : undefined}
       className="
         flex
-        h-10
-        w-10
+        h-11
+        w-11
         items-center
         justify-center
         rounded-xl
@@ -1377,16 +1111,15 @@ function SocialButton({
   );
 }
 
-/* =========================================================
-   FACEBOOK
-========================================================= */
-
+// -------------------------------------
+// FacebookIcon
+// -------------------------------------
 function FacebookIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width="20"
+      height="20"
       fill="currentColor"
       aria-hidden="true"
     >
@@ -1395,16 +1128,15 @@ function FacebookIcon() {
   );
 }
 
-/* =========================================================
-   INSTAGRAM
-========================================================= */
-
+// -------------------------------------
+// InstagramIcon
+// -------------------------------------
 function InstagramIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width="20"
+      height="20"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -1412,27 +1144,9 @@ function InstagramIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <rect
-        x="3"
-        y="3"
-        width="18"
-        height="18"
-        rx="5"
-      />
-
-      <circle
-        cx="12"
-        cy="12"
-        r="4"
-      />
-
-      <circle
-        cx="17.5"
-        cy="6.5"
-        r="1"
-        fill="currentColor"
-        stroke="none"
-      />
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
     </svg>
   );
 }
