@@ -1,227 +1,275 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
 
-const brands = [
-  {
-    name: "HP",
-    href: "/articles?marque=HP",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/HP_logo_2025.svg/960px-HP_logo_2025.svg.png",
-  },
-  {
-    name: "ASUS",
-    href: "/articles?marque=ASUS",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/ASUS_Logo.svg/500px-ASUS_Logo.svg.png",
-  },
-  {
-    name: "Dell",
-    href: "/articles?marque=Dell",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Dell_Logo.svg/330px-Dell_Logo.svg.png",
-  },
-  {
-    name: "Logitech",
-    href: "/articles?marque=Logitech",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Logitech_logo.svg/960px-Logitech_logo.svg.png",
-  },
- {
-  name: "Lenovo",
-  href: "/articles?marque=Lenovo",
-  logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Lenovo_logo_2015.svg/960px-Lenovo_logo_2015.svg.png",
-},
-{
-  name: "MSI",
-  href: "/articles?marque=MSI",
-  logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Micro-Star_International_logo.svg/960px-Micro-Star_International_logo.svg.png",
-},
-  {
-    name: "Intel",
-    href: "/articles?marque=Intel",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Intel_logo_2023.svg/960px-Intel_logo_2023.svg.png",
-  },
-  {
-    name: "Microsoft",
-    href: "/articles?marque=Microsoft",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/960px-Microsoft_logo.svg.png",
-  },
-  {
-    name: "AMD",
-    href: "/articles?marque=AMD",
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7c/AMD_Logo.svg/960px-AMD_Logo.svg.png",
-  },
-];
+import LuxuryInfiniteCarousel from "@/components/LuxuryInfiniteCarousel";
+import {
+  fetchBrands,
+  type CatalogBrand,
+} from "@/lib/catalog";
+import { useLocale } from "@/components/LocaleProvider";
 
-type Brand = {
-  name: string;
-  href: string;
-  logo: string;
-};
+/* =========================================================
+   LOGO MARQUE
+========================================================= */
 
-export default function BrandCarousel() {
+function BrandLogo({ brand }: { brand: CatalogBrand }) {
+  const [imageFailed, setImageFailed] = useState(false);
+
+  if (!brand.logo || imageFailed) {
+    return (
+      <span className="text-lg font-black tracking-tight text-slate-700 sm:text-xl">
+        {brand.name}
+      </span>
+    );
+  }
+
   return (
-    <section className="relative overflow-hidden border-y border-slate-100 bg-slate-50/80 py-16">
-      {/* TITRE */}
-      <div className="mx-auto max-w-[1450px] px-4 text-center sm:px-6 lg:px-8">
-        <motion.span
-          initial={{
-            opacity: 0,
-            y: 10,
-          }}
-          whileInView={{
-            opacity: 1,
-            y: 0,
-          }}
-          viewport={{
-            once: true,
-          }}
-          transition={{
-            duration: 0.5,
-          }}
-          className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-600"
-        >
-          Nos marques
-        </motion.span>
-
-        <motion.h2
-          initial={{
-            opacity: 0,
-            y: 15,
-          }}
-          whileInView={{
-            opacity: 1,
-            y: 0,
-          }}
-          viewport={{
-            once: true,
-          }}
-          transition={{
-            duration: 0.5,
-            delay: 0.1,
-          }}
-          className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl"
-        >
-          Les grandes marques disponibles chez DOCTECH
-        </motion.h2>
-
-        <motion.p
-          initial={{
-            opacity: 0,
-            y: 15,
-          }}
-          whileInView={{
-            opacity: 1,
-            y: 0,
-          }}
-          viewport={{
-            once: true,
-          }}
-          transition={{
-            duration: 0.5,
-            delay: 0.2,
-          }}
-          className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-500"
-        >
-          HP, ASUS, Dell, Logitech, Lenovo, MSI, Intel, Microsoft et AMD.
-        </motion.p>
-      </div>
-
-      {/* CARROUSEL */}
-      <div className="relative mt-10 overflow-hidden">
-        {/* Dégradé gauche */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-20 w-16 bg-gradient-to-r from-slate-50 via-slate-50/80 to-transparent sm:w-28 lg:w-44" />
-
-        {/* Dégradé droite */}
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-20 w-16 bg-gradient-to-l from-slate-50 via-slate-50/80 to-transparent sm:w-28 lg:w-44" />
-
-        <motion.div
-          animate={{
-            x: ["0%", "-50%"],
-          }}
-          transition={{
-            duration: 26,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-          className="flex w-max items-center gap-4 pr-4"
-        >
-          {[...brands, ...brands].map((brand, index) => (
-            <BrandCard
-              key={`${brand.name}-${index}`}
-              brand={brand}
-            />
-          ))}
-        </motion.div>
-      </div>
-    </section>
+    <Image
+      src={brand.logo}
+      alt={brand.name}
+      width={180}
+      height={80}
+      unoptimized
+      className="
+        h-10
+        w-[125px]
+        object-contain
+        opacity-90
+        transition
+        duration-300
+        group-hover:scale-105
+        group-hover:opacity-100
+        sm:h-12
+        sm:w-[145px]
+      "
+      onError={() => setImageFailed(true)}
+    />
   );
 }
 
-function BrandCard({
-  brand,
-}: {
-  brand: Brand;
-}) {
+/* =========================================================
+   SKELETON
+========================================================= */
+
+function BrandsSkeleton() {
   return (
-    <Link
-      href={brand.href}
-      aria-label={`Voir les produits ${brand.name}`}
+    <div className="flex gap-4 overflow-hidden py-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div
+          key={index}
+          className="
+            h-[92px]
+            w-[150px]
+            shrink-0
+            animate-pulse
+            rounded-[22px]
+            border
+            border-slate-200
+            bg-white
+            sm:h-[105px]
+            sm:w-[180px]
+            lg:w-[200px]
+          "
+        >
+          <div className="flex h-full items-center justify-center">
+            <div className="h-8 w-24 rounded-lg bg-slate-100" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* =========================================================
+   BRAND CAROUSEL
+========================================================= */
+
+export default function BrandCarousel() {
+  const { locale, text } = useLocale();
+
+  const [brands, setBrands] = useState<CatalogBrand[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    setLoading(true);
+
+    fetchBrands(locale)
+      .then((items) => {
+        if (!mounted) return;
+
+        setBrands(
+          items.filter(
+            (brand) =>
+              brand &&
+              brand.id != null &&
+              brand.name &&
+              brand.slug,
+          ),
+        );
+      })
+      .catch((error) => {
+        console.error(
+          "[BrandCarousel] Impossible de charger les marques :",
+          error,
+        );
+
+        if (!mounted) return;
+        setBrands([]);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [locale]);
+
+  if (!loading && brands.length === 0) {
+    return null;
+  }
+
+  return (
+    <section
       className="
-        group
-        flex
-        h-[104px]
-        min-w-[210px]
-        shrink-0
-        flex-col
-        items-center
-        justify-center
-        gap-2
-        rounded-[24px]
-        border
-        border-slate-200
-        bg-white
-        px-7
-        shadow-sm
-        transition-all
-        duration-300
-        hover:-translate-y-1
-        hover:border-blue-200
-        hover:shadow-[0_18px_38px_rgba(37,99,235,0.12)]
+        relative
+        overflow-hidden
+        border-y
+        border-slate-100
+        bg-[#f8fafc]
+        py-10
+        sm:py-12
       "
     >
-      {/* LOGO */}
-      <div className="flex h-[48px] w-[135px] items-center justify-center">
-        <img
-          src={brand.logo}
-          alt={`Logo ${brand.name}`}
-          loading="lazy"
-          className="
-            max-h-[44px]
-            max-w-[130px]
-            object-contain
-            transition-all
-            duration-300
-            group-hover:scale-110
-          "
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-          }}
-        />
-      </div>
+      <div className="mx-auto max-w-[1450px] px-4 sm:px-6 lg:px-8">
+        {/* =====================================================
+            TITRE
+        ===================================================== */}
 
-      {/* NOM */}
-      <span
-        className="
-          text-[10px]
-          font-extrabold
-          tracking-wide
-          text-slate-400
-          transition-colors
-          duration-300
-          group-hover:text-blue-600
-        "
-      >
-        {brand.name}
-      </span>
-    </Link>
+        <div className="mb-7 text-center sm:mb-9">
+          <span
+            className="
+              text-[11px]
+              font-black
+              uppercase
+              tracking-[0.16em]
+              text-blue-600
+            "
+          >
+            {text("Nos partenaires", "شركاؤنا")}
+          </span>
+
+          <h2
+            className="
+              mt-2
+              text-2xl
+              font-black
+              tracking-tight
+              text-slate-950
+              sm:text-3xl
+            "
+          >
+            {text(
+              "Les plus grandes marques",
+              "أكبر العلامات التجارية",
+            )}
+          </h2>
+
+          <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-slate-500">
+            {text(
+              "Découvrez les marques disponibles dans notre catalogue.",
+              "اكتشف العلامات التجارية المتوفرة في كتالوجنا.",
+            )}
+          </p>
+        </div>
+
+        {/* =====================================================
+            CHARGEMENT
+        ===================================================== */}
+
+        {loading ? (
+          <BrandsSkeleton />
+        ) : (
+          <LuxuryInfiniteCarousel
+            duration={32}
+            gap={14}
+            ariaLabel={text(
+              "Marques DOCTECH",
+              "العلامات التجارية DOCTECH",
+            )}
+            viewportClassName="py-3"
+            itemClassName="
+              w-[150px]
+              shrink-0
+              sm:w-[180px]
+              lg:w-[200px]
+            "
+          >
+            {brands.map((brand) => (
+              <Link
+                key={brand.id}
+                href={`/articles?marque=${encodeURIComponent(
+                  brand.slug,
+                )}`}
+                aria-label={text(
+                  `Voir les produits ${brand.name}`,
+                  `عرض منتجات ${brand.name}`,
+                )}
+                className="
+                  group
+                  relative
+                  flex
+                  h-[92px]
+                  items-center
+                  justify-center
+                  overflow-hidden
+                  rounded-[22px]
+                  border
+                  border-slate-200
+                  bg-white
+                  px-5
+                  shadow-sm
+                  transition
+                  duration-300
+                  hover:-translate-y-1
+                  hover:border-blue-200
+                  hover:shadow-[0_18px_40px_rgba(15,23,42,0.10)]
+                  sm:h-[105px]
+                "
+              >
+                {/* Halo */}
+                <div
+                  className="
+                    pointer-events-none
+                    absolute
+                    inset-0
+                    bg-gradient-to-br
+                    from-blue-50/0
+                    via-transparent
+                    to-blue-50/0
+                    opacity-0
+                    transition-opacity
+                    duration-300
+                    group-hover:from-blue-50/70
+                    group-hover:to-indigo-50/50
+                    group-hover:opacity-100
+                  "
+                />
+
+                <div className="relative z-10 flex h-full w-full items-center justify-center">
+                  <BrandLogo brand={brand} />
+                </div>
+              </Link>
+            ))}
+          </LuxuryInfiniteCarousel>
+        )}
+      </div>
+    </section>
   );
 }

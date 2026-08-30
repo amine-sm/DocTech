@@ -1,9 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
+
+import { useLocale } from "@/components/LocaleProvider";
+import { fetchBrands, type CatalogBrand } from "@/lib/catalog";
 
 import {
   Clock3,
@@ -55,12 +59,12 @@ const GOOGLE_MAP_EMBED_URL =
 ========================================================= */
 
 const boutiqueLinks = [
-  { label: "PC Portables", href: "/articles?categorie=ordinateurs-portables" },
-  { label: "PC Fixes", href: "/articles?categorie=pc-fixes" },
-  { label: "Écrans", href: "/articles?categorie=ecrans" },
-  { label: "Périphériques", href: "/articles?categorie=peripheriques" },
-  { label: "Accessoires", href: "/articles?categorie=accessoires" },
-  { label: "Promotions", href: "/promotions" },
+  { label: "PC Portables", labelAr: "الحواسيب المحمولة", href: "/articles?categorie=ordinateurs-portables" },
+  { label: "PC Fixes", labelAr: "الحواسيب المكتبية", href: "/articles?categorie=pc-fixes" },
+  { label: "Écrans", labelAr: "الشاشات", href: "/articles?categorie=ecrans" },
+  { label: "Périphériques", labelAr: "الأجهزة الطرفية", href: "/articles?categorie=peripheriques" },
+  { label: "Accessoires", labelAr: "الملحقات", href: "/articles?categorie=accessoires" },
+  { label: "Promotions", labelAr: "العروض", href: "/promotions" },
 ];
 
 /* =========================================================
@@ -68,34 +72,34 @@ const boutiqueLinks = [
 ========================================================= */
 
 const informationLinks = [
-  { label: "À propos", href: "/a-propos" },
-  { label: "Livraison", href: "/livraison" },
-  { label: "Garantie", href: "/garantie" },
-  { label: "Suivi de commande", href: "/suivi" },
-  { label: "Contact", href: "/contact" },
+  { label: "À propos", labelAr: "من نحن", href: "/a-propos" },
+  { label: "Livraison", labelAr: "التوصيل", href: "/livraison" },
+  { label: "Garantie", labelAr: "الضمان", href: "/garantie" },
+  { label: "Suivi de commande", labelAr: "تتبع الطلب", href: "/suivi" },
+  { label: "Contact", labelAr: "اتصل بنا", href: "/contact" },
 ];
 
 /* =========================================================
    MARQUES
 ========================================================= */
 
-const brands = [
-  "HP",
-  "ASUS",
-  "DELL",
-  "LOGITECH",
-  "LENOVO",
-  "MSI",
-  "INTEL",
-  "MICROSOFT",
-  "AMD",
-];
+
 
 /* =========================================================
    FOOTER
 ========================================================= */
 
 export default function Footer() {
+  const { locale, text } = useLocale();
+  const [brands, setBrands] = useState<CatalogBrand[]>([]);
+
+  useEffect(() => {
+    fetchBrands(locale).then(setBrands).catch(() => setBrands([]));
+  }, [locale]);
+
+  const localizedBoutiqueLinks = boutiqueLinks.map((item) => ({ ...item, label: text(item.label, item.labelAr) }));
+  const localizedInformationLinks = informationLinks.map((item) => ({ ...item, label: text(item.label, item.labelAr) }));
+
   return (
     <footer className="relative overflow-hidden bg-[#050d1f] text-white">
       {/* =====================================================
@@ -167,23 +171,23 @@ export default function Footer() {
           >
             <BenefitCard
               icon={<Truck size={24} />}
-              title="Livraison nationale"
-              text="Disponible dans 48 wilayas"
+              title={text("Livraison nationale", "توصيل إلى جميع الولايات")}
+              text={text("Disponible dans 48 wilayas", "متوفر في 48 ولاية")}
             />
             <BenefitCard
               icon={<CreditCard size={24} />}
-              title="Paiement sécurisé"
-              text="Achetez en toute confiance"
+              title={text("Paiement sécurisé", "دفع آمن")}
+              text={text("Achetez en toute confiance", "تسوّق بكل ثقة")}
             />
             <BenefitCard
               icon={<ShieldCheck size={24} />}
-              title="Produits garantis"
-              text="Garantie jusqu'à 12 mois"
+              title={text("Produits garantis", "منتجات مضمونة")}
+              text={text("Garantie jusqu’à 12 mois", "ضمان يصل إلى 12 شهراً")}
             />
             <BenefitCard
               icon={<Headphones size={24} />}
-              title="Support DOCTECH"
-              text="Une équipe à votre écoute"
+              title={text("Support DOCTECH", "دعم DOCTECH")}
+              text={text("Une équipe à votre écoute", "فريق في خدمتك")}
             />
           </div>
         </div>
@@ -254,16 +258,16 @@ export default function Footer() {
                 text-slate-400
               "
             >
-              DOCTECH est votre spécialiste du matériel informatique
-              à Es Sénia. Découvrez nos ordinateurs, écrans,
-              périphériques et accessoires issus des plus grandes
-              marques.
+              {text(
+                "DOCTECH est votre spécialiste du matériel informatique à Es Sénia. Découvrez nos ordinateurs, écrans, périphériques et accessoires issus des plus grandes marques.",
+                "DOCTECH متخصّصكم في تجهيزات الإعلام الآلي بالسانية. اكتشفوا حواسيبنا وشاشاتنا وملحقاتنا من أفضل العلامات التجارية."
+              )}
             </p>
 
             <div className="mt-8 flex flex-col gap-4">
-              <ContactCompact icon={<Phone size={16} />} label="Téléphone" value={STORE_PHONE_DISPLAY} href={`tel:${STORE_PHONE_LINK}`} />
-              <ContactCompact icon={<Mail size={16} />} label="Email" value={STORE_EMAIL} href={`mailto:${STORE_EMAIL}`} />
-              <ContactCompact icon={<MapPin size={16} />} label="Adresse" value="Es Sénia, Oran" href={GOOGLE_MAP_URL} external />
+              <ContactCompact icon={<Phone size={16} />} label={text("Téléphone", "الهاتف")} value={STORE_PHONE_DISPLAY} href={`tel:${STORE_PHONE_LINK}`} />
+              <ContactCompact icon={<Mail size={16} />} label={text("Email", "البريد الإلكتروني")} value={STORE_EMAIL} href={`mailto:${STORE_EMAIL}`} />
+              <ContactCompact icon={<MapPin size={16} />} label={text("Adresse", "العنوان")} value="Es Sénia, Oran" href={GOOGLE_MAP_URL} external />
             </div>
 
             <div className="mt-8 flex items-center gap-3">
@@ -286,35 +290,35 @@ export default function Footer() {
           </div>
 
           {/* Colonne 2 : Boutique */}
-          <FooterColumn title="Boutique" links={boutiqueLinks} />
+          <FooterColumn title={text("Boutique", "المتجر")} links={localizedBoutiqueLinks} />
 
           {/* Colonne 3 : Informations */}
-          <FooterColumn title="Informations" links={informationLinks} />
+          <FooterColumn title={text("Informations", "معلومات")} links={localizedInformationLinks} />
 
           {/* Colonne 4 : Contact + suivi commande */}
           <div>
-            <FooterTitle>Nous contacter</FooterTitle>
+            <FooterTitle>{text("Nous contacter", "اتصل بنا")}</FooterTitle>
 
             <div className="mt-7 space-y-5">
               <ContactRow
                 icon={<MapPin size={17} />}
-                title="Adresse"
+                title={text("Adresse", "العنوان")}
                 value={STORE_ADDRESS}
               />
               <ContactRow
                 icon={<Phone size={17} />}
-                title="Téléphone"
+                title={text("Téléphone", "الهاتف")}
                 value={STORE_PHONE_DISPLAY}
               />
               <ContactRow
                 icon={<Mail size={17} />}
-                title="E-mail"
+                title={text("E-mail", "البريد الإلكتروني")}
                 value={STORE_EMAIL}
               />
               <ContactRow
                 icon={<Clock3 size={17} />}
-                title="Horaires"
-                value="Fermeture à 19h00"
+                title={text("Horaires", "أوقات العمل")}
+                value={text("Fermeture à 19h00", "الإغلاق على الساعة 19:00")}
               />
             </div>
 
@@ -358,10 +362,10 @@ export default function Footer() {
               </div>
               <div>
                 <p className="text-[12px] font-extrabold text-white">
-                  Suivi de commande
+                  {text("Suivi de commande", "تتبع الطلب")}
                 </p>
                 <p className="mt-0.5 text-[10px] text-slate-500">
-                  Consultez facilement votre commande.
+                  {text("Consultez facilement votre commande.", "تابع طلبك بسهولة.")}
                 </p>
               </div>
             </Link>
@@ -471,7 +475,7 @@ export default function Footer() {
                     text-blue-400
                   "
                 >
-                  Notre magasin
+                  {text("Notre magasin", "متجرنا")}
                 </span>
 
                 <h3 className="mt-2 text-3xl font-black tracking-tight text-white">
@@ -479,12 +483,11 @@ export default function Footer() {
                 </h3>
 
                 <p className="mt-1 text-sm font-semibold text-blue-300">
-                  Magasin d&apos;informatique
+                  {text("Magasin d’informatique", "متجر إعلام آلي")}
                 </p>
 
                 <p className="mt-4 max-w-sm text-[13px] leading-7 text-slate-400">
-                  Venez nous rendre visite à Es Sénia et découvrez
-                  notre sélection de matériel informatique.
+                  {text("Venez nous rendre visite à Es Sénia et découvrez notre sélection de matériel informatique.", "زورونا في السانية واكتشفوا تشكيلتنا من تجهيزات الإعلام الآلي.")}
                 </p>
 
                 <div
@@ -515,7 +518,7 @@ export default function Footer() {
                     </div>
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-600">
-                        Localisation
+                        {text("Localisation", "الموقع")}
                       </p>
                       <p className="mt-1 text-[13px] font-bold text-slate-300">
                         {STORE_ADDRESS}
@@ -739,30 +742,13 @@ export default function Footer() {
           "
         >
           {brands.map((brand) => (
-            <span
-              key={brand}
-              className="
-                cursor-default
-                rounded-full
-                border
-                border-white/5
-                bg-white/[0.03]
-                px-5
-                py-2
-                text-[10px]
-                font-black
-                tracking-[0.06em]
-                text-slate-500
-                transition-all
-                duration-300
-                hover:-translate-y-0.5
-                hover:border-blue-500/30
-                hover:bg-blue-500/10
-                hover:text-blue-400
-              "
+            <Link
+              key={brand.id}
+              href={`/articles?marque=${encodeURIComponent(brand.slug)}`}
+              className="rounded-full border border-white/5 bg-white/[0.03] px-5 py-2 text-[10px] font-black tracking-[0.06em] text-slate-500 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-400"
             >
-              {brand}
-            </span>
+              {brand.name}
+            </Link>
           ))}
         </div>
       </div>
@@ -791,7 +777,7 @@ export default function Footer() {
           <p className="text-[10px] font-medium text-slate-500">
             © 2026{" "}
             <span className="font-extrabold text-slate-300">DOCTECH</span>
-            . Tous droits réservés.
+            . {text("Tous droits réservés.", "جميع الحقوق محفوظة.")}
           </p>
 
           <div
@@ -810,19 +796,19 @@ export default function Footer() {
               href="/confidentialite"
               className="transition hover:text-white"
             >
-              Politique de confidentialité
+              {text("Politique de confidentialité", "سياسة الخصوصية")}
             </Link>
             <Link
               href="/conditions"
               className="transition hover:text-white"
             >
-              Conditions d&apos;utilisation
+              {text("Conditions d’utilisation", "شروط الاستخدام")}
             </Link>
             <Link
               href="/contact"
               className="transition hover:text-white"
             >
-              Contact
+              {text("Contact", "اتصل بنا")}
             </Link>
           </div>
         </div>

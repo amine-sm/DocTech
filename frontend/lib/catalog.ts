@@ -20,10 +20,23 @@ export type Product = {
 };
 
 export type CatalogCategory = {
+  id?: number;
+  parentId?: number | null;
   slug: string;
   label: string;
   description: string;
   image: string;
+  sortOrder?: number;
+};
+
+export type CatalogBrand = {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  logo: string;
+  sortOrder: number;
+  articleCount: number;
 };
 
 export const categories: CatalogCategory[] = [
@@ -145,9 +158,16 @@ export function productMatchesCategory(product: Product, category?: string | nul
 }
 
 import { apiFetch, backendUrl } from "@/lib/api";
+import type { Locale } from "@/components/LocaleProvider";
 
 type BackendArticle = Record<string, any>;
-export function mapApiProduct(a: BackendArticle): Product {
+
+function localized(valueFr: unknown, valueAr: unknown, locale: Locale) {
+  if (locale === "ar" && String(valueAr || "").trim()) return String(valueAr);
+  return String(valueFr || "");
+}
+
+export function mapApiProduct(a: BackendArticle, locale: Locale = "fr"): Product {
   const images = Array.isArray(a.images) ? a.images.map((i:any)=>backendUrl(i.url)) : [];
   const mainImage = backendUrl(a.image || a.image_url || images[0]);
   const promotion = Number(a.promotion_value || 0);
@@ -155,17 +175,61 @@ export function mapApiProduct(a: BackendArticle): Product {
   let salePrice = basePrice;
   if (promotion > 0) salePrice = a.promotion_type === "MONTANT" ? Math.max(0, basePrice - promotion) : Math.max(0, basePrice - basePrice * promotion / 100);
   return {
-    id:Number(a.id), slug:String(a.slug||""), name:String(a.name||""), shortName:String(a.short_name||a.shortName||a.name||""),
-    category:String(a.category_slug||a.category||""), categoryLabel:String(a.category_label||a.category_name||"Catalogue"), brand:String(a.brand||a.marque_name||"DOCTECH"),
-    price:Number(salePrice.toFixed(2)), oldPrice:salePrice<basePrice?basePrice:(a.old_price?Number(a.old_price):undefined), rating:4.8, reviews:0,
-    image:mainImage, gallery:images.length?images:[mainImage], description:String(a.description||a.short_description||""),
-    features:Array.isArray(a.features)?a.features:[], stock:Number(a.stock||0), isNew:false, isFeatured:Boolean(a.featured),
+    id:Number(a.id),
+    slug:String(a.slug||""),
+    name:localized(a.name,a.name_ar,locale),
+    shortName:localized(a.short_name||a.shortName||a.name,a.short_name_ar||a.name_ar,locale),
+    category:String(a.category_slug||a.category||""),
+    categoryLabel:localized(a.category_label||a.category_name||"Catalogue",a.category_label_ar||a.category_name_ar,locale),
+    brand:localized(a.brand||a.marque_name||"DOCTECH",a.brand_ar||a.marque_name_ar,locale),
+    price:Number(salePrice.toFixed(2)),
+    oldPrice:salePrice<basePrice?basePrice:(a.old_price?Number(a.old_price):undefined),
+    rating:4.8,
+    reviews:0,
+    image:mainImage,
+    gallery:images.length?images:[mainImage],
+    description:localized(a.description||a.short_description||"",a.description_ar||a.short_description_ar,locale),
+    features:Array.isArray(a.features)?a.features:[],
+    stock:Number(a.stock||0),
+    isNew:false,
+    isFeatured:Boolean(a.featured),
   };
 }
-export async function fetchCatalog(params: Record<string,string|number|undefined|null> = {}) {
-  const qs = new URLSearchParams(); Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=="")qs.set(k,String(v))});
+
+export async function fetchCatalog(params: Record<string,string|number|undefined|null> = {}, locale: Locale = "fr") {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=="")qs.set(k,String(v))});
   const r = await apiFetch<BackendArticle[]>(`/public/articles${qs.size?`?${qs}`:""}`);
-  return { products:(r.data||[]).map(mapApiProduct), pagination:r.pagination };
+  return { products:(r.data||[]).map((item)=>mapApiProduct(item,locale)), pagination:r.pagination };
 }
-export async function fetchCategories(){const r=await apiFetch<any[]>("/public/categories");return (r.data||[]).map((c:any)=>({slug:c.slug,label:c.name,description:c.description||"",image:backendUrl(c.image_url)})) as CatalogCategory[]}
-export async function fetchProductBySlug(slug:string){const r=await apiFetch<BackendArticle>(`/public/articles/${encodeURIComponent(slug)}`);return { product:mapApiProduct(r.data||{}), raw:r.data as any } }
+
+export async function fetchCategories(locale: Locale = "fr") {
+  const r = await apiFetch<any[]>("/public/categories");
+  return (r.data || []).map((c: any) => ({
+    id: Number(c.id),
+    parentId: c.parent_id == null ? null : Number(c.parent_id),
+    slug: String(c.slug || ""),
+    label: localized(c.name,c.name_ar,locale),
+    description: localized(c.description,c.description_ar,locale),
+    image: backendUrl(c.image_url),
+    sortOrder: Number(c.sort_order || 0),
+  })) as CatalogCategory[];
+}
+
+export async function fetchBrands(locale: Locale = "fr") {
+  const r = await apiFetch<any[]>("/public/marques");
+  return (r.data || []).map((m:any)=>({
+    id:Number(m.id),
+    slug:String(m.slug||""),
+    name:localized(m.name,m.name_ar,locale),
+    description:localized(m.description,m.description_ar,locale),
+    logo:m.logo_url ? backendUrl(m.logo_url) : "",
+    sortOrder:Number(m.sort_order||0),
+    articleCount:Number(m.article_count||0),
+  })) as CatalogBrand[];
+}
+
+export async function fetchProductBySlug(slug:string, locale: Locale = "fr"){
+  const r=await apiFetch<BackendArticle>(`/public/articles/${encodeURIComponent(slug)}`);
+  return { product:mapApiProduct(r.data||{},locale), raw:r.data as any };
+}

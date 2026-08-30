@@ -4,6 +4,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useLocale } from "@/components/LocaleProvider";
 import {
   ArrowLeft,
   Check,
@@ -27,11 +28,6 @@ type CheckoutHeroProps = {
   rightContent?: ReactNode;
 };
 
-const steps = [
-  { number: 1, title: "Panier", text: "Sélection" },
-  { number: 2, title: "Livraison", text: "Coordonnées" },
-  { number: 3, title: "Confirmation", text: "Validation" },
-] as const;
 
 export default function CheckoutHero({
   eyebrow,
@@ -41,10 +37,16 @@ export default function CheckoutHero({
   children,
   step = 1,
   backHref,
-  backLabel = "Retour",
-  badge = "Achat sécurisé",
+  backLabel,
+  badge,
   rightContent,
 }: CheckoutHeroProps) {
+  const { text } = useLocale();
+  const steps = [
+    { number: 1, title: text("Panier", "السلة"), text: text("Sélection", "الاختيار") },
+    { number: 2, title: text("Livraison", "التوصيل"), text: text("Coordonnées", "البيانات") },
+    { number: 3, title: text("Confirmation", "التأكيد"), text: text("Validation", "الاعتماد") },
+  ] as const;
   return (
     <section className="relative overflow-hidden bg-[#050b18] text-white">
       {/* Dégradés d'origine */}
@@ -62,9 +64,9 @@ export default function CheckoutHero({
               className="group inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400 transition hover:text-white"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] transition group-hover:-translate-x-1 group-hover:border-white/20 group-hover:bg-white/10">
-                <ArrowLeft size={14} />
+                <ArrowLeft size={14} className="rtl-flip" />
               </span>
-              {backLabel}
+              {backLabel ?? text("Retour", "العودة")}
             </Link>
           ) : (
             <div />
@@ -72,7 +74,7 @@ export default function CheckoutHero({
 
           <div className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[9px] font-black uppercase tracking-[0.13em] text-emerald-300 sm:flex">
             <ShieldCheck size={13} />
-            {badge}
+            {badge ?? text("Achat sécurisé", "شراء آمن")}
           </div>
         </div>
 
@@ -90,7 +92,7 @@ export default function CheckoutHero({
                 {eyebrow}
               </span>
               <span className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.13em] text-slate-500">
-                Étape {String(step).padStart(2, "0")} / 03
+                {text("Étape", "الخطوة")} {String(step).padStart(2, "0")} / 03
               </span>
             </div>
 
@@ -191,6 +193,7 @@ export default function CheckoutHero({
 }
 
 function DefaultRightContent() {
+  const { text } = useLocale();
   return (
     <div className="relative">
       <div className="flex items-start justify-between gap-5">
@@ -199,7 +202,7 @@ function DefaultRightContent() {
             DOCTECH CHECKOUT
           </span>
           <h3 className="mt-2 text-xl font-black tracking-[-0.04em] text-white">
-            Simple. Rapide. Sécurisé.
+            {text("Simple. Rapide. Sécurisé.", "بسيط. سريع. آمن.")}
           </h3>
         </div>
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500 text-white shadow-lg shadow-blue-500/25">
@@ -208,9 +211,9 @@ function DefaultRightContent() {
       </div>
 
       <div className="mt-5 grid grid-cols-3 gap-2">
-        <Info icon={<ShieldCheck size={14} />} title="Sécurisé" />
-        <Info icon={<PackageCheck size={14} />} title="Contrôlé" />
-        <Info icon={<Truck size={14} />} title="Livraison" />
+        <Info icon={<ShieldCheck size={14} />} title={text("Sécurisé", "آمن")} />
+        <Info icon={<PackageCheck size={14} />} title={text("Contrôlé", "مفحوص")} />
+        <Info icon={<Truck size={14} />} title={text("Livraison", "توصيل")} />
       </div>
     </div>
   );

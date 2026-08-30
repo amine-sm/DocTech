@@ -50,6 +50,21 @@ router.post(
   asyncHandler(articlesController.addImage),
 );
 
+
+// Définir une image comme image principale
+router.patch(
+  "/:id/images/:imageId/primary",
+  authorize("articles.update"),
+  asyncHandler(articlesController.setPrimaryImage),
+);
+
+// Supprimer une image d'un article
+router.delete(
+  "/:id/images/:imageId",
+  authorize("articles.update"),
+  asyncHandler(articlesController.removeImage),
+);
+
 // Ajouter une variante (couleur, taille, pointure, parfum...)
 router.post(
   "/:id/variants",

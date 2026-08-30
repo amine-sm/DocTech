@@ -2,12 +2,13 @@ const pool = require("../config/db");
 const makeSlug = require("../utils/slug");
 
 async function list(_req, res) {
-  const [rows] = await pool.query(
-    `SELECT c.*, p.name AS parent_name,
-            (SELECT COUNT(*) FROM articles a WHERE a.category_id=c.id) AS article_count
-     FROM categories c LEFT JOIN categories p ON p.id=c.parent_id
-     ORDER BY c.sort_order, c.name`,
-  );
+  const [rows] = await pool.query(`
+    SELECT c.*, p.name AS parent_name, p.name_ar AS parent_name_ar,
+           (SELECT COUNT(*) FROM articles a WHERE a.category_id=c.id) AS article_count
+    FROM categories c
+    LEFT JOIN categories p ON p.id=c.parent_id
+    ORDER BY c.sort_order, c.name
+  `);
   res.json({ ok: true, data: rows });
 }
 
@@ -18,12 +19,24 @@ async function getOne(req, res) {
 }
 
 async function create(req, res) {
-  const { name, description = null, parentId = null, imageUrl = null, active = true, sortOrder = 0 } = req.body;
-  if (!name) return res.status(400).json({ ok: false, message: "Le nom est obligatoire." });
+  const {
+    name,
+    nameAr = null,
+    description = null,
+    descriptionAr = null,
+    parentId = null,
+    imageUrl = null,
+    active = true,
+    sortOrder = 0,
+  } = req.body;
+
+  if (!name) return res.status(400).json({ ok: false, message: "Le nom français est obligatoire." });
   const slug = req.body.slug ? makeSlug(req.body.slug) : makeSlug(name);
   const [result] = await pool.query(
-    "INSERT INTO categories (parent_id,name,slug,description,image_url,active,sort_order) VALUES (?,?,?,?,?,?,?)",
-    [parentId, name.trim(), slug, description, imageUrl, active ? 1 : 0, Number(sortOrder || 0)],
+    `INSERT INTO categories
+      (parent_id,name,name_ar,slug,description,description_ar,image_url,active,sort_order)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
+    [parentId || null, name.trim(), nameAr || null, slug, description, descriptionAr, imageUrl, active ? 1 : 0, Number(sortOrder || 0)],
   );
   res.status(201).json({ ok: true, id: result.insertId, slug, message: "Catégorie créée." });
 }
@@ -31,15 +44,20 @@ async function create(req, res) {
 async function update(req, res) {
   const [[current]] = await pool.query("SELECT * FROM categories WHERE id=?", [req.params.id]);
   if (!current) return res.status(404).json({ ok: false, message: "Catégorie introuvable." });
+
   const name = req.body.name ?? current.name;
   const slug = req.body.slug ? makeSlug(req.body.slug) : (req.body.name ? makeSlug(req.body.name) : current.slug);
   await pool.query(
-    `UPDATE categories SET parent_id=?,name=?,slug=?,description=?,image_url=?,active=?,sort_order=? WHERE id=?`,
+    `UPDATE categories
+     SET parent_id=?,name=?,name_ar=?,slug=?,description=?,description_ar=?,image_url=?,active=?,sort_order=?
+     WHERE id=?`,
     [
-      req.body.parentId ?? current.parent_id,
+      req.body.parentId === "" ? null : (req.body.parentId ?? current.parent_id),
       name,
+      req.body.nameAr ?? current.name_ar,
       slug,
       req.body.description ?? current.description,
+      req.body.descriptionAr ?? current.description_ar,
       req.body.imageUrl ?? current.image_url,
       req.body.active === undefined ? current.active : req.body.active ? 1 : 0,
       req.body.sortOrder ?? current.sort_order,

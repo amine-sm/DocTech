@@ -1590,3 +1590,30 @@ img {
     height: 220px;
   }
 }
+
+/* =========================================================
+   DOCTECH — HOME RTL / ARABIC TYPOGRAPHY
+   ========================================================= */
+html[lang="ar"] body {
+  font-family: var(--font-ui-ar) !important;
+}
+
+html[lang="ar"] .hero-content h1,
+html[lang="ar"] .section-head h2,
+html[lang="ar"] .trust-heading h2,
+html[lang="ar"] .newsletter-card h2 {
+  letter-spacing: 0 !important;
+  line-height: 1.35 !important;
+}
+
+html[lang="ar"] .hero-content > p,
+html[lang="ar"] .section-head p,
+html[lang="ar"] .trust-heading p,
+html[lang="ar"] .newsletter-card p {
+  line-height: 1.85;
+}
+
+html[lang="ar"] .section-label,
+html[lang="ar"] .logo {
+  letter-spacing: 0 !important;
+}

@@ -8,7 +8,11 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "db:init": "node scripts/initDb.js",
-    "admin:seed": "node scripts/seedAdmin.js"
+    "admin:seed": "node scripts/seedAdmin.js",
+    "catalog:seed": "node scripts/seedCatalog.js",
+    "db:setup-catalog": "npm run db:init && npm run catalog:seed",
+    "update-db": "node scripts/updateDatabase.js",
+    "catalog:upgrade": "npm run update-db && npm run catalog:seed"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

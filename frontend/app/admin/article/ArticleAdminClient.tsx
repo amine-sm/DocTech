@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, ImagePlus, Plus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ImagePlus, Plus, Star, Trash2 } from "lucide-react";
 import { apiFetch, backendUrl, uploadImage } from "@/lib/api";
 import { formatPrice } from "@/lib/catalog";
 
 type VariantForm = {
   type: string;
   value: string;
+  valueAr: string;
   colorHex: string;
   sku: string;
   priceOverride: string;
@@ -20,6 +21,7 @@ type VariantForm = {
 const EMPTY_VARIANT: VariantForm = {
   type: "COULEUR",
   value: "",
+  valueAr: "",
   colorHex: "",
   sku: "",
   priceOverride: "",
@@ -71,6 +73,27 @@ export default function ArticleAdminClient() {
       await load();
     } catch (err: any) {
       alert(err.message || "Impossible d'ajouter l'image.");
+    }
+  }
+
+
+  async function setPrimaryImage(imageId: number) {
+    if (!id) return;
+    try {
+      await apiFetch(`/articles/${id}/images/${imageId}/primary`, { method: "PATCH" });
+      await load();
+    } catch (err: any) {
+      alert(err.message || "Impossible de définir l'image principale.");
+    }
+  }
+
+  async function removeImage(imageId: number) {
+    if (!id || !confirm("Supprimer cette image ?")) return;
+    try {
+      await apiFetch(`/articles/${id}/images/${imageId}`, { method: "DELETE" });
+      await load();
+    } catch (err: any) {
+      alert(err.message || "Impossible de supprimer l'image.");
     }
   }
 
@@ -169,6 +192,16 @@ export default function ArticleAdminClient() {
                     PRINCIPALE
                   </span>
                 ) : null}
+                <div className="absolute bottom-2 right-2 flex gap-1">
+                  {!image.is_primary && (
+                    <button type="button" onClick={() => setPrimaryImage(image.id)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-amber-500 shadow" title="Définir comme principale">
+                      <Star size={14} />
+                    </button>
+                  )}
+                  <button type="button" onClick={() => removeImage(image.id)} className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-red-500 shadow" title="Supprimer">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -209,7 +242,7 @@ export default function ArticleAdminClient() {
                 className="flex items-center justify-between rounded-xl bg-slate-50 p-3 text-xs"
               >
                 <div>
-                  <b>{item.type}</b> · {item.value}
+                  <b>{item.type}</b> · {item.value}{item.value_ar ? ` / ${item.value_ar}` : ""}
                   {item.color_hex ? (
                     <span
                       className="ml-2 inline-block h-3 w-3 rounded-full border"
@@ -243,6 +276,16 @@ export default function ArticleAdminClient() {
               value={variant.value}
               onChange={(event) =>
                 setVariant({ ...variant, value: event.target.value })
+              }
+              className="h-11 rounded-xl border border-slate-200 px-3 text-xs"
+            />
+
+            <input
+              placeholder="القيمة بالعربية"
+              dir="rtl"
+              value={variant.valueAr}
+              onChange={(event) =>
+                setVariant({ ...variant, valueAr: event.target.value })
               }
               className="h-11 rounded-xl border border-slate-200 px-3 text-xs"
             />

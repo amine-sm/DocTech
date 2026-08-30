@@ -3,9 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-
 import {
-  ArrowRight,
   Cable,
   ChevronDown,
   Cpu,
@@ -19,1779 +17,279 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-
-import {
-  FormEvent,
-  useEffect,
-  useState,
-} from "react";
+import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { CART_EVENT, getCartCount } from "@/lib/cart";
+import { FAVORITES_EVENT, getFavoritesCount } from "@/lib/favorites";
+import { fetchBrands, fetchCategories, type CatalogBrand, type CatalogCategory } from "@/lib/catalog";
+import { useLocale } from "@/components/LocaleProvider";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import CartDrawer from "@/components/CartDrawer";
 
-/* =========================================================
-   NAVIGATION
-========================================================= */
-
-const navigation = [
-  {
-    label: "Accueil",
-    href: "/",
-    icon: Home,
-  },
-  {
-    label: "Ordinateurs",
-    href: "/articles?categorie=ordinateurs",
-    icon: Laptop,
-  },
-  {
-    label: "Composants",
-    href: "/articles?categorie=composants",
-    icon: Cpu,
-  },
-  {
-    label: "Périphériques",
-    href: "/articles?categorie=peripheriques",
-    icon: Headphones,
-  },
-  {
-    label: "Accessoires",
-    href: "/articles?categorie=accessoires",
-    icon: Cable,
-  },
-  {
-    label: "Promotions",
-    href: "/promotions",
-    icon: Sparkles,
-    promotion: true,
-  },
-];
-
-/* =========================================================
-   HEADER
-========================================================= */
+function getCategoryIcon(slug: string) {
+  const value = slug.toLowerCase();
+  if (value.includes("ordinateur") || value.includes("pc")) return Laptop;
+  if (value.includes("composant") || value.includes("processeur") || value.includes("ram")) return Cpu;
+  if (value.includes("peripher") || value.includes("casque") || value.includes("audio")) return Headphones;
+  return Cable;
+}
 
 export default function Header() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentCategory = searchParams.get("categorie");
+  const currentBrand = searchParams.get("marque");
+  const { locale, isArabic, text } = useLocale();
 
-  const isNavigationItemActive = (
-    href: string,
-    promotion?: boolean,
-  ) => {
-    if (href === "/") {
-      return pathname === "/";
-    }
-
-    if (promotion) {
-      return pathname.startsWith("/promotions");
-    }
-
-    const query = href.split("?")[1] ?? "";
-    const itemCategory =
-      new URLSearchParams(query).get("categorie");
-
-    return (
-      pathname === "/articles" &&
-      itemCategory !== null &&
-      currentCategory === itemCategory
-    );
-  };
-
-  const [mobileMenuOpen, setMobileMenuOpen] =
-    useState(false);
-
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+  const [brands, setBrands] = useState<CatalogBrand[]>([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [brandsOpen, setBrandsOpen] = useState(false);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [search, setSearch] = useState("");
-
-  const [isSearchFocused, setIsSearchFocused] =
-    useState(false);
-
   const [cartCount, setCartCount] = useState(0);
+  const [favoritesCount, setFavoritesCount] = useState(0);
+  const desktopNavRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const refreshCartCount = () => setCartCount(getCartCount());
-    refreshCartCount();
-    window.addEventListener(CART_EVENT, refreshCartCount);
-    window.addEventListener("storage", refreshCartCount);
+    let active = true;
+    Promise.all([fetchCategories(locale), fetchBrands(locale)])
+      .then(([categoryItems, brandItems]) => {
+        if (!active) return;
+        const roots = categoryItems.filter((item) => item.parentId == null);
+        setCategories(roots.length ? roots : categoryItems);
+        setBrands(brandItems);
+      })
+      .catch(() => {
+        if (!active) return;
+        setCategories([]);
+        setBrands([]);
+      });
+    return () => { active = false; };
+  }, [locale]);
+
+  useEffect(() => {
+    const syncCart = () => setCartCount(getCartCount());
+    const syncFavorites = () => setFavoritesCount(getFavoritesCount());
+    syncCart();
+    syncFavorites();
+    window.addEventListener(CART_EVENT, syncCart);
+    window.addEventListener(FAVORITES_EVENT, syncFavorites);
+    window.addEventListener("storage", syncCart);
     return () => {
-      window.removeEventListener(CART_EVENT, refreshCartCount);
-      window.removeEventListener("storage", refreshCartCount);
+      window.removeEventListener(CART_EVENT, syncCart);
+      window.removeEventListener(FAVORITES_EVENT, syncFavorites);
+      window.removeEventListener("storage", syncCart);
     };
   }, []);
 
-  /* =======================================================
-     BLOQUER SCROLL QUAND MENU MOBILE OUVERT
-  ======================================================= */
-
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileMenuOpen]);
-
-  /* =======================================================
-     FERMER MENU AU CHANGEMENT DE PAGE
-  ======================================================= */
-
   useEffect(() => {
     setMobileMenuOpen(false);
-  }, [pathname]);
+    setCategoriesOpen(false);
+    setBrandsOpen(false);
+  }, [pathname, searchParams]);
 
-  /* =======================================================
-     RECHERCHE
-  ======================================================= */
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [mobileMenuOpen]);
 
-  function handleSearch(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (desktopNavRef.current && !desktopNavRef.current.contains(event.target as Node)) {
+        setCategoriesOpen(false);
+        setBrandsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  const catalogActive = pathname.startsWith("/articles") || pathname.startsWith("/article");
+  const promoActive = pathname.startsWith("/promotions");
+  const favoriteActive = pathname.startsWith("/favoris");
+  const cartActive = cartDrawerOpen || pathname.startsWith("/panier") || pathname.startsWith("/commande");
+
+  const visibleBrands = useMemo(() => brands.slice(0, 12), [brands]);
+
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     const value = search.trim();
-
     if (!value) return;
-
-    window.location.href = `/articles?recherche=${encodeURIComponent(
-      value,
-    )}`;
+    window.location.href = `/articles?recherche=${encodeURIComponent(value)}`;
   }
-
-  const articlesActive =
-    pathname.startsWith("/articles") ||
-    pathname.startsWith("/article");
-
-  const favorisActive =
-    pathname.startsWith("/favoris");
-
-  const panierActive =
-    pathname.startsWith("/panier") || pathname.startsWith("/commande");
 
   return (
     <>
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
-
-      <header
-        className="
-          sticky
-          top-0
-          z-50
-          w-full
-        "
-      >
-        {/* ===================================================
-            TOP BAR
-        =================================================== */}
-
-        <div
-          className="
-            hidden
-            border-b
-            border-blue-500/10
-            bg-[#06152b]
-            text-white
-            lg:block
-          "
-        >
-          <div
-            className="
-              mx-auto
-              flex
-              h-8
-              max-w-[1450px]
-              items-center
-              justify-between
-              px-6
-              text-[11px]
-              font-semibold
-              tracking-wide
-            "
-          >
-            <div
-              className="
-                flex
-                items-center
-                gap-5
-                text-slate-300
-              "
-            >
-              <span>
-                Informatique & High-Tech
-              </span>
-
-              <span
-                className="
-                  h-3
-                  w-px
-                  bg-white/15
-                "
-              />
-
-              <span>
-                Livraison disponible
-              </span>
-            </div>
-
-            <div
-              className="
-                flex
-                items-center
-                gap-2
-                text-slate-300
-              "
-            >
-           
-              
-              
-
-    
-            </div>
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
+        <div className="hidden bg-[#06152b] text-white sm:block">
+          <div className="mx-auto flex h-9 max-w-[1450px] items-center justify-between gap-4 px-4 text-[10px] font-bold text-slate-300 lg:px-8">
+            <span>{text("Informatique & High-Tech", "الإعلام الآلي والتقنية")}</span>
+            <span>{text("Livraison disponible · Support DOCTECH", "التوصيل متوفر · دعم DOCTECH")}</span>
           </div>
         </div>
 
-        {/* ===================================================
-            HEADER PRINCIPAL
-        =================================================== */}
+        <div className="mx-auto flex min-h-[64px] max-w-[1450px] items-center gap-2 px-3 sm:min-h-[72px] sm:gap-3 sm:px-4 lg:px-8">
+          <Link href="/" aria-label={text("DOCTECH - Accueil", "DOCTECH - الرئيسية")} className="relative h-11 w-[104px] shrink-0 sm:h-12 sm:w-[128px] lg:w-[150px]">
+            <Image src="/images/logo-doctech.webp" alt="DOCTECH" fill priority sizes="150px" className="object-contain object-start rtl:object-end" />
+          </Link>
 
-        <div
-          className="
-            border-b
-            border-slate-200/70
-            bg-white/95
-            shadow-[0_6px_30px_rgba(15,23,42,0.055)]
-            backdrop-blur-xl
-          "
-        >
-          <div
-            className="
-              mx-auto
-              flex
-              h-[72px]
-              max-w-[1450px]
-              items-center
-              gap-3
-              px-3
-              sm:h-[78px]
-              sm:px-5
-              lg:px-8
-            "
-          >
-            {/* ===============================================
-                LOGO
-            =============================================== */}
-
-            <Link
-              href="/"
-              aria-label="DOCTECH - Accueil"
-              className="
-                group
-                relative
-                flex
-                shrink-0
-                items-center
-              "
-            >
-              <div
-                className="
-                  pointer-events-none
-                  absolute
-                  -inset-4
-                  rounded-[26px]
-                  bg-blue-500/0
-                  blur-2xl
-                  transition-all
-                  duration-500
-                  group-hover:bg-blue-500/10
-                "
+          <form onSubmit={handleSearch} className="mx-auto hidden min-w-0 max-w-[680px] flex-1 md:block">
+            <div className="flex h-12 items-center rounded-2xl border border-slate-200 bg-slate-50 p-1 transition focus-within:border-blue-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/10">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center text-slate-400"><Search size={17} /></span>
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={text("Rechercher PC, souris, clavier, casque...", "ابحث عن حاسوب، فأرة، لوحة مفاتيح، سماعات...")}
+                className="h-full min-w-0 flex-1 bg-transparent px-2 text-[13px] font-semibold text-slate-800 outline-none placeholder:text-slate-400"
               />
-
-              <div
-                className="
-                  relative
-                  h-[48px]
-                  w-[125px]
-                  sm:h-[56px]
-                  sm:w-[150px]
-                  lg:w-[160px]
-                "
-              >
-                <Image
-                  src="/images/logo-doctech.webp"
-                  alt="DOCTECH"
-                  fill
-                  priority
-                  sizes="160px"
-                  className="
-                    object-contain
-                    object-left
-                    transition-all
-                    duration-500
-                    ease-out
-                    group-hover:scale-[1.04]
-                  "
-                />
-              </div>
-            </Link>
-
-            {/* ===============================================
-                RECHERCHE DESKTOP
-            =============================================== */}
-
-            <form
-              onSubmit={handleSearch}
-              className="
-                mx-auto
-                hidden
-                w-full
-                max-w-[720px]
-                md:block
-              "
-            >
-              <div
-                className={`
-                  relative
-                  flex
-                  h-[48px]
-                  items-center
-                  overflow-hidden
-                  rounded-[15px]
-                  border
-                  transition-all
-                  duration-300
-
-                  ${
-                    isSearchFocused
-                      ? `
-                          border-blue-500
-                          bg-white
-                          shadow-[0_8px_35px_rgba(37,99,235,0.13)]
-                          ring-4
-                          ring-blue-500/10
-                        `
-                      : `
-                          border-slate-200
-                          bg-[#f7f9fc]
-                          shadow-inner
-                          shadow-slate-200/20
-                          hover:border-slate-300
-                          hover:bg-white
-                        `
-                  }
-                `}
-              >
-                <div
-                  className={`
-                    ml-2
-                    flex
-                    h-9
-                    w-9
-                    shrink-0
-                    items-center
-                    justify-center
-                    rounded-xl
-                    transition-all
-                    duration-300
-
-                    ${
-                      isSearchFocused
-                        ? `
-                            bg-blue-50
-                            text-blue-600
-                          `
-                        : `
-                            text-slate-400
-                          `
-                    }
-                  `}
-                >
-                  <Search
-                    size={18}
-                    strokeWidth={2.2}
-                  />
-                </div>
-
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
-                  }
-                  onFocus={() =>
-                    setIsSearchFocused(true)
-                  }
-                  onBlur={() =>
-                    setIsSearchFocused(false)
-                  }
-                  placeholder="Rechercher PC, souris, clavier, casque..."
-                  className="
-                    h-full
-                    min-w-0
-                    flex-1
-                    bg-transparent
-                    px-2
-                    text-[13px]
-                    font-semibold
-                    text-slate-800
-                    outline-none
-                    placeholder:font-medium
-                    placeholder:text-slate-400
-                  "
-                />
-
-                <button
-                  type="submit"
-                  className="
-                    group
-                    mr-1.5
-                    flex
-                    h-[38px]
-                    shrink-0
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-xl
-                    bg-[#0b5ed7]
-                    px-5
-                    text-[12px]
-                    font-extrabold
-                    text-white
-                    shadow-[0_5px_15px_rgba(11,94,215,0.22)]
-                    transition-all
-                    duration-300
-                    hover:-translate-y-[1px]
-                    hover:bg-[#094faf]
-                    hover:shadow-[0_8px_22px_rgba(11,94,215,0.28)]
-                    active:translate-y-0
-                    active:scale-[0.98]
-                  "
-                >
-                  Rechercher
-
-                  <ArrowRight
-                    size={14}
-                    strokeWidth={2.5}
-                    className="
-                      transition-transform
-                      duration-300
-                      group-hover:translate-x-0.5
-                    "
-                  />
-                </button>
-              </div>
-            </form>
-
-            {/* ===============================================
-                ACTIONS
-            =============================================== */}
-
-            <div
-              className="
-                ml-auto
-                flex
-                shrink-0
-                items-center
-                gap-1
-              "
-            >
-              {/* FAVORIS DESKTOP */}
-
-              <Link
-                href="/favoris"
-                aria-label="Favoris"
-                className="
-                  group
-                  relative
-                  hidden
-                  h-11
-                  w-11
-                  items-center
-                  justify-center
-                  rounded-[14px]
-                  border
-                  border-transparent
-                  text-slate-500
-                  transition-all
-                  duration-300
-                  hover:border-rose-100
-                  hover:bg-rose-50
-                  hover:text-rose-500
-                  md:flex
-                "
-              >
-                <Heart
-                  size={20}
-                  strokeWidth={2}
-                  className="
-                    transition-transform
-                    duration-300
-                    group-hover:scale-110
-                  "
-                />
-              </Link>
-
-              {/* PANIER DESKTOP */}
-
-              <Link
-                href="/panier"
-                className="
-                  group
-                  hidden
-                  items-center
-                  gap-2
-                  rounded-[15px]
-                  border
-                  border-transparent
-                  px-2
-                  py-1.5
-                  transition-all
-                  duration-300
-                  hover:border-blue-100
-                  hover:bg-blue-50/70
-                  md:flex
-                "
-              >
-                <div
-                  className="
-                    relative
-                    flex
-                    h-10
-                    w-10
-                    items-center
-                    justify-center
-                    rounded-[12px]
-                    bg-blue-50
-                    text-blue-600
-                    transition-all
-                    duration-300
-                    group-hover:bg-blue-600
-                    group-hover:text-white
-                    group-hover:shadow-[0_6px_16px_rgba(37,99,235,0.22)]
-                  "
-                >
-                  <ShoppingBag
-                    size={19}
-                    strokeWidth={2.1}
-                  />
-
-                  <span
-                    className="
-                      absolute
-                      -right-1.5
-                      -top-1.5
-                      flex
-                      h-[19px]
-                      min-w-[19px]
-                      items-center
-                      justify-center
-                      rounded-full
-                      border-2
-                      border-white
-                      bg-[#0f172a]
-                      px-1
-                      text-[9px]
-                      font-black
-                      text-white
-                      shadow-sm
-                    "
-                  >
-                    {cartCount}
-                  </span>
-                </div>
-
-                <div className="hidden xl:block">
-                  <span
-                    className="
-                      block
-                      text-[9px]
-                      font-bold
-                      uppercase
-                      tracking-[0.11em]
-                      text-slate-400
-                    "
-                  >
-                    Votre panier
-                  </span>
-
-                  <span
-                    className="
-                      mt-0.5
-                      block
-                      text-[12px]
-                      font-extrabold
-                      text-slate-800
-                    "
-                  >
-                    {cartCount} article{cartCount > 1 ? "s" : ""}
-                  </span>
-                </div>
-              </Link>
-
-              {/* MENU MOBILE */}
-
-              <button
-                type="button"
-                onClick={() =>
-                  setMobileMenuOpen(
-                    (value) => !value,
-                  )
-                }
-                aria-expanded={mobileMenuOpen}
-                aria-label={
-                  mobileMenuOpen
-                    ? "Fermer le menu"
-                    : "Ouvrir le menu"
-                }
-                className={`
-                  flex
-                  h-11
-                  w-11
-                  items-center
-                  justify-center
-                  rounded-[14px]
-                  border
-                  transition-all
-                  duration-300
-                  md:hidden
-
-                  ${
-                    mobileMenuOpen
-                      ? `
-                          border-blue-600
-                          bg-blue-600
-                          text-white
-                          shadow-lg
-                          shadow-blue-600/20
-                        `
-                      : `
-                          border-slate-200
-                          bg-white
-                          text-slate-700
-                          shadow-sm
-                        `
-                  }
-                `}
-              >
-                {mobileMenuOpen ? (
-                  <X
-                    size={22}
-                    strokeWidth={2.5}
-                  />
-                ) : (
-                  <Menu
-                    size={22}
-                    strokeWidth={2.5}
-                  />
-                )}
+              <button type="submit" className="h-9 shrink-0 rounded-xl bg-blue-600 px-4 text-[11px] font-black text-white transition hover:bg-blue-700">
+                {text("Rechercher", "بحث")}
               </button>
             </div>
-          </div>
+          </form>
 
-          {/* =================================================
-              RECHERCHE MOBILE
-          ================================================= */}
+          <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <div className="hidden xl:block"><LanguageSwitcher compact /></div>
 
-          <div
-            className="
-              border-t
-              border-slate-100
-              px-3
-              pb-3
-              pt-2
-              md:hidden
-            "
-          >
-            <form
-              onSubmit={handleSearch}
-              className="
-                mx-auto
-                flex
-                h-[45px]
-                max-w-[600px]
-                items-center
-                rounded-[14px]
-                border
-                border-slate-200
-                bg-slate-50
-                px-2
-                transition-all
-                duration-300
-                focus-within:border-blue-400
-                focus-within:bg-white
-                focus-within:ring-4
-                focus-within:ring-blue-500/10
-              "
+            <Link
+              href="/favoris"
+              aria-label={text("Favoris", "المفضلة")}
+              className={`relative hidden h-11 w-11 items-center justify-center rounded-2xl border transition md:flex ${favoriteActive ? "border-rose-200 bg-rose-50 text-rose-500" : "border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:text-rose-500"}`}
             >
-              <div
-                className="
-                  flex
-                  h-8
-                  w-8
-                  shrink-0
-                  items-center
-                  justify-center
-                  text-slate-400
-                "
-              >
-                <Search
-                  size={17}
-                  strokeWidth={2}
-                />
-              </div>
-
-              <input
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                type="search"
-                placeholder="Rechercher un produit..."
-                className="
-                  h-full
-                  min-w-0
-                  flex-1
-                  bg-transparent
-                  px-2
-                  text-[13px]
-                  font-semibold
-                  text-slate-800
-                  outline-none
-                  placeholder:font-medium
-                  placeholder:text-slate-400
-                "
-              />
-
-              {search && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSearch("")
-                  }
-                  aria-label="Effacer la recherche"
-                  className="
-                    mr-1
-                    flex
-                    h-7
-                    w-7
-                    items-center
-                    justify-center
-                    rounded-full
-                    bg-slate-200
-                    text-slate-500
-                  "
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </form>
-          </div>
-        </div>
-
-        {/* ===================================================
-            NAVIGATION DESKTOP
-        =================================================== */}
-
-        <nav
-          className="
-            hidden
-            border-b
-            border-slate-200/70
-            bg-white
-            shadow-[0_4px_15px_rgba(15,23,42,0.025)]
-            md:block
-          "
-        >
-          <div
-            className="
-              mx-auto
-              flex
-              h-[51px]
-              max-w-[1450px]
-              items-center
-              justify-center
-              gap-1
-              px-5
-            "
-          >
-            {navigation.map((item) => {
-              const active =
-                isNavigationItemActive(
-                  item.href,
-                  item.promotion,
-                );
-
-              const Icon = item.icon;
-
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`
-                    group
-                    relative
-                    flex
-                    h-[38px]
-                    items-center
-                    gap-2
-                    rounded-[11px]
-                    px-4
-                    text-[12px]
-                    font-extrabold
-                    tracking-[0.01em]
-                    transition-all
-                    duration-300
-
-                    ${
-                      item.promotion
-                        ? `
-                            ml-1
-                            bg-red-50
-                            text-red-600
-                            hover:bg-red-100
-                          `
-                        : active
-                          ? `
-                              bg-blue-50
-                              text-blue-600
-                            `
-                          : `
-                              text-slate-600
-                              hover:bg-slate-50
-                              hover:text-blue-600
-                            `
-                    }
-                  `}
-                >
-                  <Icon
-                    size={15}
-                    strokeWidth={2.2}
-                    className="
-                      transition-transform
-                      duration-300
-                      group-hover:scale-110
-                    "
-                  />
-
-                  <span>
-                    {item.label}
-                  </span>
-
-                  {item.promotion && (
-                    <span
-                      className="
-                        rounded-full
-                        bg-red-600
-                        px-1.5
-                        py-0.5
-                        text-[8px]
-                        font-black
-                        text-white
-                      "
-                    >
-                      -20%
-                    </span>
-                  )}
-
-                  {active &&
-                    !item.promotion && (
-                      <span
-                        className="
-                          absolute
-                          -bottom-[7px]
-                          left-1/2
-                          h-[3px]
-                          w-6
-                          -translate-x-1/2
-                          rounded-full
-                          bg-blue-600
-                          shadow-[0_2px_8px_rgba(37,99,235,0.35)]
-                        "
-                      />
-                    )}
-                </Link>
-              );
-            })}
-
-            {/* MARQUES */}
+              <Heart size={18} className={favoriteActive ? "fill-rose-500" : ""} />
+              {favoritesCount > 0 && <span className="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[8px] font-black text-white">{favoritesCount > 99 ? "99+" : favoritesCount}</span>}
+            </Link>
 
             <button
               type="button"
-              className="
-                group
-                flex
-                h-[38px]
-                items-center
-                gap-1.5
-                rounded-[11px]
-                px-4
-                text-[12px]
-                font-extrabold
-                text-slate-600
-                transition-all
-                duration-300
-                hover:bg-slate-50
-                hover:text-blue-600
-              "
+              onClick={() => setCartDrawerOpen(true)}
+              aria-label={text("Ouvrir le panier", "فتح السلة")}
+              className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border transition ${cartActive ? "border-blue-200 bg-blue-600 text-white" : "border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white"}`}
             >
-              Marques
+              <ShoppingBag size={19} />
+              {cartCount > 0 && <span className="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-slate-950 px-1 text-[8px] font-black text-white">{cartCount > 99 ? "99+" : cartCount}</span>}
+            </button>
 
-              <ChevronDown
-                size={14}
-                strokeWidth={2.4}
-                className="
-                  transition-transform
-                  duration-300
-                  group-hover:translate-y-0.5
-                "
-              />
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((value) => !value)}
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen ? text("Fermer le menu", "إغلاق القائمة") : text("Ouvrir le menu", "فتح القائمة")}
+              className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition lg:hidden ${mobileMenuOpen ? "border-blue-600 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"}`}
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
-        </nav>
+        </div>
+
+        <div className="border-t border-slate-100 px-3 pb-2.5 pt-2 md:hidden">
+          <form onSubmit={handleSearch} className="mx-auto flex h-11 max-w-[680px] items-center rounded-2xl border border-slate-200 bg-slate-50 px-2 focus-within:border-blue-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/10">
+            <Search size={16} className="shrink-0 text-slate-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={text("Rechercher un produit...", "ابحث عن منتج...")}
+              className="h-full min-w-0 flex-1 bg-transparent px-2 text-[13px] font-semibold outline-none"
+            />
+            {search && <button type="button" onClick={() => setSearch("")} className="flex h-8 w-8 items-center justify-center rounded-xl text-slate-400"><X size={14} /></button>}
+            <button type="submit" className="flex h-8 items-center justify-center rounded-xl bg-blue-600 px-3 text-[10px] font-black text-white">{text("Chercher", "بحث")}</button>
+          </form>
+        </div>
+
+        <div ref={desktopNavRef} className="hidden border-t border-slate-100 bg-white lg:block">
+          <nav className="mx-auto flex h-12 max-w-[1450px] items-center justify-center gap-1 px-8 text-[12px] font-extrabold text-slate-700">
+            <NavLink href="/" active={pathname === "/"} icon={<Home size={14} />} label={text("Accueil", "الرئيسية")} />
+            <NavLink href="/articles" active={catalogActive && !currentCategory && !currentBrand} icon={<Laptop size={14} />} label={text("Catalogue", "الكتالوج")} />
+
+            <div className="relative">
+              <button type="button" onClick={() => { setCategoriesOpen((v) => !v); setBrandsOpen(false); }} className={`flex h-9 items-center gap-2 rounded-xl px-3 transition ${currentCategory ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"}`}>
+                <Cpu size={14} /> {text("Catégories", "الفئات")} <ChevronDown size={13} className={`transition ${categoriesOpen ? "rotate-180" : ""}`} />
+              </button>
+              {categoriesOpen && (
+                <div className="absolute start-0 top-[calc(100%+8px)] z-50 w-[330px] rounded-[22px] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
+                  <Link href="/articles" className="mb-1 flex items-center gap-3 rounded-2xl px-3 py-3 text-[11px] font-black hover:bg-blue-50 hover:text-blue-700">{text("Toutes les catégories", "كل الفئات")}</Link>
+                  <div className="grid grid-cols-2 gap-1">
+                    {categories.map((category) => {
+                      const Icon = getCategoryIcon(category.slug);
+                      return <Link key={category.id} href={`/articles?categorie=${encodeURIComponent(category.slug)}`} className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-[11px] ${currentCategory === category.slug ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"}`}><Icon size={14} /> <span className="truncate">{category.label}</span></Link>;
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <button type="button" onClick={() => { setBrandsOpen((v) => !v); setCategoriesOpen(false); }} className={`flex h-9 items-center gap-2 rounded-xl px-3 transition ${currentBrand ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"}`}>
+                <Cable size={14} /> {text("Marques", "العلامات")} <ChevronDown size={13} className={`transition ${brandsOpen ? "rotate-180" : ""}`} />
+              </button>
+              {brandsOpen && (
+                <div className="absolute start-0 top-[calc(100%+8px)] z-50 w-[300px] rounded-[22px] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
+                  <Link href="/articles" className="mb-1 flex rounded-2xl px-3 py-3 text-[11px] font-black hover:bg-blue-50 hover:text-blue-700">{text("Toutes les marques", "كل العلامات")}</Link>
+                  <div className="grid grid-cols-2 gap-1">
+                    {visibleBrands.map((brand) => <Link key={brand.id} href={`/articles?marque=${encodeURIComponent(brand.slug)}`} className={`truncate rounded-xl px-3 py-2.5 text-[11px] ${currentBrand === brand.slug ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"}`}>{brand.name}</Link>)}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <NavLink href="/promotions" active={promoActive} icon={<Sparkles size={14} />} label={text("Promotions", "العروض")} danger />
+          </nav>
+        </div>
       </header>
 
-      {/* =====================================================
-          OVERLAY MOBILE
-      ===================================================== */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-[70] lg:hidden">
+          <button type="button" aria-label={text("Fermer le menu", "إغلاق القائمة")} onClick={() => setMobileMenuOpen(false)} className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]" />
+          <aside className={`absolute inset-y-0 w-[min(90vw,390px)] overflow-y-auto bg-white p-4 shadow-2xl ${isArabic ? "start-0" : "end-0"}`}>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="relative h-11 w-[125px]"><Image src="/images/logo-doctech.webp" alt="DOCTECH" fill sizes="125px" className="object-contain object-start rtl:object-end" /></div>
+              <button onClick={() => setMobileMenuOpen(false)} className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><X size={18} /></button>
+            </div>
 
-      <div
-        onClick={() =>
-          setMobileMenuOpen(false)
-        }
-        className={`
-          fixed
-          inset-0
-          z-[60]
-          bg-slate-950/45
-          backdrop-blur-[4px]
-          transition-all
-          duration-300
-          md:hidden
+            <div className="mt-4"><LanguageSwitcher /></div>
 
-          ${
-            mobileMenuOpen
-              ? `
-                  pointer-events-auto
-                  opacity-100
-                `
-              : `
-                  pointer-events-none
-                  opacity-0
-                `
-          }
-        `}
-      />
+            <div className="mt-5 space-y-2">
+              <MobileLink href="/" active={pathname === "/"} icon={<Home size={18} />} label={text("Accueil", "الرئيسية")} />
+              <MobileLink href="/articles" active={catalogActive && !currentCategory && !currentBrand} icon={<Laptop size={18} />} label={text("Tout le catalogue", "كل الكتالوج")} />
+              <MobileLink href="/promotions" active={promoActive} icon={<Sparkles size={18} />} label={text("Promotions", "العروض")} />
+              <MobileLink href="/favoris" active={favoriteActive} icon={<Heart size={18} />} label={`${text("Favoris", "المفضلة")} ${favoritesCount ? `(${favoritesCount})` : ""}`} />
+            </div>
 
-      {/* =====================================================
-          SIDEBAR MOBILE
-      ===================================================== */}
+            {categories.length > 0 && <div className="mt-6"><p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">{text("Catégories", "الفئات")}</p><div className="grid grid-cols-2 gap-2">{categories.map((category) => { const Icon = getCategoryIcon(category.slug); return <Link key={category.id} href={`/articles?categorie=${encodeURIComponent(category.slug)}`} className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-[11px] font-bold text-slate-700"><Icon size={15} className="shrink-0 text-blue-600" /><span className="truncate">{category.label}</span></Link>; })}</div></div>}
 
-      <aside
-        className={`
-          fixed
-          bottom-0
-          right-0
-          top-0
-          z-[70]
-          flex
-          w-[88%]
-          max-w-[360px]
-          flex-col
-          bg-white
-          shadow-[-20px_0_60px_rgba(15,23,42,0.18)]
-          transition-transform
-          duration-500
-          ease-[cubic-bezier(0.32,0.72,0,1)]
-          md:hidden
-
-          ${
-            mobileMenuOpen
-              ? "translate-x-0"
-              : "translate-x-full"
-          }
-        `}
-      >
-        {/* =================================================
-            HEADER SIDEBAR
-        ================================================= */}
-
-        <div
-          className="
-            flex
-            h-[76px]
-            shrink-0
-            items-center
-            justify-between
-            border-b
-            border-slate-100
-            px-5
-          "
-        >
-          <Link
-            href="/"
-            onClick={() =>
-              setMobileMenuOpen(false)
-            }
-            className="
-              relative
-              h-[47px]
-              w-[130px]
-            "
-          >
-            <Image
-              src="/images/logo-doctech.webp"
-              alt="DOCTECH"
-              fill
-              sizes="130px"
-              className="
-                object-contain
-                object-left
-              "
-            />
-          </Link>
-
-          <button
-            type="button"
-            onClick={() =>
-              setMobileMenuOpen(false)
-            }
-            aria-label="Fermer le menu"
-            className="
-              flex
-              h-10
-              w-10
-              items-center
-              justify-center
-              rounded-xl
-              bg-slate-100
-              text-slate-600
-              transition-all
-              duration-300
-              hover:bg-red-50
-              hover:text-red-500
-              active:scale-95
-            "
-          >
-            <X
-              size={20}
-              strokeWidth={2.4}
-            />
-          </button>
+            {visibleBrands.length > 0 && <div className="mt-6 pb-6"><p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">{text("Marques", "العلامات")}</p><div className="flex flex-wrap gap-2">{visibleBrands.map((brand) => <Link key={brand.id} href={`/articles?marque=${encodeURIComponent(brand.slug)}`} className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-slate-700">{brand.name}</Link>)}</div></div>}
+          </aside>
         </div>
+      )}
 
-        {/* LABEL */}
-
-        <div className="px-5 pb-2 pt-5">
-          <p
-            className="
-              text-[10px]
-              font-black
-              uppercase
-              tracking-[0.16em]
-              text-slate-400
-            "
-          >
-            Navigation
-          </p>
-        </div>
-
-        {/* =================================================
-            NAVIGATION MOBILE
-        ================================================= */}
-
-        <nav
-          className="
-            flex-1
-            overflow-y-auto
-            px-3
-            pb-5
-          "
-        >
-          <div className="space-y-1">
-            {navigation.map((item) => {
-              const Icon = item.icon;
-
-              const active =
-                isNavigationItemActive(
-                  item.href,
-                  item.promotion,
-                );
-
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={() =>
-                    setMobileMenuOpen(false)
-                  }
-                  className={`
-                    group
-                    flex
-                    min-h-[54px]
-                    items-center
-                    gap-3
-                    rounded-[14px]
-                    px-3
-                    transition-all
-                    duration-300
-
-                    ${
-                      item.promotion
-                        ? `
-                            bg-red-50
-                            text-red-600
-                          `
-                        : active
-                          ? `
-                              bg-blue-50
-                              text-blue-600
-                            `
-                          : `
-                              text-slate-700
-                              hover:bg-slate-50
-                            `
-                    }
-                  `}
-                >
-                  <div
-                    className={`
-                      flex
-                      h-10
-                      w-10
-                      shrink-0
-                      items-center
-                      justify-center
-                      rounded-xl
-                      transition-all
-
-                      ${
-                        item.promotion
-                          ? `
-                              bg-red-100
-                              text-red-600
-                            `
-                          : active
-                            ? `
-                                bg-blue-600
-                                text-white
-                                shadow-md
-                                shadow-blue-600/20
-                              `
-                            : `
-                                bg-slate-100
-                                text-slate-500
-                                group-hover:bg-blue-50
-                                group-hover:text-blue-600
-                              `
-                      }
-                    `}
-                  >
-                    <Icon
-                      size={18}
-                      strokeWidth={2.2}
-                    />
-                  </div>
-
-                  <span
-                    className="
-                      flex-1
-                      text-[14px]
-                      font-extrabold
-                    "
-                  >
-                    {item.label}
-                  </span>
-
-                  {item.promotion ? (
-                    <span
-                      className="
-                        rounded-full
-                        bg-red-600
-                        px-2
-                        py-1
-                        text-[9px]
-                        font-black
-                        text-white
-                      "
-                    >
-                      -20%
-                    </span>
-                  ) : (
-                    <ArrowRight
-                      size={16}
-                      strokeWidth={2}
-                      className="
-                        text-slate-300
-                        transition-transform
-                        duration-300
-                        group-hover:translate-x-1
-                      "
-                    />
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* ===============================================
-              RACCOURCIS
-          =============================================== */}
-
-          <div
-            className="
-              my-5
-              h-px
-              bg-slate-100
-            "
-          />
-
-          <div
-            className="
-              grid
-              grid-cols-2
-              gap-2
-            "
-          >
-            <Link
-              href="/favoris"
-              onClick={() =>
-                setMobileMenuOpen(false)
-              }
-              className="
-                flex
-                min-h-[52px]
-                items-center
-                justify-center
-                gap-2
-                rounded-[14px]
-                border
-                border-rose-100
-                bg-rose-50
-                text-[12px]
-                font-extrabold
-                text-rose-600
-                transition-all
-                active:scale-[0.98]
-              "
-            >
-              <Heart
-                size={17}
-                strokeWidth={2.2}
-              />
-
-              Favoris
-            </Link>
-
-            <Link
-              href="/panier"
-              onClick={() =>
-                setMobileMenuOpen(false)
-              }
-              className="
-                flex
-                min-h-[52px]
-                items-center
-                justify-center
-                gap-2
-                rounded-[14px]
-                bg-blue-600
-                text-[12px]
-                font-extrabold
-                text-white
-                shadow-lg
-                shadow-blue-600/20
-                transition-all
-                active:scale-[0.98]
-              "
-            >
-              <ShoppingBag
-                size={17}
-                strokeWidth={2}
-              />
-
-              Panier
-
-              <span
-                className="
-                  flex
-                  h-5
-                  min-w-5
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-white/20
-                  px-1
-                  text-[9px]
-                "
-              >
-                {cartCount}
-              </span>
-            </Link>
-          </div>
-        </nav>
-
-        {/* =================================================
-            FOOTER SIDEBAR
-        ================================================= */}
-
-        <div
-          className="
-            shrink-0
-            border-t
-            border-slate-100
-            bg-slate-50/80
-            px-5
-            py-4
-          "
-        >
-          <div
-            className="
-              flex
-              items-center
-              gap-2
-              text-[11px]
-              font-semibold
-              text-slate-500
-            "
-          >
-            <span
-              className="
-                h-2
-                w-2
-                rounded-full
-                bg-emerald-500
-              "
-            />
-
-            DOCTECH — Informatique & High-Tech
-          </div>
-        </div>
-      </aside>
-
-      {/* =====================================================
-          BOTTOM NAV MOBILE STYLE INSTAGRAM
-      ===================================================== */}
-
-      <nav
-        className="
-          fixed
-          bottom-0
-          left-0
-          right-0
-          z-[55]
-          border-t
-          border-slate-200/80
-          bg-white/95
-          shadow-[0_-10px_35px_rgba(15,23,42,0.08)]
-          backdrop-blur-xl
-          md:hidden
-        "
-      >
-        <div
-          className="
-            mx-auto
-            grid
-            min-h-[69px]
-            max-w-[600px]
-            grid-cols-4
-            items-center
-            px-2
-            pb-[env(safe-area-inset-bottom)]
-          "
-        >
-          {/* =================================================
-              ACCUEIL
-          ================================================= */}
-
-          <Link
-            href="/"
-            className={`
-              group
-              relative
-              flex
-              min-h-[68px]
-              flex-col
-              items-center
-              justify-center
-              gap-[3px]
-              transition-all
-              duration-300
-
-              ${
-                pathname === "/"
-                  ? "text-blue-600"
-                  : "text-slate-400"
-              }
-            `}
-          >
-            {pathname === "/" && (
-              <span
-                className="
-                  absolute
-                  top-0
-                  h-[3px]
-                  w-8
-                  rounded-b-full
-                  bg-blue-600
-                "
-              />
-            )}
-
-            <div
-              className={`
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-xl
-                transition-all
-                duration-300
-
-                ${
-                  pathname === "/"
-                    ? `
-                        bg-blue-50
-                        text-blue-600
-                      `
-                    : `
-                        group-active:scale-90
-                      `
-                }
-              `}
-            >
-              <Home
-                size={22}
-                strokeWidth={
-                  pathname === "/"
-                    ? 2.7
-                    : 2
-                }
-              />
-            </div>
-
-            <span
-              className={`
-                text-[9px]
-
-                ${
-                  pathname === "/"
-                    ? "font-black"
-                    : "font-bold"
-                }
-              `}
-            >
-              Accueil
-            </span>
-          </Link>
-
-          {/* =================================================
-              PRODUITS
-          ================================================= */}
-
-          <Link
-            href="/articles"
-            className={`
-              group
-              relative
-              flex
-              min-h-[68px]
-              flex-col
-              items-center
-              justify-center
-              gap-[3px]
-              transition-all
-              duration-300
-
-              ${
-                articlesActive
-                  ? "text-blue-600"
-                  : "text-slate-400"
-              }
-            `}
-          >
-            {articlesActive && (
-              <span
-                className="
-                  absolute
-                  top-0
-                  h-[3px]
-                  w-8
-                  rounded-b-full
-                  bg-blue-600
-                "
-              />
-            )}
-
-            <div
-              className={`
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-xl
-                transition-all
-                duration-300
-
-                ${
-                  articlesActive
-                    ? `
-                        bg-blue-50
-                        text-blue-600
-                      `
-                    : `
-                        group-active:scale-90
-                      `
-                }
-              `}
-            >
-              <Search
-                size={22}
-                strokeWidth={
-                  articlesActive
-                    ? 2.7
-                    : 2
-                }
-              />
-            </div>
-
-            <span
-              className={`
-                text-[9px]
-
-                ${
-                  articlesActive
-                    ? "font-black"
-                    : "font-bold"
-                }
-              `}
-            >
-              Produits
-            </span>
-          </Link>
-
-          {/* =================================================
-              FAVORIS
-          ================================================= */}
-
-          <Link
-            href="/favoris"
-            className={`
-              group
-              relative
-              flex
-              min-h-[68px]
-              flex-col
-              items-center
-              justify-center
-              gap-[3px]
-              transition-all
-              duration-300
-
-              ${
-                favorisActive
-                  ? "text-rose-500"
-                  : "text-slate-400"
-              }
-            `}
-          >
-            {favorisActive && (
-              <span
-                className="
-                  absolute
-                  top-0
-                  h-[3px]
-                  w-8
-                  rounded-b-full
-                  bg-rose-500
-                "
-              />
-            )}
-
-            <div
-              className={`
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-xl
-                transition-all
-                duration-300
-
-                ${
-                  favorisActive
-                    ? `
-                        bg-rose-50
-                        text-rose-500
-                      `
-                    : `
-                        group-active:scale-90
-                      `
-                }
-              `}
-            >
-              <Heart
-                size={22}
-                strokeWidth={
-                  favorisActive
-                    ? 2.7
-                    : 2
-                }
-                className={
-                  favorisActive
-                    ? "fill-rose-500"
-                    : ""
-                }
-              />
-            </div>
-
-            <span
-              className={`
-                text-[9px]
-
-                ${
-                  favorisActive
-                    ? "font-black"
-                    : "font-bold"
-                }
-              `}
-            >
-              Favoris
-            </span>
-          </Link>
-
-          {/* =================================================
-              PANIER
-          ================================================= */}
-
-          <Link
-            href="/panier"
-            className={`
-              group
-              relative
-              flex
-              min-h-[68px]
-              flex-col
-              items-center
-              justify-center
-              gap-[3px]
-              transition-all
-              duration-300
-
-              ${
-                panierActive
-                  ? "text-blue-600"
-                  : "text-slate-400"
-              }
-            `}
-          >
-            {panierActive && (
-              <span
-                className="
-                  absolute
-                  top-0
-                  h-[3px]
-                  w-8
-                  rounded-b-full
-                  bg-blue-600
-                "
-              />
-            )}
-
-            <div
-              className={`
-                relative
-                flex
-                h-8
-                w-8
-                items-center
-                justify-center
-                rounded-xl
-                transition-all
-                duration-300
-
-                ${
-                  panierActive
-                    ? `
-                        bg-blue-50
-                        text-blue-600
-                      `
-                    : `
-                        group-active:scale-90
-                      `
-                }
-              `}
-            >
-              <ShoppingBag
-                size={22}
-                strokeWidth={
-                  panierActive
-                    ? 2.7
-                    : 2
-                }
-              />
-
-              {/* BADGE PANIER */}
-
-              <span
-                className="
-                  absolute
-                  -right-2
-                  -top-1
-                  flex
-                  h-[17px]
-                  min-w-[17px]
-                  items-center
-                  justify-center
-                  rounded-full
-                  border-2
-                  border-white
-                  bg-[#0f172a]
-                  px-[3px]
-                  text-[8px]
-                  font-black
-                  leading-none
-                  text-white
-                  shadow-sm
-                "
-              >
-                {cartCount}
-              </span>
-            </div>
-
-            <span
-              className={`
-                text-[9px]
-
-                ${
-                  panierActive
-                    ? "font-black"
-                    : "font-bold"
-                }
-              `}
-            >
-              Panier
-            </span>
-          </Link>
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 pb-[max(7px,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl md:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+          <BottomLink href="/" active={pathname === "/"} icon={<Home size={18} />} label={text("Accueil", "الرئيسية")} />
+          <BottomLink href="/articles" active={catalogActive} icon={<Laptop size={18} />} label={text("Catalogue", "الكتالوج")} />
+          <BottomLink href="/favoris" active={favoriteActive} icon={<Heart size={18} />} label={text("Favoris", "المفضلة")} badge={favoritesCount} />
+          <button type="button" onClick={() => setCartDrawerOpen(true)} className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-[9px] font-black transition ${cartActive ? "bg-blue-50 text-blue-600" : "text-slate-500"}`}><span className="relative"><ShoppingBag size={18} />{cartCount > 0 && <b className="absolute -end-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-950 px-1 text-[7px] text-white">{cartCount > 99 ? "99+" : cartCount}</b>}</span><span className="truncate">{text("Panier", "السلة")}</span></button>
         </div>
       </nav>
 
-      {/* =====================================================
-          ESPACE POUR LA BOTTOM NAV MOBILE
-      ===================================================== */}
-
-      <div
-        className="
-          h-[70px]
-          md:hidden
-        "
-      />
+      <CartDrawer open={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
     </>
   );
+}
+
+function NavLink({ href, active, icon, label, danger = false }: { href: string; active: boolean; icon: ReactNode; label: string; danger?: boolean }) {
+  return <Link href={href} className={`flex h-9 items-center gap-2 rounded-xl px-3 transition ${active ? (danger ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-700") : danger ? "text-red-500 hover:bg-red-50" : "hover:bg-slate-50"}`}>{icon}<span>{label}</span></Link>;
+}
+
+function MobileLink({ href, active, icon, label }: { href: string; active: boolean; icon: ReactNode; label: string }) {
+  return <Link href={href} className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm font-black transition ${active ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "bg-slate-50 text-slate-700"}`}>{icon}<span>{label}</span></Link>;
+}
+
+function BottomLink({ href, active, icon, label, badge = 0 }: { href: string; active: boolean; icon: ReactNode; label: string; badge?: number }) {
+  return <Link href={href} className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-[9px] font-black transition ${active ? "bg-blue-50 text-blue-600" : "text-slate-500"}`}><span className="relative">{icon}{badge > 0 && <b className="absolute -end-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[7px] text-white">{badge > 99 ? "99+" : badge}</b>}</span><span className="max-w-full truncate">{label}</span></Link>;
 }

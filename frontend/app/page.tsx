@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -11,11 +11,9 @@ import {
   ArrowRight,
   ChevronRight,
   Headphones,
-  Heart,
   PackageCheck,
   RefreshCcw,
   ShieldCheck,
-  ShoppingCart,
   Sparkles,
   Star,
   Truck,
@@ -25,99 +23,16 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BrandCarousel from "@/components/BrandCarousel";
-
-/* =========================================================
-   CATEGORIES
-========================================================= */
-
-const categories = [
-  {
-    id: 1,
-    title: "PC Portables",
-    description: "Travail, étude, gaming et mobilité",
-    image: "/images/categories/pc-portable.png",
-    href: "/articles?categorie=ordinateurs-portables",
-  },
-  {
-    id: 2,
-    title: "PC Fixes",
-    description: "Gaming, bureautique et performance",
-    image: "/images/categories/pc-gaming.png",
-    href: "/articles?categorie=pc-fixes",
-  },
-  {
-    id: 3,
-    title: "Écrans",
-    description: "Full HD, QHD, 4K et gaming",
-    image: "/images/categories/ecran.png",
-    href: "/articles?categorie=ecrans",
-  },
-  {
-    id: 4,
-    title: "Périphériques",
-    description: "Souris, claviers et équipements",
-    image: "/images/categories/peripheriques.png",
-    href: "/articles?categorie=peripheriques",
-  },
-  {
-    id: 5,
-    title: "Accessoires",
-    description: "Casques, câbles et accessoires",
-    image: "/images/categories/accessoires.png",
-    href: "/articles?categorie=accessoires",
-  },
-];
-
-/* =========================================================
-   PRODUITS
-========================================================= */
-
-const products = [
-  {
-    id: 1,
-    name: "HP EliteBook",
-    category: "Ordinateur portable",
-    price: "65 000 DA",
-    oldPrice: "72 000 DA",
-    discount: "-10%",
-    rating: "4.9",
-    image: "/images/categories/pc-portable.png",
-    href: "/article?slug=hp-elitebook-840-g8",
-  },
-  {
-    id: 2,
-    name: 'Écran 24" Full HD',
-    category: "Écran",
-    price: "16 000 DA",
-    oldPrice: "",
-    discount: "",
-    rating: "4.7",
-    image: "/images/categories/ecran.png",
-    href: "/article?slug=ecran-24-full-hd-ips",
-  },
-  {
-    id: 3,
-    name: "Logitech Gaming Mouse",
-    category: "Périphérique",
-    price: "4 500 DA",
-    oldPrice: "5 200 DA",
-    discount: "-13%",
-    rating: "4.8",
-    image: "/images/categories/peripheriques.png",
-    href: "/article?slug=logitech-gaming-mouse",
-  },
-  {
-    id: 4,
-    name: "Casque Gaming",
-    category: "Accessoire",
-    price: "8 900 DA",
-    oldPrice: "",
-    discount: "",
-    rating: "4.9",
-    image: "/images/categories/accessoires.png",
-    href: "/article?slug=casque-gaming-pro",
-  },
-];
+import LuxuryInfiniteCarousel from "@/components/LuxuryInfiniteCarousel";
+import ProductCard from "@/components/ProductCard";
+import { useLocale } from "@/components/LocaleProvider";
+import {
+  fetchCatalog,
+  fetchCategories,
+  formatPrice,
+  type CatalogCategory,
+  type Product,
+} from "@/lib/catalog";
 
 /* =========================================================
    ANIMATIONS
@@ -150,6 +65,39 @@ const stagger = {
 ========================================================= */
 
 export default function HomePage() {
+  const { locale, text } = useLocale();
+  const [homeCategories, setHomeCategories] = useState<CatalogCategory[]>([]);
+  const [homeProducts, setHomeProducts] = useState<Product[]>([]);
+  const [promotionProducts, setPromotionProducts] = useState<Product[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    Promise.all([
+      fetchCategories(locale),
+      fetchCatalog({ limit: 12 }, locale),
+      fetchCatalog({ promotion: 1, limit: 12 }, locale),
+    ])
+      .then(([categoryItems, catalogResult, promotionResult]) => {
+        if (!mounted) return;
+        const rootCategories = categoryItems.filter((category) => category.parentId == null);
+        setHomeCategories(rootCategories.length > 0 ? rootCategories : categoryItems);
+        setHomeProducts(catalogResult.products);
+        setPromotionProducts(promotionResult.products);
+      })
+      .catch((error) => {
+        console.error("Impossible de charger le catalogue de l'accueil :", error);
+      })
+      .finally(() => {
+        if (mounted) setCatalogLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [locale]);
+
   return (
     <div className="min-h-screen bg-white pb-[76px] text-slate-950 md:pb-0">
       {/* =====================================================
@@ -282,7 +230,7 @@ export default function HomePage() {
               >
                 <Sparkles size={15} />
 
-                La technologie au meilleur prix
+                {text("La technologie au meilleur prix", "أفضل التقنيات بأفضل الأسعار")}
               </motion.div>
 
               {/* TITRE */}
@@ -307,7 +255,7 @@ export default function HomePage() {
                   xl:text-[72px]
                 "
               >
-                Tout le matériel
+                {text("Tout le matériel", "كل معدات")}
 
                 <span
                   className="
@@ -320,10 +268,10 @@ export default function HomePage() {
                     text-transparent
                   "
                 >
-                  informatique
+                  {text("informatique", "الإعلام الآلي")}
                 </span>
 
-                dont vous avez besoin.
+                {text("dont vous avez besoin.", "التي تحتاجها.")}
               </motion.h1>
 
               {/* DESCRIPTION */}
@@ -347,9 +295,10 @@ export default function HomePage() {
                   lg:mx-0
                 "
               >
-                Découvrez notre sélection de PC portables, ordinateurs
-                gaming, périphériques et accessoires des plus grandes
-                marques informatiques.
+                {text(
+                  "Découvrez notre sélection de PC portables, ordinateurs gaming, périphériques et accessoires des plus grandes marques informatiques.",
+                  "اكتشف مجموعتنا من الحواسيب المحمولة وأجهزة الألعاب والملحقات من أفضل العلامات التجارية."
+                )}
               </motion.p>
 
               {/* BOUTONS */}
@@ -396,7 +345,7 @@ export default function HomePage() {
                     hover:shadow-[0_24px_55px_rgba(37,99,235,0.32)]
                   "
                 >
-                  Découvrir nos produits
+                  {text("Découvrir nos produits", "اكتشف منتجاتنا")}
 
                   <ArrowRight
                     size={18}
@@ -434,7 +383,7 @@ export default function HomePage() {
                     hover:text-blue-600
                   "
                 >
-                  Voir les catégories
+                  {text("Voir les catégories", "عرض التصنيفات")}
                 </Link>
               </motion.div>
 
@@ -459,21 +408,21 @@ export default function HomePage() {
               >
                 <StatItem
                   value="+500"
-                  label="Références"
+                  label={text("Références", "مرجع")}
                 />
 
                 <div className="h-8 w-px bg-slate-200 sm:h-10" />
 
                 <StatItem
                   value="58"
-                  label="Wilayas"
+                  label={text("Wilayas", "ولاية")}
                 />
 
                 <div className="h-8 w-px bg-slate-200 sm:h-10" />
 
                 <StatItem
                   value="12 mois"
-                  label="Garantie"
+                  label={text("Garantie", "الضمان")}
                 />
               </motion.div>
             </motion.div>
@@ -630,7 +579,7 @@ export default function HomePage() {
 
                 <div>
                   <p className="text-[10px] font-medium text-slate-400">
-                    Garantie
+                    {text("Garantie", "الضمان")}
                   </p>
 
                   <p className="text-sm font-black text-slate-900">
@@ -686,7 +635,7 @@ export default function HomePage() {
 
                 <div>
                   <p className="text-[10px] font-medium text-slate-400">
-                    Livraison
+                    {text("Livraison", "التوصيل")}
                   </p>
 
                   <p className="text-sm font-black text-slate-900">
@@ -735,15 +684,11 @@ export default function HomePage() {
               >
                 <Image
                   src="/images/hero4.png"
-                  alt="Matériel informatique DOCTECH"
+                  alt={text("Matériel informatique DOCTECH", "معدات إعلام آلي DOCTECH")}
                   width={1536}
                   height={1024}
                   priority
-                  sizes="
-                    (max-width: 768px) 100vw,
-                    (max-width: 1200px) 55vw,
-                    760px
-                  "
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 55vw, 760px"
                   className="
                     h-auto
                     w-full
@@ -791,7 +736,7 @@ export default function HomePage() {
             >
               <Service
                 icon={<Truck size={22} />}
-                title="Livraison rapide"
+                title={text("Livraison rapide", "توصيل سريع")}
                 text="Partout en Algérie"
               />
 
@@ -803,7 +748,7 @@ export default function HomePage() {
 
               <Service
                 icon={<ShieldCheck size={22} />}
-                title="Garantie 12 mois"
+                title={text("Garantie 12 mois", "ضمان 12 شهرا")}
                 text="Sur nos produits"
               />
 
@@ -858,11 +803,11 @@ export default function HomePage() {
             "
           >
             <SectionHeading
-              badge="Notre catalogue"
-              title="Explorez nos catégories"
-              description="Trouvez rapidement le matériel informatique adapté à vos besoins."
+              badge={text("Notre catalogue", "كتالوجنا")}
+              title={text("Explorez nos catégories", "استكشف التصنيفات")}
+              description={text("Trouvez rapidement le matériel informatique adapté à vos besoins.", "اعثر بسرعة على معدات الإعلام الآلي المناسبة لاحتياجاتك.")}
               href="/articles"
-              link="Voir toutes"
+              link={text("Voir toutes", "عرض الكل")}
             />
 
             <motion.div
@@ -876,29 +821,54 @@ export default function HomePage() {
               className="
                 mt-7
                 grid
-                grid-cols-1
+                grid-cols-2
                 gap-3
-                min-[430px]:grid-cols-2
                 sm:mt-10
                 sm:gap-4
                 lg:grid-cols-5
               "
             >
-              {categories.map((category, index) => (
+              {catalogLoading && homeCategories.length === 0
+                ? Array.from({ length: 5 }).map((_, index) => (
+                    <div key={`category-loading-${index}`} className="h-[220px] animate-pulse rounded-[20px] bg-slate-100 min-[430px]:h-[250px] sm:h-[280px] sm:rounded-[28px] lg:h-[320px]" />
+                  ))
+                : homeCategories.map((category, index) => (
                 <motion.div
-                  key={category.id}
-                  variants={fadeUp}
+                  key={category.id ?? category.slug}
+                  initial={{
+                    opacity: 0,
+                    y: 46,
+                    scale: 0.94,
+                  }}
+                  whileInView={{
+                    opacity: 1,
+                    y: 0,
+                    scale: 1,
+                  }}
+                  viewport={{
+                    once: true,
+                    amount: 0.22,
+                  }}
+                  transition={{
+                    duration: 0.68,
+                    delay: (index % 2) * 0.1,
+                    ease: [0.22, 1, 0.36, 1],
+                  }}
+                  whileTap={{
+                    scale: 0.975,
+                  }}
                 >
                   <Link
-                    href={category.href}
+                    href={`/articles?categorie=${encodeURIComponent(category.slug)}`}
                     className="
                       group
                       relative
                       block
-                      h-[250px]
+                      h-[220px]
                       overflow-hidden
-                      rounded-[22px]
-                      min-[430px]:h-[280px]
+                      rounded-[20px]
+                      min-[430px]:h-[250px]
+                      sm:h-[280px]
                       sm:rounded-[28px]
                       lg:h-[320px]
                       bg-slate-950
@@ -913,13 +883,9 @@ export default function HomePage() {
 
                     <Image
                       src={category.image}
-                      alt={category.title}
+                      alt={category.label}
                       fill
-                      sizes="
-                        (max-width:640px) 100vw,
-                        (max-width:1024px) 50vw,
-                        20vw
-                      "
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
                       className="
                         object-cover
                         transition-transform
@@ -975,7 +941,7 @@ export default function HomePage() {
                         inset-x-0
                         bottom-0
                         z-10
-                        p-4
+                        p-3
                         sm:p-5
                       "
                     >
@@ -994,22 +960,27 @@ export default function HomePage() {
 
                       <h3
                         className="
-                          text-lg
+                          text-[14px]
                           font-black
+                          leading-tight
+                          sm:text-lg
                           tracking-tight
                           text-white
                         "
                       >
-                        {category.title}
+                        {category.label}
                       </h3>
 
                       <p
                         className="
                           mt-1.5
-                          text-[11px]
+                          line-clamp-2
+                          text-[9px]
                           font-medium
-                          leading-5
+                          leading-4
                           text-slate-300
+                          sm:text-[11px]
+                          sm:leading-5
                         "
                       >
                         {category.description}
@@ -1026,7 +997,7 @@ export default function HomePage() {
                           text-white
                         "
                       >
-                        Découvrir
+                        {text("Découvrir", "اكتشف")}
 
                         <ArrowRight
                           size={14}
@@ -1089,40 +1060,55 @@ export default function HomePage() {
           >
             <SectionHeading
               badge="Sélection DOCTECH"
-              title="Nos produits populaires"
-              description="Découvrez une sélection de produits appréciés par nos clients."
+              title={text("Nos produits populaires", "منتجاتنا الأكثر طلبا")}
+              description={text("Découvrez une sélection de produits appréciés par nos clients.", "اكتشف مجموعة من المنتجات المفضلة لدى عملائنا.")}
               href="/articles"
-              link="Voir tous les produits"
+              link={text("Voir tous les produits", "عرض كل المنتجات")}
             />
 
-            <motion.div
-              variants={stagger}
-              initial="hidden"
-              whileInView="show"
-              viewport={{
-                once: true,
-              }}
-              className="
-                mt-7
-                grid
-                grid-cols-2
-                gap-3
-                sm:mt-8
-                sm:gap-4
-                lg:grid-cols-4
-              "
-            >
-              {products.map((product) => (
-                <motion.div
-                  key={product.id}
-                  variants={fadeUp}
-                >
-                  <ProductCard product={product} />
-                </motion.div>
-              ))}
-            </motion.div>
+            <div className="mt-7 sm:mt-8">
+              <LuxuryInfiniteCarousel
+                duration={36}
+                gap={16}
+                ariaLabel="Produits populaires DOCTECH"
+                viewportClassName="py-3"
+                itemClassName="w-[min(82vw,310px)] shrink-0 min-[520px]:w-[calc((100vw-72px)/2)] md:w-[calc((100vw-104px)/3)] xl:w-[330px]"
+              >
+                {homeProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </LuxuryInfiniteCarousel>
+            </div>
           </div>
         </section>
+
+        {promotionProducts.length > 0 && (
+          <section className="relative overflow-hidden bg-[#f7f9fd] py-12 sm:py-16 lg:py-20">
+            <div className="relative mx-auto max-w-[1450px] px-4 sm:px-6 lg:px-8">
+              <SectionHeading
+                badge="Offres du moment"
+                title={text("Promotions actives", "العروض النشطة")}
+                description="Les promotions créées depuis l'administration sont affichées automatiquement ici."
+                href="/promotions"
+                link="Voir toutes les promotions"
+              />
+
+              <div className="mt-7 sm:mt-8">
+                <LuxuryInfiniteCarousel
+                  duration={38}
+                  gap={16}
+                  ariaLabel="Promotions DOCTECH"
+                  viewportClassName="py-3"
+                  itemClassName="w-[min(82vw,310px)] shrink-0 min-[520px]:w-[calc((100vw-72px)/2)] md:w-[calc((100vw-104px)/3)] xl:w-[330px]"
+                >
+                  {promotionProducts.map((product) => (
+                    <ProductCard key={`promotion-${product.id}`} product={product} />
+                  ))}
+                </LuxuryInfiniteCarousel>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* =====================================================
             POURQUOI DOCTECH
@@ -1183,7 +1169,7 @@ export default function HomePage() {
                 text-slate-500
               "
             >
-              Acheter votre matériel informatique doit être simple,
+              Acheter votre matériel {text("informatique", "الإعلام الآلي")} doit être simple,
               rapide, moderne et sécurisé.
             </p>
           </div>
@@ -1214,7 +1200,7 @@ export default function HomePage() {
             <motion.div variants={fadeUp}>
               <FeatureCard
                 icon={<Truck size={28} />}
-                title="Livraison nationale"
+                title={text("Livraison nationale", "توصيل إلى جميع الولايات")}
                 description="Recevez facilement vos produits partout en Algérie."
               />
             </motion.div>
@@ -1441,269 +1427,6 @@ function SectionHeading({
           "
         />
       </Link>
-    </div>
-  );
-}
-
-/* =========================================================
-   PRODUCT CARD
-========================================================= */
-
-function ProductCard({
-  product,
-}: {
-  product: {
-    id: number;
-    name: string;
-    category: string;
-    price: string;
-    oldPrice: string;
-    discount: string;
-    rating: string;
-    image: string;
-    href: string;
-  };
-}) {
-  return (
-    <div
-      className="
-        group
-        overflow-hidden
-        rounded-[26px]
-        border
-        border-slate-200
-        bg-white
-        shadow-sm
-        transition-all
-        duration-300
-        hover:-translate-y-2
-        hover:border-blue-100
-        hover:shadow-[0_24px_55px_rgba(15,23,42,0.12)]
-      "
-    >
-      {/* IMAGE */}
-
-      <div
-        className="
-          relative
-          flex
-          h-[145px]
-          items-center
-          sm:h-[190px]
-          lg:h-[220px]
-          justify-center
-          overflow-hidden
-          bg-gradient-to-br
-          from-slate-50
-          via-white
-          to-blue-50
-        "
-      >
-        {/* PROMO */}
-
-        {product.discount && (
-          <span
-            className="
-              absolute
-              left-3
-              top-3
-              z-20
-              rounded-xl
-              bg-red-500
-              px-3
-              py-1.5
-              text-[10px]
-              font-black
-              text-white
-              shadow-sm
-            "
-          >
-            {product.discount}
-          </span>
-        )}
-
-        {/* FAVORI */}
-
-        <button
-          type="button"
-          aria-label="Ajouter aux favoris"
-          className="
-            absolute
-            right-3
-            top-3
-            z-20
-            flex
-            h-10
-            w-10
-            items-center
-            justify-center
-            rounded-full
-            border
-            border-slate-200
-            bg-white
-            text-slate-500
-            shadow-sm
-            transition
-            hover:border-red-200
-            hover:bg-red-50
-            hover:text-red-500
-          "
-        >
-          <Heart size={17} />
-        </button>
-
-        <Image
-          src={product.image}
-          alt={product.name}
-          width={500}
-          height={420}
-          className="
-            h-[88%]
-            w-[92%]
-            object-contain
-            transition-transform
-            duration-500
-            group-hover:scale-110
-          "
-        />
-      </div>
-
-      {/* CONTENT */}
-
-      <div className="p-3 sm:p-4">
-        <p
-          className="
-            text-[9px]
-            font-medium
-            text-slate-400
-            sm:text-[10px]
-          "
-        >
-          {product.category}
-        </p>
-
-        <h3
-          className="
-            mt-1
-            line-clamp-2
-            min-h-[34px]
-            text-[12px]
-            font-extrabold
-            leading-[17px]
-            sm:min-h-0
-            sm:truncate
-            sm:text-sm
-            text-slate-950
-          "
-        >
-          {product.name}
-        </h3>
-
-        {/* RATING */}
-
-        <div
-          className="
-            mt-2
-            flex
-            items-center
-            sm:mt-3
-            gap-1
-          "
-        >
-          <Star
-            size={13}
-            className="
-              fill-amber-400
-              text-amber-400
-            "
-          />
-
-          <span
-            className="
-              text-[10px]
-              font-bold
-              text-slate-700
-            "
-          >
-            {product.rating}
-          </span>
-
-          <span
-            className="
-              hidden
-              text-[9px]
-              text-slate-400
-              sm:inline
-            "
-          >
-            (45 avis)
-          </span>
-        </div>
-
-        {/* PRIX */}
-
-        <div
-          className="
-            mt-4
-            flex
-            items-end
-            justify-between
-            gap-1.5
-            sm:mt-5
-            sm:gap-2
-          "
-        >
-          <div>
-            <p
-              className="
-                text-[13px]
-                font-black
-                text-blue-600
-                sm:text-base
-              "
-            >
-              {product.price}
-            </p>
-
-            {product.oldPrice && (
-              <del
-                className="
-                  mt-1
-                  block
-                  text-[9px]
-                  text-slate-400
-                "
-              >
-                {product.oldPrice}
-              </del>
-            )}
-          </div>
-
-          <Link
-            href={product.href}
-            aria-label={`Voir ${product.name}`}
-            className="
-              flex
-              h-9
-              w-9
-              shrink-0
-              sm:h-11
-              sm:w-11
-              items-center
-              justify-center
-              rounded-2xl
-              bg-blue-600
-              text-white
-              shadow-[0_12px_30px_rgba(37,99,235,0.20)]
-              transition-all
-              hover:scale-105
-              hover:bg-blue-700
-            "
-          >
-            <ShoppingCart size={18} />
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

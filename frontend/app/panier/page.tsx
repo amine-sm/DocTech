@@ -31,10 +31,12 @@ import {
   type CartItem,
 } from "@/lib/cart";
 import { formatPrice } from "@/lib/catalog";
+import { useLocale } from "@/components/LocaleProvider";
 
 const DELIVERY_FEE = 800;
 
 export default function CartPage() {
+  const { text } = useLocale();
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
 
@@ -71,25 +73,25 @@ export default function CartPage() {
 
       <main>
         <CheckoutHero
-          eyebrow="Votre sélection"
-          title="Votre panier, en mieux."
-          description="Ajustez les quantités, vérifiez vos produits et passez à la commande avec une vue claire de tout ce que vous avez sélectionné."
+          eyebrow={text("Votre sélection", "اختياراتك")}
+          title={text("Votre panier, en mieux.", "سلة مشترياتك بشكل أفضل.")}
+          description={text("Ajustez les quantités, vérifiez vos produits et passez à la commande avec une vue claire de tout ce que vous avez sélectionné.", "عدّل الكميات وتحقق من منتجاتك ثم انتقل إلى الطلب بكل وضوح.")}
           icon={<ShoppingBag size={25} />}
           step={1}
           backHref="/articles"
-          backLabel="Retour au catalogue"
+          backLabel={text("Retour au catalogue", "العودة إلى الكتالوج")}
           rightContent={
             <div className="relative">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <span className="text-[8px] font-black uppercase tracking-[0.18em] text-blue-300">
-                    Panier actuel
+                    {text("Panier actuel", "السلة الحالية")}
                   </span>
                   <strong className="mt-2 block text-3xl font-black tracking-[-0.05em] text-white">
                     {formatPrice(total)}
                   </strong>
                   <span className="mt-1 block text-[9px] font-bold text-slate-400">
-                    Total estimé TTC
+                    {text("Total estimé TTC", "المجموع التقديري")}
                   </span>
                 </div>
                 <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500 text-white shadow-lg shadow-blue-500/25">
@@ -97,8 +99,8 @@ export default function CartPage() {
                 </span>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-2">
-                <MiniDarkStat label="Articles" value={String(totalQuantity).padStart(2, "0")} />
-                <MiniDarkStat label="Produits" value={String(items.length).padStart(2, "0")} />
+                <MiniDarkStat label={text("Articles", "الكمية")} value={String(totalQuantity).padStart(2, "0")} />
+                <MiniDarkStat label={text("Produits", "المنتجات")} value={String(items.length).padStart(2, "0")} />
               </div>
             </div>
           }
@@ -106,10 +108,10 @@ export default function CartPage() {
           {ready && items.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-slate-300">
-                <Check size={12} className="text-emerald-400" /> Panier enregistré
+                <Check size={12} className="text-emerald-400" /> {text("Panier enregistré", "تم حفظ السلة")}
               </span>
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-slate-300">
-                <Truck size={12} className="text-blue-300" /> Livraison disponible
+                <Truck size={12} className="text-blue-300" /> {text("Livraison disponible", "التوصيل متوفر")}
               </span>
             </div>
           )}
@@ -126,17 +128,17 @@ export default function CartPage() {
                 <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <span className="text-[8px] font-black uppercase tracking-[0.17em] text-blue-600">
-                      Votre sélection
+                      {text("Votre sélection", "اختياراتك")}
                     </span>
                     <h2 className="mt-1.5 text-2xl font-black tracking-[-0.045em] text-slate-950">
-                      {totalQuantity} article{totalQuantity > 1 ? "s" : ""}
+                      {totalQuantity} {text(totalQuantity > 1 ? "articles" : "article", "منتج")}
                     </h2>
                   </div>
                   <Link
                     href="/articles"
                     className="inline-flex h-10 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 text-[9px] font-black text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:self-auto"
                   >
-                    Continuer mes achats <ArrowRight size={13} />
+                    {text("Continuer mes achats", "مواصلة التسوق")} <ArrowRight size={13} />
                   </Link>
                 </div>
 
@@ -222,7 +224,7 @@ export default function CartPage() {
                                   type="button"
                                   onClick={() => remove(item.product.id)}
                                   className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500 ring-1 ring-inset ring-red-100 transition hover:bg-red-500 hover:text-white"
-                                  aria-label={`Supprimer ${item.product.name}`}
+                                  aria-label={`${text("Supprimer", "حذف")} ${item.product.name}`}
                                 >
                                   <Trash2 size={14} />
                                 </button>
@@ -270,18 +272,18 @@ export default function CartPage() {
                 <div className="mt-5 grid gap-3 sm:grid-cols-3">
                   <TrustCard
                     icon={<ShieldCheck size={17} />}
-                    title="Paiement sécurisé"
-                    text="Paiement à la livraison"
+                    title={text("Paiement sécurisé", "دفع آمن")}
+                    text={text("Paiement à la livraison", "الدفع عند الاستلام")}
                   />
                   <TrustCard
                     icon={<PackageCheck size={17} />}
-                    title="Produits contrôlés"
-                    text="Vérification avant envoi"
+                    title={text("Produits contrôlés", "منتجات مفحوصة")}
+                    text={text("Vérification avant envoi", "فحص قبل الإرسال")}
                   />
                   <TrustCard
                     icon={<Truck size={17} />}
-                    title="Livraison"
-                    text="Disponible en Algérie"
+                    title={text("Livraison", "التوصيل")}
+                    text={text("Disponible en Algérie", "متوفر في الجزائر")}
                   />
                 </div>
               </div>
@@ -307,7 +309,7 @@ export default function CartPage() {
               <div className="mx-auto flex max-w-xl items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <span className="block text-[7px] font-black uppercase tracking-[0.12em] text-slate-400">
-                    Total TTC
+                    {text("Total TTC", "المجموع")}
                   </span>
                   <strong className="mt-0.5 block truncate text-lg font-black tracking-[-0.04em] text-slate-950">
                     {formatPrice(total)}
@@ -317,7 +319,7 @@ export default function CartPage() {
                   href="/commande"
                   className="flex h-12 min-w-[165px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-[9px] font-black uppercase tracking-[0.07em] text-white shadow-lg shadow-slate-950/20"
                 >
-                  Commander <ArrowRight size={14} />
+                  {text("Commander", "اطلب الآن")} <ArrowRight size={14} />
                 </Link>
               </div>
             </motion.div>
@@ -342,6 +344,7 @@ function CartSummary({
   total: number;
   totalQuantity: number;
 }) {
+  const { text } = useLocale();
   return (
     <motion.aside
       initial={{ opacity: 0, x: 24 }}
@@ -355,9 +358,9 @@ function CartSummary({
           <div className="relative flex items-start justify-between gap-4">
             <div>
               <span className="text-[8px] font-black uppercase tracking-[0.18em] text-blue-300">
-                Résumé du panier
+                {text("Résumé du panier", "ملخص السلة")}
               </span>
-              <h2 className="mt-2 text-xl font-black tracking-[-0.04em]">Votre total</h2>
+              <h2 className="mt-2 text-xl font-black tracking-[-0.04em]">{text("Votre total", "المجموع")}</h2>
             </div>
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] text-blue-300 ring-1 ring-inset ring-white/10">
               <ShoppingBag size={18} />
@@ -365,15 +368,15 @@ function CartSummary({
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-2">
-            <MiniDarkStat label="Articles" value={String(totalQuantity).padStart(2, "0")} />
-            <MiniDarkStat label="Livraison" value={formatPrice(delivery)} />
+            <MiniDarkStat label={text("Articles", "الكمية")} value={String(totalQuantity).padStart(2, "0")} />
+            <MiniDarkStat label={text("Livraison", "التوصيل")} value={formatPrice(delivery)} />
           </div>
         </div>
 
         <div className="border-t border-white/10 p-6">
           <div className="space-y-3">
-            <SummaryLine label="Sous-total" value={formatPrice(subtotal)} />
-            <SummaryLine label="Livraison estimée" value={formatPrice(delivery)} />
+            <SummaryLine label={text("Sous-total", "المجموع الفرعي")} value={formatPrice(subtotal)} />
+            <SummaryLine label={text("Livraison estimée", "التوصيل المتوقع")} value={formatPrice(delivery)} />
           </div>
 
           <div className="my-5 border-t border-dashed border-white/10" />
@@ -381,10 +384,10 @@ function CartSummary({
           <div className="flex items-end justify-between gap-4">
             <div>
               <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-slate-500">
-                Total TTC
+                {text("Total TTC", "المجموع")}
               </span>
               <span className="mt-1 block text-[8px] font-bold text-slate-600">
-                Taxes incluses
+                {text("Taxes incluses", "شامل الرسوم")}
               </span>
             </div>
             <motion.strong
@@ -401,11 +404,11 @@ function CartSummary({
             href="/commande"
             className="group mt-6 flex h-14 items-center justify-center gap-2 rounded-[18px] bg-blue-500 px-5 text-[10px] font-black uppercase tracking-[0.08em] text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-400"
           >
-            Passer la commande <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+            {text("Passer la commande", "إتمام الطلب")} <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
           </Link>
 
           <div className="mt-4 flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-[0.1em] text-slate-500">
-            <ShieldCheck size={13} className="text-emerald-400" /> Paiement à la livraison
+            <ShieldCheck size={13} className="text-emerald-400" /> {text("Paiement à la livraison", "الدفع عند الاستلام")}
           </div>
         </div>
       </div>
@@ -417,10 +420,10 @@ function CartSummary({
           </span>
           <div>
             <strong className="block text-[10px] font-black text-slate-900">
-              Commande simple et rapide
+              {text("Commande simple et rapide", "طلب سهل وسريع")}
             </strong>
             <p className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
-              À l’étape suivante, vous renseignez uniquement vos informations de livraison.
+              {text("À l’étape suivante, vous renseignez uniquement vos informations de livraison.", "في الخطوة التالية أدخل معلومات التوصيل فقط.")}
             </p>
           </div>
         </div>
@@ -502,6 +505,7 @@ function MiniDarkStat({ label, value }: { label: string; value: string }) {
 }
 
 function EmptyCart() {
+  const { text } = useLocale();
   return (
     <motion.div
       initial={{ opacity: 0, y: 18 }}
@@ -520,19 +524,19 @@ function EmptyCart() {
         </div>
         <div className="p-7 sm:p-10">
           <span className="text-[8px] font-black uppercase tracking-[0.18em] text-blue-600">
-            Votre panier
+            {text("Votre panier", "سلة مشترياتك")}
           </span>
           <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
-            Encore vide.
+            {text("Encore vide.", "السلة فارغة.")}
           </h2>
           <p className="mt-3 max-w-md text-sm font-medium leading-6 text-slate-500">
-            Parcourez le catalogue et ajoutez vos ordinateurs, accessoires et composants préférés.
+            {text("Parcourez le catalogue et ajoutez vos ordinateurs, accessoires et composants préférés.", "تصفح الكتالوج وأضف المنتجات التي تريدها إلى السلة.")}
           </p>
           <Link
             href="/articles"
             className="group mt-6 inline-flex h-12 items-center gap-2 rounded-2xl bg-slate-950 px-5 text-[10px] font-black text-white transition hover:bg-blue-600"
           >
-            Découvrir le catalogue <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+            {text("Découvrir le catalogue", "اكتشف الكتالوج")} <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
       </div>
