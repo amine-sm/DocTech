@@ -22,18 +22,7 @@ export const metadata: Metadata = {
   },
 };
 
-const localeBootScript = `
-(function () {
-  try {
-    var locale = localStorage.getItem("doctech_locale");
-    if (locale !== "ar" && locale !== "fr") locale = "fr";
-    var root = document.documentElement;
-    root.lang = locale;
-    root.dir = locale === "ar" ? "rtl" : "ltr";
-    root.dataset.locale = locale;
-  } catch (e) {}
-})();
-`;
+
 
 export default function RootLayout({
   children,
@@ -42,9 +31,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" dir="ltr" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: localeBootScript }} />
-      </head>
       <body suppressHydrationWarning>
         <LocaleProvider>{children}</LocaleProvider>
       </body>
