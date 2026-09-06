@@ -1,5 +1,6 @@
 const pool = require("../config/db");
 const makeSlug = require("../utils/slug");
+const uniqueSlug = require("../utils/uniqueSlug");
 const getPagination = require("../utils/pagination");
 
 async function list(req, res) {
@@ -56,7 +57,7 @@ async function create(req, res) {
   const b = req.body;
   if (!b.name || !b.categoryId) return res.status(400).json({ ok: false, message: "Nom français et catégorie obligatoires." });
   const code = b.code || `ART-${Date.now().toString().slice(-8)}`;
-  const slug = makeSlug(b.slug || b.name);
+  const slug = await uniqueSlug(connection, b.name);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
@@ -73,6 +74,14 @@ async function create(req, res) {
         b.featured ? 1 : 0, b.status || "ACTIF",
       ],
     );
+    const initialStock = Number(b.stock || 0);
+    if (initialStock > 0) {
+      await connection.query(
+        `INSERT INTO product_stock_lots(article_id,quantity_initial,quantity_remaining,purchase_price,selling_price,supplier_id,reference,notes)
+         VALUES(?,?,?,?,?,?,?,?)`,
+        [result.insertId, initialStock, initialStock, Number(b.purchasePrice || 0), Number(b.price || 0), b.fournisseurId || null, 'INITIAL', 'Stock initial à la création de l’article'],
+      );
+    }
     if (b.imageUrl) {
       await connection.query(
         "INSERT INTO article_images(article_id,url,alt_text,alt_text_ar,is_primary,sort_order) VALUES(?,?,?,?,1,0)",
@@ -99,7 +108,7 @@ async function update(req, res) {
     await connection.query(
       `UPDATE articles SET
        sku=?,name=?,name_ar=?,short_name=?,short_name_ar=?,slug=?,short_description=?,short_description_ar=?,description=?,description_ar=?,
-       category_id=?,marque_id=?,fournisseur_id=?,purchase_price=?,price=?,old_price=?,stock=?,stock_enabled=?,featured=?,status=?
+       category_id=?,marque_id=?,fournisseur_id=?,purchase_price=?,price=?,old_price=?,stock_enabled=?,featured=?,status=?
        WHERE id=?`,
       [
         b.sku ?? current.sku,
@@ -107,7 +116,7 @@ async function update(req, res) {
         b.nameAr ?? current.name_ar,
         b.shortName ?? current.short_name,
         b.shortNameAr ?? current.short_name_ar,
-        b.slug ? makeSlug(b.slug) : (b.name ? makeSlug(b.name) : current.slug),
+        b.name ? await uniqueSlug(connection, b.name, { id: req.params.id }) : current.slug,
         b.shortDescription ?? current.short_description,
         b.shortDescriptionAr ?? current.short_description_ar,
         b.description ?? current.description,
@@ -118,7 +127,6 @@ async function update(req, res) {
         b.purchasePrice ?? current.purchase_price,
         b.price ?? current.price,
         b.oldPrice === "" ? null : (b.oldPrice ?? current.old_price),
-        b.stock ?? current.stock,
         b.stockEnabled === undefined ? current.stock_enabled : b.stockEnabled ? 1 : 0,
         b.featured === undefined ? current.featured : b.featured ? 1 : 0,
         b.status ?? current.status,

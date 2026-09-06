@@ -11,7 +11,25 @@ async function createPublic(req,res){const b=req.body;if(!b.customerName||!b.pho
       }
       price=bestPrice;
     }
-    price=Number(Number(price).toFixed(2));subtotal+=price*qty;prepared.push({a,qty,price,variantId:item.variantId||null})}const deliveryType=b.deliveryType==='STORE'?'STORE':'HOME';const deliveryFee=deliveryType==='HOME'?Number(process.env.HOME_DELIVERY_FEE||800):0;const total=subtotal+deliveryFee;const tn=tracking();const [r]=await conn.query(`INSERT INTO commandes(tracking_number,customer_name,phone,wilaya,commune,address,note,delivery_type,subtotal,delivery_fee,total) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,[tn,b.customerName,b.phone,b.wilaya||null,b.commune||null,b.address||null,b.note||null,deliveryType,subtotal,deliveryFee,total]);for(const x of prepared){await conn.query('INSERT INTO commande_items(commande_id,article_id,variant_id,product_name,sku,unit_price,quantity,line_total) VALUES(?,?,?,?,?,?,?,?)',[r.insertId,x.a.id,x.variantId,x.a.name,x.a.sku,x.price,x.qty,x.price*x.qty]);if(x.a.stock_enabled)await conn.query('UPDATE articles SET stock=stock-? WHERE id=?',[x.qty,x.a.id])}await conn.commit();res.status(201).json({ok:true,id:r.insertId,trackingNumber:tn,subtotal,deliveryFee,total,status:'NOUVELLE'})}catch(e){await conn.rollback();throw e}finally{conn.release()}}
+    price=Number(Number(price).toFixed(2));subtotal+=price*qty;prepared.push({a,qty,price,variantId:item.variantId||null})}const deliveryType=b.deliveryType==='STORE'?'STORE':'HOME';const deliveryFee=deliveryType==='HOME'?Number(process.env.HOME_DELIVERY_FEE||800):0;const total=subtotal+deliveryFee;const tn=tracking();const [r]=await conn.query(`INSERT INTO commandes(tracking_number,customer_name,phone,wilaya,commune,address,note,delivery_type,subtotal,delivery_fee,total) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,[tn,b.customerName,b.phone,b.wilaya||null,b.commune||null,b.address||null,b.note||null,deliveryType,subtotal,deliveryFee,total]);for(const x of prepared){
+      await conn.query('INSERT INTO commande_items(commande_id,article_id,variant_id,product_name,sku,unit_price,quantity,line_total) VALUES(?,?,?,?,?,?,?,?)',[r.insertId,x.a.id,x.variantId,x.a.name,x.a.sku,x.price,x.qty,x.price*x.qty]);
+      if(x.a.stock_enabled){
+        let remaining=x.qty;
+        const [[stockRow]]=await conn.query('SELECT stock FROM articles WHERE id=? FOR UPDATE',[x.a.id]);
+        const [lots]=await conn.query('SELECT * FROM product_stock_lots WHERE article_id=? AND quantity_remaining>0 ORDER BY created_at ASC,id ASC FOR UPDATE',[x.a.id]);
+        for(const lot of lots){
+          if(remaining<=0) break;
+          const take=Math.min(remaining,Number(lot.quantity_remaining));
+          await conn.query('UPDATE product_stock_lots SET quantity_remaining=quantity_remaining-? WHERE id=?',[take,lot.id]);
+          const before=Number(stockRow.stock)- (x.qty-remaining);
+          const after=before-take;
+          await conn.query(`INSERT INTO stock_movements(article_id,lot_id,type,quantity,stock_before,stock_after,purchase_price,selling_price,supplier_id,reference,notes,user_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,[x.a.id,lot.id,'EXIT',take,before,after,lot.purchase_price,lot.selling_price,lot.supplier_id,`COMMANDE:${r.insertId}`,'Sortie automatique à la création de la commande',null]);
+          remaining-=take;
+        }
+        if(remaining>0) throw Object.assign(new Error(`Stock par lots insuffisant pour ${x.a.name}.`),{status:409});
+        await conn.query('UPDATE articles SET stock=stock-? WHERE id=?',[x.qty,x.a.id]);
+      }
+    }await conn.commit();res.status(201).json({ok:true,id:r.insertId,trackingNumber:tn,subtotal,deliveryFee,total,status:'NOUVELLE'})}catch(e){await conn.rollback();throw e}finally{conn.release()}}
 async function list(req,res){const {page,limit,offset}=getPagination(req.query);const status=req.query.status;const p=[];const w=status?(p.push(status),'WHERE status=?'):'';const [[c]]=await pool.query(`SELECT COUNT(*) total FROM commandes ${w}`,p);const [rows]=await pool.query(`SELECT * FROM commandes ${w} ORDER BY id DESC LIMIT ? OFFSET ?`,[...p,limit,offset]);res.json({ok:true,data:rows,pagination:{page,limit,total:c.total,pages:Math.ceil(c.total/limit)}})}
 async function getOne(req,res){const [[c]]=await pool.query('SELECT * FROM commandes WHERE id=?',[req.params.id]);if(!c)return res.status(404).json({ok:false,message:'Commande introuvable.'});const [items]=await pool.query('SELECT * FROM commande_items WHERE commande_id=?',[c.id]);res.json({ok:true,data:{...c,items}})}
 async function updateStatus(req,res){const allowed=['NOUVELLE','CONFIRMEE','PREPARATION','EXPEDIEE','LIVREE','ANNULEE'];if(!allowed.includes(req.body.status))return res.status(400).json({ok:false,message:'Statut invalide.'});const [r]=await pool.query('UPDATE commandes SET status=? WHERE id=?',[req.body.status,req.params.id]);if(!r.affectedRows)return res.status(404).json({ok:false,message:'Commande introuvable.'});res.json({ok:true,message:'Statut modifié.'})}

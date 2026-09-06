@@ -128,6 +128,46 @@ CREATE TABLE IF NOT EXISTS articles (
   FULLTEXT INDEX ftx_articles_name_description (name, short_description, description)
 ) ENGINE=InnoDB;
 
+
+CREATE TABLE IF NOT EXISTS product_stock_lots (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  article_id INT UNSIGNED NOT NULL,
+  quantity_initial INT UNSIGNED NOT NULL,
+  quantity_remaining INT UNSIGNED NOT NULL,
+  purchase_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+  selling_price DECIMAL(12,2) NOT NULL DEFAULT 0,
+  supplier_id INT UNSIGNED NULL,
+  reference VARCHAR(120) NULL,
+  notes TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_stock_lots_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_stock_lots_supplier FOREIGN KEY (supplier_id) REFERENCES fournisseurs(id) ON DELETE SET NULL,
+  INDEX idx_stock_lots_article_remaining (article_id, quantity_remaining, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  article_id INT UNSIGNED NOT NULL,
+  lot_id BIGINT UNSIGNED NULL,
+  type ENUM('ENTRY','EXIT','ADJUSTMENT') NOT NULL,
+  quantity INT UNSIGNED NOT NULL,
+  stock_before INT NOT NULL DEFAULT 0,
+  stock_after INT NOT NULL DEFAULT 0,
+  purchase_price DECIMAL(12,2) NULL,
+  selling_price DECIMAL(12,2) NULL,
+  supplier_id INT UNSIGNED NULL,
+  reference VARCHAR(120) NULL,
+  notes TEXT NULL,
+  user_id INT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_stock_mov_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_stock_mov_lot FOREIGN KEY (lot_id) REFERENCES product_stock_lots(id) ON DELETE SET NULL,
+  CONSTRAINT fk_stock_mov_supplier FOREIGN KEY (supplier_id) REFERENCES fournisseurs(id) ON DELETE SET NULL,
+  CONSTRAINT fk_stock_mov_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_stock_mov_article_created (article_id, created_at),
+  INDEX idx_stock_mov_type_created (type, created_at)
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS article_images (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   article_id INT UNSIGNED NOT NULL,
@@ -269,6 +309,8 @@ INSERT INTO permissions (code, name, module) VALUES
 ('promotions.create','Créer une promotion','promotions'),
 ('promotions.update','Modifier une promotion','promotions'),
 ('promotions.delete','Supprimer une promotion','promotions'),
+('stock.view','Voir le stock','stock'),
+('stock.create','Créer une entrée/sortie stock','stock'),
 ('commandes.view','Voir les commandes','commandes'),
 ('commandes.update','Modifier les commandes','commandes'),
 ('uploads.create','Téléverser des images','uploads')
@@ -282,6 +324,6 @@ SELECT r.id, p.id
 FROM roles r
 JOIN permissions p ON p.code IN (
   'dashboard.view','fournisseurs.view','categories.view','marques.view','articles.view',
-  'promotions.view','commandes.view','commandes.update','uploads.create'
+  'promotions.view','stock.view','stock.create','commandes.view','commandes.update','uploads.create'
 )
 WHERE r.code = 'OPERATEUR';

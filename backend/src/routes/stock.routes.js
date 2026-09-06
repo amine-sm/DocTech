@@ -1,0 +1,13 @@
+const express=require('express');
+const controller=require('../controllers/stock.controller');
+const auth=require('../middleware/auth');
+const authorize=require('../middleware/authorize');
+const asyncHandler=require('../utils/asyncHandler');
+const router=express.Router();
+router.use(auth);
+router.get('/articles',authorize('stock.view'),asyncHandler(controller.articles));
+router.get('/movements',authorize('stock.view'),asyncHandler(controller.movements));
+router.get('/articles/:articleId/lots',authorize('stock.view'),asyncHandler(controller.lots));
+router.post('/entry',authorize('stock.create'),asyncHandler(controller.entry));
+router.post('/exit',authorize('stock.create'),asyncHandler(controller.exit));
+module.exports=router;

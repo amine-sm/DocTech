@@ -19,6 +19,7 @@ const commandeRoutes = require("./routes/commandes.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const publicRoutes = require("./routes/public.routes");
 const uploadRoutes = require("./routes/uploads.routes");
+const stockRoutes = require("./routes/stock.routes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
@@ -73,6 +74,7 @@ app.use("/api/promotions", promotionRoutes);
 app.use("/api/commandes", commandeRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/uploads", uploadRoutes);
+app.use("/api/stock", stockRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
