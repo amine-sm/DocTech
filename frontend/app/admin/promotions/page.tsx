@@ -236,74 +236,62 @@ export default function Page() {
      LOAD PROMOTIONS
   ========================================================= */
 
-  async function loadPromotions() {
-    try {
-      setLoading(true);
+async function loadPromotions() {
+  try {
+    setLoading(true);
 
-      const result = await adminList<any>(
-        "/promotions",
-        "?limit=200"
-      );
+    const result = await adminList<any>(
+      "/promotions",
+      "?limit=200"
+    );
 
-      const payload = result?.data ?? result;
+    const rows = Array.isArray(result)
+      ? result
+      : result?.rows || [];
 
-      const rows =
-        Array.isArray(payload)
-          ? payload
-          : payload?.rows ||
-            payload?.data ||
-            payload?.promotions ||
-            [];
+    setPromotions(rows);
+  } catch (err: any) {
+    console.error(
+      "Erreur chargement promotions:",
+      err
+    );
 
-      setPromotions(rows);
-    } catch (err: any) {
-      console.error(
-        "Erreur chargement promotions:",
-        err
-      );
-
-      setError(
-        err?.message ||
-          "Impossible de charger les promotions."
-      );
-    } finally {
-      setLoading(false);
-    }
+    setError(
+      err?.message ||
+        "Impossible de charger les promotions."
+    );
+  } finally {
+    setLoading(false);
   }
+}
 
   /* =========================================================
      LOAD ARTICLES
   ========================================================= */
 
-  async function loadArticles() {
-    try {
-      setArticlesLoading(true);
+ async function loadArticles() {
+  try {
+    setArticlesLoading(true);
 
-      const result = await adminList<any>(
-        "/articles",
-        "?limit=200"
-      );
+    const result = await adminList<any>(
+      "/articles",
+      "?limit=200"
+    );
 
-      const payload = result?.data ?? result;
+    const rows = Array.isArray(result)
+      ? result
+      : result?.rows || [];
 
-      const rows =
-        Array.isArray(payload)
-          ? payload
-          : payload?.rows ||
-            payload?.data ||
-            payload?.articles ||
-            [];
-
-      setArticles(rows);
-    } catch (err) {
-      console.error(
-        "Erreur chargement articles:",
-        err
-      );
-    } finally {
-      setArticlesLoading(false);
-    }
+    setArticles(rows);
+  } catch (err) {
+    console.error(
+      "Erreur chargement articles:",
+      err
+    );
+  } finally {
+    setArticlesLoading(false);
   }
+}
 
   useEffect(() => {
     loadPromotions();
@@ -458,7 +446,7 @@ export default function Page() {
         `/promotions/${row.id}`
       );
 
-      const payload = result?.data ?? result;
+      const payload = result;
 
       promotion =
         payload?.promotion ??

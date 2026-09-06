@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import {
+  Suspense,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -15,7 +20,6 @@ import {
   RefreshCcw,
   ShieldCheck,
   Sparkles,
-  Star,
   Truck,
   WalletCards,
 } from "lucide-react";
@@ -26,10 +30,10 @@ import BrandCarousel from "@/components/BrandCarousel";
 import LuxuryInfiniteCarousel from "@/components/LuxuryInfiniteCarousel";
 import ProductCard from "@/components/ProductCard";
 import { useLocale } from "@/components/LocaleProvider";
+
 import {
   fetchCatalog,
   fetchCategories,
-  formatPrice,
   type CatalogCategory,
   type Product,
 } from "@/lib/catalog";
@@ -61,15 +65,47 @@ const stagger = {
 };
 
 /* =========================================================
-   PAGE
+   PAGE WRAPPER
+   Protection Suspense pour les composants utilisant
+   useSearchParams()
 ========================================================= */
 
 export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white">
+          <div className="h-20 w-full bg-white" />
+        </div>
+      }
+    >
+      <HomePageContent />
+    </Suspense>
+  );
+}
+
+/* =========================================================
+   PAGE CONTENT
+========================================================= */
+
+function HomePageContent() {
   const { locale, text } = useLocale();
-  const [homeCategories, setHomeCategories] = useState<CatalogCategory[]>([]);
+
+  const [homeCategories, setHomeCategories] = useState<
+    CatalogCategory[]
+  >([]);
+
   const [homeProducts, setHomeProducts] = useState<Product[]>([]);
-  const [promotionProducts, setPromotionProducts] = useState<Product[]>([]);
+
+  const [promotionProducts, setPromotionProducts] = useState<Product[]>(
+    []
+  );
+
   const [catalogLoading, setCatalogLoading] = useState(true);
+
+  /* =========================================================
+     LOAD CATALOG
+  ========================================================= */
 
   useEffect(() => {
     let mounted = true;
@@ -79,18 +115,41 @@ export default function HomePage() {
       fetchCatalog({ limit: 12 }, locale),
       fetchCatalog({ promotion: 1, limit: 12 }, locale),
     ])
-      .then(([categoryItems, catalogResult, promotionResult]) => {
-        if (!mounted) return;
-        const rootCategories = categoryItems.filter((category) => category.parentId == null);
-        setHomeCategories(rootCategories.length > 0 ? rootCategories : categoryItems);
-        setHomeProducts(catalogResult.products);
-        setPromotionProducts(promotionResult.products);
-      })
+      .then(
+        ([
+          categoryItems,
+          catalogResult,
+          promotionResult,
+        ]) => {
+          if (!mounted) return;
+
+          const rootCategories = categoryItems.filter(
+            (category) => category.parentId == null
+          );
+
+          setHomeCategories(
+            rootCategories.length > 0
+              ? rootCategories
+              : categoryItems
+          );
+
+          setHomeProducts(catalogResult.products);
+
+          setPromotionProducts(
+            promotionResult.products
+          );
+        }
+      )
       .catch((error) => {
-        console.error("Impossible de charger le catalogue de l'accueil :", error);
+        console.error(
+          "Impossible de charger le catalogue de l'accueil :",
+          error
+        );
       })
       .finally(() => {
-        if (mounted) setCatalogLoading(false);
+        if (mounted) {
+          setCatalogLoading(false);
+        }
       });
 
     return () => {
@@ -98,8 +157,13 @@ export default function HomePage() {
     };
   }, [locale]);
 
+  /* =========================================================
+     RENDER
+  ========================================================= */
+
   return (
     <div className="min-h-screen bg-white pb-[76px] text-slate-950 md:pb-0">
+
       {/* =====================================================
           HEADER
       ====================================================== */}
@@ -107,6 +171,7 @@ export default function HomePage() {
       <Header />
 
       <main className="overflow-x-hidden">
+
         {/* =====================================================
             HERO
         ====================================================== */}
@@ -119,6 +184,7 @@ export default function HomePage() {
             bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.20),transparent_27%),linear-gradient(to_bottom_right,#ffffff,#eff6ff,#dbeafe)]
           "
         >
+
           {/* GRID */}
 
           <div
@@ -191,6 +257,7 @@ export default function HomePage() {
               lg:py-16
             "
           >
+
             {/* =================================================
                 HERO LEFT
             ================================================= */}
@@ -199,8 +266,14 @@ export default function HomePage() {
               variants={stagger}
               initial="hidden"
               animate="show"
-              className="relative z-20 text-center lg:text-left"
+              className="
+                relative
+                z-20
+                text-center
+                lg:text-left
+              "
             >
+
               {/* BADGE */}
 
               <motion.div
@@ -212,7 +285,6 @@ export default function HomePage() {
                 className="
                   mb-4
                   inline-flex
-                  sm:mb-6
                   items-center
                   gap-2
                   rounded-full
@@ -226,11 +298,15 @@ export default function HomePage() {
                   text-blue-600
                   shadow-sm
                   backdrop-blur-md
+                  sm:mb-6
                 "
               >
                 <Sparkles size={15} />
 
-                {text("La technologie au meilleur prix", "أفضل التقنيات بأفضل الأسعار")}
+                {text(
+                  "La technologie au meilleur prix",
+                  "أفضل التقنيات بأفضل الأسعار"
+                )}
               </motion.div>
 
               {/* TITRE */}
@@ -255,7 +331,10 @@ export default function HomePage() {
                   xl:text-[72px]
                 "
               >
-                {text("Tout le matériel", "كل معدات")}
+                {text(
+                  "Tout le matériel",
+                  "كل معدات"
+                )}
 
                 <span
                   className="
@@ -268,10 +347,16 @@ export default function HomePage() {
                     text-transparent
                   "
                 >
-                  {text("informatique", "الإعلام الآلي")}
+                  {text(
+                    "informatique",
+                    "الإعلام الآلي"
+                  )}
                 </span>
 
-                {text("dont vous avez besoin.", "التي تحتاجها.")}
+                {text(
+                  "dont vous avez besoin.",
+                  "التي تحتاجها."
+                )}
               </motion.h1>
 
               {/* DESCRIPTION */}
@@ -320,6 +405,7 @@ export default function HomePage() {
                   lg:justify-start
                 "
               >
+
                 <Link
                   href="/articles"
                   className="
@@ -327,7 +413,6 @@ export default function HomePage() {
                     inline-flex
                     min-h-12
                     w-full
-                    sm:w-auto
                     items-center
                     justify-center
                     gap-2
@@ -343,9 +428,13 @@ export default function HomePage() {
                     hover:-translate-y-1
                     hover:bg-blue-700
                     hover:shadow-[0_24px_55px_rgba(37,99,235,0.32)]
+                    sm:w-auto
                   "
                 >
-                  {text("Découvrir nos produits", "اكتشف منتجاتنا")}
+                  {text(
+                    "Découvrir nos produits",
+                    "اكتشف منتجاتنا"
+                  )}
 
                   <ArrowRight
                     size={18}
@@ -364,7 +453,6 @@ export default function HomePage() {
                     min-h-12
                     w-full
                     items-center
-                    sm:w-auto
                     justify-center
                     rounded-2xl
                     border
@@ -381,10 +469,15 @@ export default function HomePage() {
                     hover:border-blue-200
                     hover:bg-blue-50
                     hover:text-blue-600
+                    sm:w-auto
                   "
                 >
-                  {text("Voir les catégories", "عرض التصنيفات")}
+                  {text(
+                    "Voir les catégories",
+                    "عرض التصنيفات"
+                  )}
                 </Link>
+
               </motion.div>
 
               {/* STATS */}
@@ -406,25 +499,37 @@ export default function HomePage() {
                   lg:justify-start
                 "
               >
+
                 <StatItem
                   value="+500"
-                  label={text("Références", "مرجع")}
+                  label={text(
+                    "Références",
+                    "مرجع"
+                  )}
                 />
 
                 <div className="h-8 w-px bg-slate-200 sm:h-10" />
 
                 <StatItem
                   value="58"
-                  label={text("Wilayas", "ولاية")}
+                  label={text(
+                    "Wilayas",
+                    "ولاية"
+                  )}
                 />
 
                 <div className="h-8 w-px bg-slate-200 sm:h-10" />
 
                 <StatItem
                   value="12 mois"
-                  label={text("Garantie", "الضمان")}
+                  label={text(
+                    "Garantie",
+                    "الضمان"
+                  )}
                 />
+
               </motion.div>
+
             </motion.div>
 
             {/* =================================================
@@ -456,10 +561,8 @@ export default function HomePage() {
                 lg:min-h-[580px]
               "
             >
-              {/* ===============================================
-                  LUMIÈRE BLEUE DERRIÈRE L'IMAGE
-                  PAS DE RECTANGLE
-              ================================================ */}
+
+              {/* LUMIÈRE BLEUE */}
 
               <div
                 className="
@@ -469,15 +572,15 @@ export default function HomePage() {
                   top-1/2
                   h-[260px]
                   w-[320px]
-                  sm:h-[360px]
-                  sm:w-[440px]
-                  lg:h-[430px]
-                  lg:w-[560px]
                   -translate-x-1/2
                   -translate-y-1/2
                   rounded-full
                   bg-blue-500/15
                   blur-[120px]
+                  sm:h-[360px]
+                  sm:w-[440px]
+                  lg:h-[430px]
+                  lg:w-[560px]
                 "
               />
 
@@ -489,15 +592,15 @@ export default function HomePage() {
                   top-[48%]
                   h-[210px]
                   w-[210px]
-                  sm:h-[260px]
-                  sm:w-[260px]
-                  lg:h-[300px]
-                  lg:w-[300px]
                   -translate-x-1/2
                   -translate-y-1/2
                   rounded-full
                   bg-cyan-300/20
                   blur-[100px]
+                  sm:h-[260px]
+                  sm:w-[260px]
+                  lg:h-[300px]
+                  lg:w-[300px]
                 "
               />
 
@@ -519,15 +622,15 @@ export default function HomePage() {
                   top-1/2
                   h-[250px]
                   w-[250px]
-                  sm:h-[340px]
-                  sm:w-[340px]
-                  lg:h-[430px]
-                  lg:w-[430px]
                   -translate-x-1/2
                   -translate-y-1/2
                   rounded-full
                   border
                   border-blue-300/20
+                  sm:h-[340px]
+                  sm:w-[340px]
+                  lg:h-[430px]
+                  lg:w-[430px]
                 "
               />
 
@@ -579,7 +682,10 @@ export default function HomePage() {
 
                 <div>
                   <p className="text-[10px] font-medium text-slate-400">
-                    {text("Garantie", "الضمان")}
+                    {text(
+                      "Garantie",
+                      "الضمان"
+                    )}
                   </p>
 
                   <p className="text-sm font-black text-slate-900">
@@ -635,7 +741,10 @@ export default function HomePage() {
 
                 <div>
                   <p className="text-[10px] font-medium text-slate-400">
-                    {text("Livraison", "التوصيل")}
+                    {text(
+                      "Livraison",
+                      "التوصيل"
+                    )}
                   </p>
 
                   <p className="text-sm font-black text-slate-900">
@@ -644,12 +753,7 @@ export default function HomePage() {
                 </div>
               </motion.div>
 
-              {/* ===============================================
-                  HERO4.PNG
-                  SANS RECTANGLE
-                  SANS BORDER-RADIUS
-                  SANS BOX-SHADOW
-              ================================================ */}
+              {/* HERO IMAGE */}
 
               <motion.div
                 animate={{
@@ -664,6 +768,7 @@ export default function HomePage() {
                     repeat: Infinity,
                     ease: "easeInOut",
                   },
+
                   scale: {
                     type: "spring",
                     stiffness: 140,
@@ -677,18 +782,25 @@ export default function HomePage() {
                   w-full
                   max-w-[430px]
                   items-center
+                  justify-center
                   sm:max-w-[620px]
                   lg:max-w-[820px]
-                  justify-center
                 "
               >
                 <Image
                   src="/images/hero4.png"
-                  alt={text("Matériel informatique DOCTECH", "معدات إعلام آلي DOCTECH")}
+                  alt={text(
+                    "Matériel informatique DOCTECH",
+                    "معدات إعلام آلي DOCTECH"
+                  )}
                   width={1536}
                   height={1024}
                   priority
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 55vw, 760px"
+                  sizes="
+                    (max-width: 768px) 100vw,
+                    (max-width: 1200px) 55vw,
+                    760px
+                  "
                   className="
                     h-auto
                     w-full
@@ -697,7 +809,9 @@ export default function HomePage() {
                   "
                 />
               </motion.div>
+
             </motion.div>
+
           </div>
         </section>
 
@@ -721,22 +835,26 @@ export default function HomePage() {
                 grid-cols-1
                 gap-2
                 rounded-[22px]
-                min-[380px]:grid-cols-2
-                sm:gap-3
-                sm:rounded-[28px]
                 border
                 border-white/70
                 bg-white/95
                 p-4
                 shadow-[0_25px_60px_rgba(15,23,42,0.08)]
                 backdrop-blur-xl
+                min-[380px]:grid-cols-2
+                sm:gap-3
+                sm:rounded-[28px]
                 lg:grid-cols-4
                 lg:p-5
               "
             >
+
               <Service
                 icon={<Truck size={22} />}
-                title={text("Livraison rapide", "توصيل سريع")}
+                title={text(
+                  "Livraison rapide",
+                  "توصيل سريع"
+                )}
                 text="Partout en Algérie"
               />
 
@@ -748,7 +866,10 @@ export default function HomePage() {
 
               <Service
                 icon={<ShieldCheck size={22} />}
-                title={text("Garantie 12 mois", "ضمان 12 شهرا")}
+                title={text(
+                  "Garantie 12 mois",
+                  "ضمان 12 شهرا"
+                )}
                 text="Sur nos produits"
               />
 
@@ -757,6 +878,7 @@ export default function HomePage() {
                 title="Retour facile"
                 text="Sous 7 jours"
               />
+
             </div>
           </div>
         </section>
@@ -776,6 +898,7 @@ export default function HomePage() {
             lg:py-20
           "
         >
+
           {/* DÉCORATION */}
 
           <div
@@ -802,12 +925,25 @@ export default function HomePage() {
               lg:px-8
             "
           >
+
             <SectionHeading
-              badge={text("Notre catalogue", "كتالوجنا")}
-              title={text("Explorez nos catégories", "استكشف التصنيفات")}
-              description={text("Trouvez rapidement le matériel informatique adapté à vos besoins.", "اعثر بسرعة على معدات الإعلام الآلي المناسبة لاحتياجاتك.")}
+              badge={text(
+                "Notre catalogue",
+                "كتالوجنا"
+              )}
+              title={text(
+                "Explorez nos catégories",
+                "استكشف التصنيفات"
+              )}
+              description={text(
+                "Trouvez rapidement le matériel informatique adapté à vos besoins.",
+                "اعثر بسرعة على معدات الإعلام الآلي المناسبة لاحتياجاتك."
+              )}
               href="/articles"
-              link={text("Voir toutes", "عرض الكل")}
+              link={text(
+                "Voir toutes",
+                "عرض الكل"
+              )}
             />
 
             <motion.div
@@ -828,190 +964,234 @@ export default function HomePage() {
                 lg:grid-cols-5
               "
             >
-              {catalogLoading && homeCategories.length === 0
-                ? Array.from({ length: 5 }).map((_, index) => (
-                    <div key={`category-loading-${index}`} className="h-[220px] animate-pulse rounded-[20px] bg-slate-100 min-[430px]:h-[250px] sm:h-[280px] sm:rounded-[28px] lg:h-[320px]" />
-                  ))
-                : homeCategories.map((category, index) => (
-                <motion.div
-                  key={category.id ?? category.slug}
-                  initial={{
-                    opacity: 0,
-                    y: 46,
-                    scale: 0.94,
-                  }}
-                  whileInView={{
-                    opacity: 1,
-                    y: 0,
-                    scale: 1,
-                  }}
-                  viewport={{
-                    once: true,
-                    amount: 0.22,
-                  }}
-                  transition={{
-                    duration: 0.68,
-                    delay: (index % 2) * 0.1,
-                    ease: [0.22, 1, 0.36, 1],
-                  }}
-                  whileTap={{
-                    scale: 0.975,
-                  }}
-                >
-                  <Link
-                    href={`/articles?categorie=${encodeURIComponent(category.slug)}`}
-                    className="
-                      group
-                      relative
-                      block
-                      h-[220px]
-                      overflow-hidden
-                      rounded-[20px]
-                      min-[430px]:h-[250px]
-                      sm:h-[280px]
-                      sm:rounded-[28px]
-                      lg:h-[320px]
-                      bg-slate-950
-                      shadow-[0_15px_40px_rgba(15,23,42,0.12)]
-                      transition-all
-                      duration-500
-                      hover:-translate-y-2
-                      hover:shadow-[0_28px_60px_rgba(15,23,42,0.20)]
-                    "
-                  >
-                    {/* IMAGE */}
 
-                    <Image
-                      src={category.image}
-                      alt={category.label}
-                      fill
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 20vw"
+              {catalogLoading &&
+              homeCategories.length === 0 ? (
+                Array.from({ length: 5 }).map(
+                  (_, index) => (
+                    <div
+                      key={`category-loading-${index}`}
                       className="
-                        object-cover
-                        transition-transform
-                        duration-700
-                        ease-out
-                        group-hover:scale-110
+                        h-[220px]
+                        animate-pulse
+                        rounded-[20px]
+                        bg-slate-100
+                        min-[430px]:h-[250px]
+                        sm:h-[280px]
+                        sm:rounded-[28px]
+                        lg:h-[320px]
                       "
                     />
-
-                    {/* OVERLAY */}
-
-                    <div
-                      className="
-                        absolute
-                        inset-0
-                        bg-gradient-to-t
-                        from-slate-950
-                        via-slate-950/30
-                        to-transparent
-                      "
-                    />
-
-                    {/* NUMBER */}
-
-                    <span
-                      className="
-                        absolute
-                        right-4
-                        top-4
-                        flex
-                        h-9
-                        w-9
-                        items-center
-                        justify-center
-                        rounded-full
-                        border
-                        border-white/20
-                        bg-black/20
-                        text-[10px]
-                        font-black
-                        text-white
-                        backdrop-blur
-                      "
+                  )
+                )
+              ) : (
+                homeCategories.map(
+                  (category, index) => (
+                    <motion.div
+                      key={
+                        category.id ??
+                        category.slug
+                      }
+                      initial={{
+                        opacity: 0,
+                        y: 46,
+                        scale: 0.94,
+                      }}
+                      whileInView={{
+                        opacity: 1,
+                        y: 0,
+                        scale: 1,
+                      }}
+                      viewport={{
+                        once: true,
+                        amount: 0.22,
+                      }}
+                      transition={{
+                        duration: 0.68,
+                        delay:
+                          (index % 2) * 0.1,
+                        ease: [
+                          0.22,
+                          1,
+                          0.36,
+                          1,
+                        ],
+                      }}
+                      whileTap={{
+                        scale: 0.975,
+                      }}
                     >
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-
-                    {/* TEXT */}
-
-                    <div
-                      className="
-                        absolute
-                        inset-x-0
-                        bottom-0
-                        z-10
-                        p-3
-                        sm:p-5
-                      "
-                    >
-                      <div
+                      <Link
+                        href={`/articles?categorie=${encodeURIComponent(
+                          category.slug
+                        )}`}
                         className="
-                          mb-3
-                          h-[3px]
-                          w-8
-                          rounded-full
-                          bg-blue-500
+                          group
+                          relative
+                          block
+                          h-[220px]
+                          overflow-hidden
+                          rounded-[20px]
+                          bg-slate-950
+                          shadow-[0_15px_40px_rgba(15,23,42,0.12)]
                           transition-all
                           duration-500
-                          group-hover:w-16
-                        "
-                      />
-
-                      <h3
-                        className="
-                          text-[14px]
-                          font-black
-                          leading-tight
-                          sm:text-lg
-                          tracking-tight
-                          text-white
+                          hover:-translate-y-2
+                          hover:shadow-[0_28px_60px_rgba(15,23,42,0.20)]
+                          min-[430px]:h-[250px]
+                          sm:h-[280px]
+                          sm:rounded-[28px]
+                          lg:h-[320px]
                         "
                       >
-                        {category.label}
-                      </h3>
 
-                      <p
-                        className="
-                          mt-1.5
-                          line-clamp-2
-                          text-[9px]
-                          font-medium
-                          leading-4
-                          text-slate-300
-                          sm:text-[11px]
-                          sm:leading-5
-                        "
-                      >
-                        {category.description}
-                      </p>
+                        {/* IMAGE */}
 
-                      <div
-                        className="
-                          mt-4
-                          flex
-                          items-center
-                          gap-2
-                          text-[11px]
-                          font-extrabold
-                          text-white
-                        "
-                      >
-                        {text("Découvrir", "اكتشف")}
-
-                        <ArrowRight
-                          size={14}
+                        <Image
+                          src={category.image}
+                          alt={category.label}
+                          fill
+                          sizes="
+                            (max-width: 640px) 100vw,
+                            (max-width: 1024px) 50vw,
+                            20vw
+                          "
                           className="
+                            object-cover
                             transition-transform
-                            duration-300
-                            group-hover:translate-x-1
+                            duration-700
+                            ease-out
+                            group-hover:scale-110
                           "
                         />
-                      </div>
-                    </div>
-                  </Link>
-                </motion.div>
-              ))}
+
+                        {/* OVERLAY */}
+
+                        <div
+                          className="
+                            absolute
+                            inset-0
+                            bg-gradient-to-t
+                            from-slate-950
+                            via-slate-950/30
+                            to-transparent
+                          "
+                        />
+
+                        {/* NUMBER */}
+
+                        <span
+                          className="
+                            absolute
+                            right-4
+                            top-4
+                            flex
+                            h-9
+                            w-9
+                            items-center
+                            justify-center
+                            rounded-full
+                            border
+                            border-white/20
+                            bg-black/20
+                            text-[10px]
+                            font-black
+                            text-white
+                            backdrop-blur
+                          "
+                        >
+                          {String(
+                            index + 1
+                          ).padStart(2, "0")}
+                        </span>
+
+                        {/* TEXT */}
+
+                        <div
+                          className="
+                            absolute
+                            inset-x-0
+                            bottom-0
+                            z-10
+                            p-3
+                            sm:p-5
+                          "
+                        >
+
+                          <div
+                            className="
+                              mb-3
+                              h-[3px]
+                              w-8
+                              rounded-full
+                              bg-blue-500
+                              transition-all
+                              duration-500
+                              group-hover:w-16
+                            "
+                          />
+
+                          <h3
+                            className="
+                              text-[14px]
+                              font-black
+                              leading-tight
+                              tracking-tight
+                              text-white
+                              sm:text-lg
+                            "
+                          >
+                            {category.label}
+                          </h3>
+
+                          <p
+                            className="
+                              mt-1.5
+                              line-clamp-2
+                              text-[9px]
+                              font-medium
+                              leading-4
+                              text-slate-300
+                              sm:text-[11px]
+                              sm:leading-5
+                            "
+                          >
+                            {category.description}
+                          </p>
+
+                          <div
+                            className="
+                              mt-4
+                              flex
+                              items-center
+                              gap-2
+                              text-[11px]
+                              font-extrabold
+                              text-white
+                            "
+                          >
+                            {text(
+                              "Découvrir",
+                              "اكتشف"
+                            )}
+
+                            <ArrowRight
+                              size={14}
+                              className="
+                                transition-transform
+                                duration-300
+                                group-hover:translate-x-1
+                              "
+                            />
+                          </div>
+
+                        </div>
+                      </Link>
+                    </motion.div>
+                  )
+                )
+              )}
+
             </motion.div>
           </div>
         </section>
@@ -1036,6 +1216,7 @@ export default function HomePage() {
             lg:py-20
           "
         >
+
           {/* GRID LÉGER */}
 
           <div
@@ -1058,53 +1239,115 @@ export default function HomePage() {
               lg:px-8
             "
           >
+
             <SectionHeading
               badge="Sélection DOCTECH"
-              title={text("Nos produits populaires", "منتجاتنا الأكثر طلبا")}
-              description={text("Découvrez une sélection de produits appréciés par nos clients.", "اكتشف مجموعة من المنتجات المفضلة لدى عملائنا.")}
+              title={text(
+                "Nos produits populaires",
+                "منتجاتنا الأكثر طلبا"
+              )}
+              description={text(
+                "Découvrez une sélection de produits appréciés par nos clients.",
+                "اكتشف مجموعة من المنتجات المفضلة لدى عملائنا."
+              )}
               href="/articles"
-              link={text("Voir tous les produits", "عرض كل المنتجات")}
+              link={text(
+                "Voir tous les produits",
+                "عرض كل المنتجات"
+              )}
             />
 
             <div className="mt-7 sm:mt-8">
+
               <LuxuryInfiniteCarousel
                 duration={36}
                 gap={16}
                 ariaLabel="Produits populaires DOCTECH"
                 viewportClassName="py-3"
-                itemClassName="w-[min(82vw,310px)] shrink-0 min-[520px]:w-[calc((100vw-72px)/2)] md:w-[calc((100vw-104px)/3)] xl:w-[330px]"
+                itemClassName="
+                  w-[min(82vw,310px)]
+                  shrink-0
+                  min-[520px]:w-[calc((100vw-72px)/2)]
+                  md:w-[calc((100vw-104px)/3)]
+                  xl:w-[330px]
+                "
               >
-                {homeProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
+                {homeProducts.map(
+                  (product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                    />
+                  )
+                )}
               </LuxuryInfiniteCarousel>
+
             </div>
           </div>
         </section>
 
+        {/* =====================================================
+            PROMOTIONS
+        ====================================================== */}
+
         {promotionProducts.length > 0 && (
-          <section className="relative overflow-hidden bg-[#f7f9fd] py-12 sm:py-16 lg:py-20">
-            <div className="relative mx-auto max-w-[1450px] px-4 sm:px-6 lg:px-8">
+          <section
+            className="
+              relative
+              overflow-hidden
+              bg-[#f7f9fd]
+              py-12
+              sm:py-16
+              lg:py-20
+            "
+          >
+            <div
+              className="
+                relative
+                mx-auto
+                max-w-[1450px]
+                px-4
+                sm:px-6
+                lg:px-8
+              "
+            >
+
               <SectionHeading
                 badge="Offres du moment"
-                title={text("Promotions actives", "العروض النشطة")}
+                title={text(
+                  "Promotions actives",
+                  "العروض النشطة"
+                )}
                 description="Les promotions créées depuis l'administration sont affichées automatiquement ici."
                 href="/promotions"
                 link="Voir toutes les promotions"
               />
 
               <div className="mt-7 sm:mt-8">
+
                 <LuxuryInfiniteCarousel
                   duration={38}
                   gap={16}
                   ariaLabel="Promotions DOCTECH"
                   viewportClassName="py-3"
-                  itemClassName="w-[min(82vw,310px)] shrink-0 min-[520px]:w-[calc((100vw-72px)/2)] md:w-[calc((100vw-104px)/3)] xl:w-[330px]"
+                  itemClassName="
+                    w-[min(82vw,310px)]
+                    shrink-0
+                    min-[520px]:w-[calc((100vw-72px)/2)]
+                    md:w-[calc((100vw-104px)/3)]
+                    xl:w-[330px]
+                  "
                 >
-                  {promotionProducts.map((product) => (
-                    <ProductCard key={`promotion-${product.id}`} product={product} />
-                  ))}
+                  {promotionProducts.map(
+                    (product) => (
+                      <ProductCard
+                        key={`promotion-${product.id}`}
+                        product={product}
+                      />
+                    )
+                  )}
                 </LuxuryInfiniteCarousel>
+
               </div>
             </div>
           </section>
@@ -1122,13 +1365,14 @@ export default function HomePage() {
             px-4
             pb-16
             pt-2
+            sm:px-6
             sm:pb-20
             sm:pt-4
-            lg:pb-24
-            sm:px-6
             lg:px-8
+            lg:pb-24
           "
         >
+
           <div
             className="
               mx-auto
@@ -1136,6 +1380,7 @@ export default function HomePage() {
               text-center
             "
           >
+
             <span
               className="
                 text-[11px]
@@ -1169,9 +1414,15 @@ export default function HomePage() {
                 text-slate-500
               "
             >
-              Acheter votre matériel {text("informatique", "الإعلام الآلي")} doit être simple,
-              rapide, moderne et sécurisé.
+              Acheter votre matériel{" "}
+              {text(
+                "informatique",
+                "الإعلام الآلي"
+              )}{" "}
+              doit être simple, rapide,
+              moderne et sécurisé.
             </p>
+
           </div>
 
           <motion.div
@@ -1189,6 +1440,7 @@ export default function HomePage() {
               md:grid-cols-3
             "
           >
+
             <motion.div variants={fadeUp}>
               <FeatureCard
                 icon={<PackageCheck size={28} />}
@@ -1200,7 +1452,10 @@ export default function HomePage() {
             <motion.div variants={fadeUp}>
               <FeatureCard
                 icon={<Truck size={28} />}
-                title={text("Livraison nationale", "توصيل إلى جميع الولايات")}
+                title={text(
+                  "Livraison nationale",
+                  "توصيل إلى جميع الولايات"
+                )}
                 description="Recevez facilement vos produits partout en Algérie."
               />
             </motion.div>
@@ -1212,8 +1467,10 @@ export default function HomePage() {
                 description="Notre équipe vous accompagne avant et après votre achat."
               />
             </motion.div>
+
           </motion.div>
         </section>
+
       </main>
 
       {/* =====================================================
@@ -1285,10 +1542,10 @@ function Service({
         gap-3
         rounded-2xl
         p-2.5
-        sm:p-3
         transition-all
         duration-300
         hover:bg-blue-50/50
+        sm:p-3
       "
     >
       <div
@@ -1296,8 +1553,6 @@ function Service({
           flex
           h-10
           w-10
-          sm:h-12
-          sm:w-12
           shrink-0
           items-center
           justify-center
@@ -1305,6 +1560,8 @@ function Service({
           bg-blue-50
           text-blue-600
           shadow-sm
+          sm:h-12
+          sm:w-12
         "
       >
         {icon}
@@ -1325,9 +1582,9 @@ function Service({
           className="
             mt-0.5
             text-[9px]
+            text-slate-500
             sm:mt-1
             sm:text-[10px]
-            text-slate-500
           "
         >
           {text}
@@ -1366,6 +1623,7 @@ function SectionHeading({
       "
     >
       <div>
+
         <span
           className="
             text-[11px]
@@ -1402,6 +1660,7 @@ function SectionHeading({
         >
           {description}
         </p>
+
       </div>
 
       <Link
@@ -1413,8 +1672,8 @@ function SectionHeading({
           gap-1
           text-[11px]
           font-extrabold
-          sm:text-xs
           text-blue-600
+          sm:text-xs
         "
       >
         {link}
@@ -1457,12 +1716,12 @@ function FeatureCard({
         bg-white
         p-5
         text-center
-        sm:p-7
         shadow-sm
         transition-all
         duration-300
         hover:border-blue-200
         hover:shadow-[0_22px_50px_rgba(37,99,235,0.10)]
+        sm:p-7
       "
     >
       <div
@@ -1471,13 +1730,13 @@ function FeatureCard({
           flex
           h-12
           w-12
-          sm:h-14
-          sm:w-14
           items-center
           justify-center
           rounded-2xl
           bg-blue-50
           text-blue-600
+          sm:h-14
+          sm:w-14
         "
       >
         {icon}

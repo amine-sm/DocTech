@@ -22,17 +22,21 @@ export const metadata: Metadata = {
   },
 };
 
-
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
   return (
-    <html lang="fr" dir="ltr" suppressHydrationWarning>
+    <html
+      lang="fr"
+      dir="ltr"
+      suppressHydrationWarning
+    >
       <body suppressHydrationWarning>
-        <LocaleProvider>{children}</LocaleProvider>
+        <LocaleProvider>
+          {children}
+        </LocaleProvider>
       </body>
     </html>
   );

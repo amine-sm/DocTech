@@ -1,11 +1,19 @@
-// page.tsx (Panier)
+
 "use client";
 
-import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
 import Image from "next/image";
 import Link from "next/link";
+
 import { AnimatePresence, motion } from "framer-motion";
+
 import {
   ArrowRight,
   BadgeCheck,
@@ -22,6 +30,7 @@ import {
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import CheckoutHero from "@/components/CheckoutHero";
+
 import {
   CART_EVENT,
   getCart,
@@ -30,18 +39,53 @@ import {
   updateCartQuantity,
   type CartItem,
 } from "@/lib/cart";
+
 import { formatPrice } from "@/lib/catalog";
 import { useLocale } from "@/components/LocaleProvider";
 
 const DELIVERY_FEE = 800;
 
+/* =========================================================
+   PAGE WRAPPER
+   Protection Suspense pour useSearchParams()
+========================================================= */
+
 export default function CartPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f3f6fb]">
+          <div className="h-20 w-full bg-white" />
+          <div className="mx-auto max-w-[1450px] px-4 py-10">
+            <div className="h-[500px] animate-pulse rounded-[30px] bg-white" />
+          </div>
+        </div>
+      }
+    >
+      <CartPageContent />
+    </Suspense>
+  );
+}
+
+/* =========================================================
+   PAGE CONTENT
+========================================================= */
+
+function CartPageContent() {
   const { text } = useLocale();
+
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
 
+  /* =========================================================
+     CART
+  ========================================================= */
+
   useEffect(() => {
-    const refresh = () => setItems(getCart());
+    const refresh = () => {
+      setItems(getCart());
+    };
+
     refresh();
     setReady(true);
 
@@ -54,285 +98,682 @@ export default function CartPage() {
     };
   }, []);
 
-  const subtotal = useMemo(() => getCartSubtotal(items), [items]);
-  const delivery = items.length > 0 ? DELIVERY_FEE : 0;
-  const total = subtotal + delivery;
-  const totalQuantity = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+  const subtotal = useMemo(
+    () => getCartSubtotal(items),
+    [items]
+  );
 
-  function setQuantity(productId: number, quantity: number) {
-    setItems(updateCartQuantity(productId, quantity));
+  const delivery =
+    items.length > 0 ? DELIVERY_FEE : 0;
+
+  const total = subtotal + delivery;
+
+  const totalQuantity = useMemo(
+    () =>
+      items.reduce(
+        (sum, item) => sum + item.quantity,
+        0
+      ),
+    [items]
+  );
+
+  function setQuantity(
+    productId: number,
+    quantity: number
+  ) {
+    setItems(
+      updateCartQuantity(
+        productId,
+        quantity
+      )
+    );
   }
 
   function remove(productId: number) {
-    setItems(removeFromCart(productId));
+    setItems(
+      removeFromCart(productId)
+    );
   }
 
   return (
     <div className="min-h-screen bg-[#f3f6fb] text-slate-950">
+
+      {/* =====================================================
+          HEADER
+      ====================================================== */}
+
       <Header />
 
       <main>
+
+        {/* =====================================================
+            CHECKOUT HERO
+        ====================================================== */}
+
         <CheckoutHero
-          eyebrow={text("Votre sélection", "اختياراتك")}
-          title={text("Votre panier, en mieux.", "سلة مشترياتك بشكل أفضل.")}
-          description={text("Ajustez les quantités, vérifiez vos produits et passez à la commande avec une vue claire de tout ce que vous avez sélectionné.", "عدّل الكميات وتحقق من منتجاتك ثم انتقل إلى الطلب بكل وضوح.")}
+          eyebrow={text(
+            "Votre sélection",
+            "اختياراتك"
+          )}
+          title={text(
+            "Votre panier, en mieux.",
+            "سلة مشترياتك بشكل أفضل."
+          )}
+          description={text(
+            "Ajustez les quantités, vérifiez vos produits et passez à la commande avec une vue claire de tout ce que vous avez sélectionné.",
+            "عدّل الكميات وتحقق من منتجاتك ثم انتقل إلى الطلب بكل وضوح."
+          )}
           icon={<ShoppingBag size={25} />}
           step={1}
           backHref="/articles"
-          backLabel={text("Retour au catalogue", "العودة إلى الكتالوج")}
+          backLabel={text(
+            "Retour au catalogue",
+            "العودة إلى الكتالوج"
+          )}
           rightContent={
             <div className="relative">
+
               <div className="flex items-start justify-between gap-4">
+
                 <div>
                   <span className="text-[8px] font-black uppercase tracking-[0.18em] text-blue-300">
-                    {text("Panier actuel", "السلة الحالية")}
+                    {text(
+                      "Panier actuel",
+                      "السلة الحالية"
+                    )}
                   </span>
+
                   <strong className="mt-2 block text-3xl font-black tracking-[-0.05em] text-white">
                     {formatPrice(total)}
                   </strong>
+
                   <span className="mt-1 block text-[9px] font-bold text-slate-400">
-                    {text("Total estimé TTC", "المجموع التقديري")}
+                    {text(
+                      "Total estimé TTC",
+                      "المجموع التقديري"
+                    )}
                   </span>
                 </div>
+
                 <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-500 text-white shadow-lg shadow-blue-500/25">
                   <ShoppingBag size={18} />
                 </span>
+
               </div>
+
               <div className="mt-5 grid grid-cols-2 gap-2">
-                <MiniDarkStat label={text("Articles", "الكمية")} value={String(totalQuantity).padStart(2, "0")} />
-                <MiniDarkStat label={text("Produits", "المنتجات")} value={String(items.length).padStart(2, "0")} />
+
+                <MiniDarkStat
+                  label={text(
+                    "Articles",
+                    "الكمية"
+                  )}
+                  value={String(
+                    totalQuantity
+                  ).padStart(2, "0")}
+                />
+
+                <MiniDarkStat
+                  label={text(
+                    "Produits",
+                    "المنتجات"
+                  )}
+                  value={String(
+                    items.length
+                  ).padStart(2, "0")}
+                />
+
               </div>
             </div>
           }
         >
           {ready && items.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
+
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-slate-300">
-                <Check size={12} className="text-emerald-400" /> {text("Panier enregistré", "تم حفظ السلة")}
+                <Check
+                  size={12}
+                  className="text-emerald-400"
+                />
+
+                {text(
+                  "Panier enregistré",
+                  "تم حفظ السلة"
+                )}
               </span>
+
               <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[8px] font-black uppercase tracking-[0.1em] text-slate-300">
-                <Truck size={12} className="text-blue-300" /> {text("Livraison disponible", "التوصيل متوفر")}
+                <Truck
+                  size={12}
+                  className="text-blue-300"
+                />
+
+                {text(
+                  "Livraison disponible",
+                  "التوصيل متوفر"
+                )}
               </span>
+
             </div>
           )}
         </CheckoutHero>
 
+        {/* =====================================================
+            CART CONTENT
+        ====================================================== */}
+
         <section className="mx-auto max-w-[1450px] px-4 py-7 pb-28 sm:px-6 lg:px-8 lg:py-10 lg:pb-16">
+
           {!ready ? (
             <LoadingState />
+
           ) : items.length === 0 ? (
             <EmptyCart />
+
           ) : (
             <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_400px] xl:gap-10">
+
+              {/* =================================================
+                  PRODUCTS
+              ================================================= */}
+
               <div className="min-w-0">
+
                 <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+
                   <div>
+
                     <span className="text-[8px] font-black uppercase tracking-[0.17em] text-blue-600">
-                      {text("Votre sélection", "اختياراتك")}
+                      {text(
+                        "Votre sélection",
+                        "اختياراتك"
+                      )}
                     </span>
+
                     <h2 className="mt-1.5 text-2xl font-black tracking-[-0.045em] text-slate-950">
-                      {totalQuantity} {text(totalQuantity > 1 ? "articles" : "article", "منتج")}
+                      {totalQuantity}{" "}
+                      {text(
+                        totalQuantity > 1
+                          ? "articles"
+                          : "article",
+                        "منتج"
+                      )}
                     </h2>
+
                   </div>
+
                   <Link
                     href="/articles"
                     className="inline-flex h-10 items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-4 text-[9px] font-black text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:self-auto"
                   >
-                    {text("Continuer mes achats", "مواصلة التسوق")} <ArrowRight size={13} />
+                    {text(
+                      "Continuer mes achats",
+                      "مواصلة التسوق"
+                    )}
+
+                    <ArrowRight size={13} />
                   </Link>
+
                 </div>
 
+                {/* =================================================
+                    CART ITEMS
+                ================================================= */}
+
                 <div className="space-y-3">
+
                   <AnimatePresence initial={false}>
-                    {items.map((item, index) => {
-                      const lineTotal = item.product.price * item.quantity;
-                      return (
-                        <motion.article
-                          key={item.product.id}
-                          layout
-                          initial={{ opacity: 0, y: 18 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, x: -30, scale: 0.98, height: 0, marginBottom: 0 }}
-                          transition={{ delay: index * 0.03, duration: 0.34 }}
-                          className="group relative overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_12px_45px_rgba(15,23,42,0.05)] transition duration-300 hover:border-slate-300 hover:shadow-[0_18px_55px_rgba(15,23,42,0.08)]"
-                        >
-                          <div className="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-blue-500 via-cyan-400 to-transparent opacity-0 transition group-hover:opacity-100" />
 
-                          <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-4 p-3 sm:grid-cols-[125px_minmax(0,1fr)_180px] sm:items-center sm:p-4 lg:gap-5">
-                            <Link
-                              href={`/article?slug=${item.product.slug}`}
-                              className="relative aspect-square overflow-hidden rounded-[20px] bg-slate-100 ring-1 ring-inset ring-slate-200/70"
-                            >
-                              <div className="absolute left-2 top-2 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-950 px-1.5 text-[8px] font-black text-white">
-                                {String(index + 1).padStart(2, "0")}
-                              </div>
-                              <motion.div
-                                whileHover={{ scale: 1.06 }}
-                                transition={{ duration: 0.35 }}
-                                className="relative h-full w-full"
-                              >
-                                <Image
-                                  src={item.product.image}
-                                  alt={item.product.name}
-                                  fill
-                                  sizes="125px"
-                                  className="object-contain p-3"
-                                />
-                              </motion.div>
-                              {item.product.oldPrice && (
-                                <span className="absolute bottom-2 left-2 rounded-full bg-red-500 px-2 py-1 text-[7px] font-black text-white">
-                                  -{Math.round((1 - item.product.price / item.product.oldPrice) * 100)}%
-                                </span>
-                              )}
-                            </Link>
+                    {items.map(
+                      (item, index) => {
 
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-slate-500">
-                                  {item.product.categoryLabel}
-                                </span>
-                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-blue-600">
-                                  <BadgeCheck size={9} /> {item.product.brand}
-                                </span>
-                              </div>
+                        const lineTotal =
+                          item.product.price *
+                          item.quantity;
+
+                        return (
+                          <motion.article
+                            key={
+                              item.product.id
+                            }
+                            layout
+                            initial={{
+                              opacity: 0,
+                              y: 18,
+                            }}
+                            animate={{
+                              opacity: 1,
+                              y: 0,
+                            }}
+                            exit={{
+                              opacity: 0,
+                              x: -30,
+                              scale: 0.98,
+                              height: 0,
+                              marginBottom: 0,
+                            }}
+                            transition={{
+                              delay:
+                                index * 0.03,
+                              duration: 0.34,
+                            }}
+                            className="group relative overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_12px_45px_rgba(15,23,42,0.05)] transition duration-300 hover:border-slate-300 hover:shadow-[0_18px_55px_rgba(15,23,42,0.08)]"
+                          >
+
+                            <div className="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-blue-500 via-cyan-400 to-transparent opacity-0 transition group-hover:opacity-100" />
+
+                            <div className="grid grid-cols-[92px_minmax(0,1fr)] gap-4 p-3 sm:grid-cols-[125px_minmax(0,1fr)_180px] sm:items-center sm:p-4 lg:gap-5">
+
+                              {/* IMAGE */}
 
                               <Link
                                 href={`/article?slug=${item.product.slug}`}
-                                className="mt-3 block line-clamp-2 text-[13px] font-black leading-5 text-slate-950 transition hover:text-blue-600 sm:text-[14px]"
+                                className="relative aspect-square overflow-hidden rounded-[20px] bg-slate-100 ring-1 ring-inset ring-slate-200/70"
                               >
-                                {item.product.name}
+
+                                <div className="absolute left-2 top-2 z-10 flex h-6 min-w-6 items-center justify-center rounded-full bg-slate-950 px-1.5 text-[8px] font-black text-white">
+                                  {String(
+                                    index + 1
+                                  ).padStart(
+                                    2,
+                                    "0"
+                                  )}
+                                </div>
+
+                                <motion.div
+                                  whileHover={{
+                                    scale: 1.06,
+                                  }}
+                                  transition={{
+                                    duration: 0.35,
+                                  }}
+                                  className="relative h-full w-full"
+                                >
+
+                                  <Image
+                                    src={
+                                      item.product
+                                        .image
+                                    }
+                                    alt={
+                                      item.product
+                                        .name
+                                    }
+                                    fill
+                                    sizes="125px"
+                                    className="object-contain p-3"
+                                  />
+
+                                </motion.div>
+
+                                {item.product.oldPrice && (
+                                  <span className="absolute bottom-2 left-2 rounded-full bg-red-500 px-2 py-1 text-[7px] font-black text-white">
+                                    -
+                                    {Math.round(
+                                      (1 -
+                                        item.product
+                                          .price /
+                                          item.product
+                                            .oldPrice) *
+                                        100
+                                    )}
+                                    %
+                                  </span>
+                                )}
+
                               </Link>
 
-                              <div className="mt-3 flex items-end gap-2">
-                                <strong className="text-lg font-black tracking-[-0.03em] text-slate-950">
-                                  {formatPrice(item.product.price)}
-                                </strong>
-                                {item.product.oldPrice && (
-                                  <del className="pb-0.5 text-[9px] font-bold text-slate-400">
-                                    {formatPrice(item.product.oldPrice)}
-                                  </del>
-                                )}
+                              {/* PRODUCT INFO */}
+
+                              <div className="min-w-0">
+
+                                <div className="flex flex-wrap items-center gap-1.5">
+
+                                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-slate-500">
+                                    {
+                                      item
+                                        .product
+                                        .categoryLabel
+                                    }
+                                  </span>
+
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-blue-600">
+                                    <BadgeCheck
+                                      size={9}
+                                    />
+
+                                    {
+                                      item
+                                        .product
+                                        .brand
+                                    }
+                                  </span>
+
+                                </div>
+
+                                <Link
+                                  href={`/article?slug=${item.product.slug}`}
+                                  className="mt-3 block line-clamp-2 text-[13px] font-black leading-5 text-slate-950 transition hover:text-blue-600 sm:text-[14px]"
+                                >
+                                  {
+                                    item
+                                      .product
+                                      .name
+                                  }
+                                </Link>
+
+                                <div className="mt-3 flex items-end gap-2">
+
+                                  <strong className="text-lg font-black tracking-[-0.03em] text-slate-950">
+                                    {formatPrice(
+                                      item
+                                        .product
+                                        .price
+                                    )}
+                                  </strong>
+
+                                  {item.product.oldPrice && (
+                                    <del className="pb-0.5 text-[9px] font-bold text-slate-400">
+                                      {formatPrice(
+                                        item
+                                          .product
+                                          .oldPrice
+                                      )}
+                                    </del>
+                                  )}
+
+                                </div>
+
+                                {/* MOBILE CONTROLS */}
+
+                                <div className="mt-4 flex items-center gap-2 sm:hidden">
+
+                                  <QuantityControl
+                                    quantity={
+                                      item.quantity
+                                    }
+                                    onMinus={() =>
+                                      setQuantity(
+                                        item
+                                          .product
+                                          .id,
+                                        item.quantity -
+                                          1
+                                      )
+                                    }
+                                    onPlus={() =>
+                                      setQuantity(
+                                        item
+                                          .product
+                                          .id,
+                                        item.quantity +
+                                          1
+                                      )
+                                    }
+                                  />
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      remove(
+                                        item
+                                          .product
+                                          .id
+                                      )
+                                    }
+                                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500 ring-1 ring-inset ring-red-100 transition hover:bg-red-500 hover:text-white"
+                                    aria-label={`${text(
+                                      "Supprimer",
+                                      "حذف"
+                                    )} ${
+                                      item
+                                        .product
+                                        .name
+                                    }`}
+                                  >
+                                    <Trash2
+                                      size={14}
+                                    />
+                                  </button>
+
+                                </div>
+
                               </div>
 
-                              <div className="mt-4 flex items-center gap-2 sm:hidden">
-                                <QuantityControl
-                                  quantity={item.quantity}
-                                  onMinus={() => setQuantity(item.product.id, item.quantity - 1)}
-                                  onPlus={() => setQuantity(item.product.id, item.quantity + 1)}
-                                />
+                              {/* DESKTOP CONTROLS */}
+
+                              <div className="col-span-2 hidden flex-col items-end justify-center gap-4 sm:col-span-1 sm:flex">
+
                                 <button
                                   type="button"
-                                  onClick={() => remove(item.product.id)}
-                                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-500 ring-1 ring-inset ring-red-100 transition hover:bg-red-500 hover:text-white"
-                                  aria-label={`${text("Supprimer", "حذف")} ${item.product.name}`}
+                                  onClick={() =>
+                                    remove(
+                                      item
+                                        .product
+                                        .id
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[8px] font-black uppercase tracking-[0.08em] text-slate-400 transition hover:bg-red-50 hover:text-red-500"
                                 >
-                                  <Trash2 size={14} />
+                                  <Trash2
+                                    size={12}
+                                  />
+
+                                  Retirer
                                 </button>
+
+                                <QuantityControl
+                                  quantity={
+                                    item.quantity
+                                  }
+                                  onMinus={() =>
+                                    setQuantity(
+                                      item
+                                        .product
+                                        .id,
+                                      item.quantity -
+                                        1
+                                    )
+                                  }
+                                  onPlus={() =>
+                                    setQuantity(
+                                      item
+                                        .product
+                                        .id,
+                                      item.quantity +
+                                        1
+                                    )
+                                  }
+                                />
+
+                                <div className="text-right">
+
+                                  <span className="block text-[7px] font-black uppercase tracking-[0.12em] text-slate-400">
+                                    Total produit
+                                  </span>
+
+                                  <strong className="mt-1 block text-[13px] font-black text-slate-950">
+                                    {formatPrice(
+                                      lineTotal
+                                    )}
+                                  </strong>
+
+                                </div>
+
                               </div>
+
                             </div>
 
-                            <div className="col-span-2 hidden flex-col items-end justify-center gap-4 sm:col-span-1 sm:flex">
-                              <button
-                                type="button"
-                                onClick={() => remove(item.product.id)}
-                                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[8px] font-black uppercase tracking-[0.08em] text-slate-400 transition hover:bg-red-50 hover:text-red-500"
-                              >
-                                <Trash2 size={12} /> Retirer
-                              </button>
-                              <QuantityControl
-                                quantity={item.quantity}
-                                onMinus={() => setQuantity(item.product.id, item.quantity - 1)}
-                                onPlus={() => setQuantity(item.product.id, item.quantity + 1)}
-                              />
-                              <div className="text-right">
-                                <span className="block text-[7px] font-black uppercase tracking-[0.12em] text-slate-400">
-                                  Total produit
-                                </span>
-                                <strong className="mt-1 block text-[13px] font-black text-slate-950">
-                                  {formatPrice(lineTotal)}
-                                </strong>
-                              </div>
-                            </div>
-                          </div>
+                            {/* MOBILE TOTAL */}
 
-                          <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:hidden">
-                            <span className="text-[8px] font-black uppercase tracking-[0.11em] text-slate-400">
-                              Total produit
-                            </span>
-                            <strong className="text-[12px] font-black text-slate-950">
-                              {formatPrice(lineTotal)}
-                            </strong>
-                          </div>
-                        </motion.article>
-                      );
-                    })}
+                            <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-4 py-3 sm:hidden">
+
+                              <span className="text-[8px] font-black uppercase tracking-[0.11em] text-slate-400">
+                                Total produit
+                              </span>
+
+                              <strong className="text-[12px] font-black text-slate-950">
+                                {formatPrice(
+                                  lineTotal
+                                )}
+                              </strong>
+
+                            </div>
+
+                          </motion.article>
+                        );
+                      }
+                    )}
+
                   </AnimatePresence>
+
                 </div>
+
+                {/* TRUST CARDS */}
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-3">
+
                   <TrustCard
-                    icon={<ShieldCheck size={17} />}
-                    title={text("Paiement sécurisé", "دفع آمن")}
-                    text={text("Paiement à la livraison", "الدفع عند الاستلام")}
+                    icon={
+                      <ShieldCheck
+                        size={17}
+                      />
+                    }
+                    title={text(
+                      "Paiement sécurisé",
+                      "دفع آمن"
+                    )}
+                    text={text(
+                      "Paiement à la livraison",
+                      "الدفع عند الاستلام"
+                    )}
                   />
+
                   <TrustCard
-                    icon={<PackageCheck size={17} />}
-                    title={text("Produits contrôlés", "منتجات مفحوصة")}
-                    text={text("Vérification avant envoi", "فحص قبل الإرسال")}
+                    icon={
+                      <PackageCheck
+                        size={17}
+                      />
+                    }
+                    title={text(
+                      "Produits contrôlés",
+                      "منتجات مفحوصة"
+                    )}
+                    text={text(
+                      "Vérification avant envoi",
+                      "فحص قبل الإرسال"
+                    )}
                   />
+
                   <TrustCard
-                    icon={<Truck size={17} />}
-                    title={text("Livraison", "التوصيل")}
-                    text={text("Disponible en Algérie", "متوفر في الجزائر")}
+                    icon={
+                      <Truck size={17} />
+                    }
+                    title={text(
+                      "Livraison",
+                      "التوصيل"
+                    )}
+                    text={text(
+                      "Disponible en Algérie",
+                      "متوفر في الجزائر"
+                    )}
                   />
+
                 </div>
+
               </div>
+
+              {/* =================================================
+                  SUMMARY
+              ================================================= */}
 
               <CartSummary
                 subtotal={subtotal}
                 delivery={delivery}
                 total={total}
-                totalQuantity={totalQuantity}
+                totalQuantity={
+                  totalQuantity
+                }
               />
+
             </div>
           )}
+
         </section>
 
+        {/* =====================================================
+            MOBILE BOTTOM BAR
+        ====================================================== */}
+
         <AnimatePresence>
+
           {ready && items.length > 0 && (
             <motion.div
-              initial={{ opacity: 0, y: 70 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 70 }}
+              initial={{
+                opacity: 0,
+                y: 70,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              exit={{
+                opacity: 0,
+                y: 70,
+              }}
               className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-3 shadow-[0_-16px_45px_rgba(15,23,42,0.12)] backdrop-blur-xl lg:hidden"
             >
+
               <div className="mx-auto flex max-w-xl items-center gap-3">
+
                 <div className="min-w-0 flex-1">
+
                   <span className="block text-[7px] font-black uppercase tracking-[0.12em] text-slate-400">
-                    {text("Total TTC", "المجموع")}
+                    {text(
+                      "Total TTC",
+                      "المجموع"
+                    )}
                   </span>
+
                   <strong className="mt-0.5 block truncate text-lg font-black tracking-[-0.04em] text-slate-950">
                     {formatPrice(total)}
                   </strong>
+
                 </div>
+
                 <Link
                   href="/commande"
                   className="flex h-12 min-w-[165px] items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-[9px] font-black uppercase tracking-[0.07em] text-white shadow-lg shadow-slate-950/20"
                 >
-                  {text("Commander", "اطلب الآن")} <ArrowRight size={14} />
+                  {text(
+                    "Commander",
+                    "اطلب الآن"
+                  )}
+
+                  <ArrowRight
+                    size={14}
+                  />
                 </Link>
+
               </div>
+
             </motion.div>
           )}
+
         </AnimatePresence>
+
       </main>
 
       <Footer />
+
     </div>
   );
 }
 
-// Composants internes avec le même style épuré (conservant les couleurs)
+/* =========================================================
+   CART SUMMARY
+========================================================= */
+
 function CartSummary({
   subtotal,
   delivery,
@@ -345,92 +786,216 @@ function CartSummary({
   totalQuantity: number;
 }) {
   const { text } = useLocale();
+
   return (
     <motion.aside
-      initial={{ opacity: 0, x: 24 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.45 }}
+      initial={{
+        opacity: 0,
+        x: 24,
+      }}
+      animate={{
+        opacity: 1,
+        x: 0,
+      }}
+      transition={{
+        duration: 0.45,
+      }}
       className="lg:sticky lg:top-[120px]"
     >
+
       <div className="overflow-hidden rounded-[30px] bg-[#07111f] text-white shadow-[0_28px_80px_rgba(15,23,42,0.18)]">
+
         <div className="relative p-6">
+
           <div className="absolute right-0 top-0 h-32 w-32 rounded-bl-[90px] bg-blue-500/10" />
+
           <div className="relative flex items-start justify-between gap-4">
+
             <div>
+
               <span className="text-[8px] font-black uppercase tracking-[0.18em] text-blue-300">
-                {text("Résumé du panier", "ملخص السلة")}
+                {text(
+                  "Résumé du panier",
+                  "ملخص السلة"
+                )}
               </span>
-              <h2 className="mt-2 text-xl font-black tracking-[-0.04em]">{text("Votre total", "المجموع")}</h2>
+
+              <h2 className="mt-2 text-xl font-black tracking-[-0.04em]">
+                {text(
+                  "Votre total",
+                  "المجموع"
+                )}
+              </h2>
+
             </div>
+
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] text-blue-300 ring-1 ring-inset ring-white/10">
               <ShoppingBag size={18} />
             </span>
+
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-2">
-            <MiniDarkStat label={text("Articles", "الكمية")} value={String(totalQuantity).padStart(2, "0")} />
-            <MiniDarkStat label={text("Livraison", "التوصيل")} value={formatPrice(delivery)} />
+
+            <MiniDarkStat
+              label={text(
+                "Articles",
+                "الكمية"
+              )}
+              value={String(
+                totalQuantity
+              ).padStart(2, "0")}
+            />
+
+            <MiniDarkStat
+              label={text(
+                "Livraison",
+                "التوصيل"
+              )}
+              value={formatPrice(
+                delivery
+              )}
+            />
+
           </div>
+
         </div>
 
         <div className="border-t border-white/10 p-6">
+
           <div className="space-y-3">
-            <SummaryLine label={text("Sous-total", "المجموع الفرعي")} value={formatPrice(subtotal)} />
-            <SummaryLine label={text("Livraison estimée", "التوصيل المتوقع")} value={formatPrice(delivery)} />
+
+            <SummaryLine
+              label={text(
+                "Sous-total",
+                "المجموع الفرعي"
+              )}
+              value={formatPrice(
+                subtotal
+              )}
+            />
+
+            <SummaryLine
+              label={text(
+                "Livraison estimée",
+                "التوصيل المتوقع"
+              )}
+              value={formatPrice(
+                delivery
+              )}
+            />
+
           </div>
 
           <div className="my-5 border-t border-dashed border-white/10" />
 
           <div className="flex items-end justify-between gap-4">
+
             <div>
+
               <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-slate-500">
-                {text("Total TTC", "المجموع")}
+                {text(
+                  "Total TTC",
+                  "المجموع"
+                )}
               </span>
+
               <span className="mt-1 block text-[8px] font-bold text-slate-600">
-                {text("Taxes incluses", "شامل الرسوم")}
+                {text(
+                  "Taxes incluses",
+                  "شامل الرسوم"
+                )}
               </span>
+
             </div>
+
             <motion.strong
               key={total}
-              initial={{ opacity: 0.4, y: -3 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{
+                opacity: 0.4,
+                y: -3,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
               className="text-3xl font-black tracking-[-0.055em] text-white"
             >
               {formatPrice(total)}
             </motion.strong>
+
           </div>
 
           <Link
             href="/commande"
             className="group mt-6 flex h-14 items-center justify-center gap-2 rounded-[18px] bg-blue-500 px-5 text-[10px] font-black uppercase tracking-[0.08em] text-white shadow-lg shadow-blue-500/25 transition hover:bg-blue-400"
           >
-            {text("Passer la commande", "إتمام الطلب")} <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" />
+            {text(
+              "Passer la commande",
+              "إتمام الطلب"
+            )}
+
+            <ArrowRight
+              size={15}
+              className="transition-transform group-hover:translate-x-1"
+            />
           </Link>
 
           <div className="mt-4 flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-[0.1em] text-slate-500">
-            <ShieldCheck size={13} className="text-emerald-400" /> {text("Paiement à la livraison", "الدفع عند الاستلام")}
+
+            <ShieldCheck
+              size={13}
+              className="text-emerald-400"
+            />
+
+            {text(
+              "Paiement à la livraison",
+              "الدفع عند الاستلام"
+            )}
+
           </div>
+
         </div>
+
       </div>
 
       <div className="mt-4 rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+
         <div className="flex gap-3">
+
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
             <BadgeCheck size={17} />
           </span>
+
           <div>
+
             <strong className="block text-[10px] font-black text-slate-900">
-              {text("Commande simple et rapide", "طلب سهل وسريع")}
+              {text(
+                "Commande simple et rapide",
+                "طلب سهل وسريع"
+              )}
             </strong>
+
             <p className="mt-1 text-[8px] font-medium leading-4 text-slate-400">
-              {text("À l’étape suivante, vous renseignez uniquement vos informations de livraison.", "في الخطوة التالية أدخل معلومات التوصيل فقط.")}
+              {text(
+                "À l’étape suivante, vous renseignez uniquement vos informations de livraison.",
+                "في الخطوة التالية أدخل معلومات التوصيل فقط."
+              )}
             </p>
+
           </div>
+
         </div>
+
       </div>
+
     </motion.aside>
   );
 }
+
+/* =========================================================
+   QUANTITY CONTROL
+========================================================= */
 
 function QuantityControl({
   quantity,
@@ -443,116 +1008,248 @@ function QuantityControl({
 }) {
   return (
     <div className="inline-flex h-10 items-center rounded-full bg-slate-100 p-1 ring-1 ring-inset ring-slate-200/80">
+
       <motion.button
         type="button"
-        whileTap={{ scale: 0.88 }}
+        whileTap={{
+          scale: 0.88,
+        }}
         onClick={onMinus}
         disabled={quantity <= 1}
         className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-35"
       >
-        <Minus size={12} strokeWidth={2.5} />
+        <Minus
+          size={12}
+          strokeWidth={2.5}
+        />
       </motion.button>
+
       <motion.span
         key={quantity}
-        initial={{ opacity: 0, y: -3 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{
+          opacity: 0,
+          y: -3,
+        }}
+        animate={{
+          opacity: 1,
+          y: 0,
+        }}
         className="min-w-8 text-center text-[10px] font-black text-slate-950"
       >
         {quantity}
       </motion.span>
+
       <motion.button
         type="button"
-        whileTap={{ scale: 0.88 }}
+        whileTap={{
+          scale: 0.88,
+        }}
         onClick={onPlus}
         className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-white hover:text-blue-600"
       >
-        <Plus size={12} strokeWidth={2.5} />
+        <Plus
+          size={12}
+          strokeWidth={2.5}
+        />
       </motion.button>
+
     </div>
   );
 }
 
-function TrustCard({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+/* =========================================================
+   TRUST CARD
+========================================================= */
+
+function TrustCard({
+  icon,
+  title,
+  text,
+}: {
+  icon: ReactNode;
+  title: string;
+  text: string;
+}) {
   return (
     <div className="rounded-[20px] border border-slate-200/80 bg-white p-4 shadow-sm">
+
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
         {icon}
       </span>
-      <strong className="mt-3 block text-[10px] font-black text-slate-900">{title}</strong>
-      <span className="mt-1 block text-[8px] font-semibold text-slate-400">{text}</span>
+
+      <strong className="mt-3 block text-[10px] font-black text-slate-900">
+        {title}
+      </strong>
+
+      <span className="mt-1 block text-[8px] font-semibold text-slate-400">
+        {text}
+      </span>
+
     </div>
   );
 }
 
-function SummaryLine({ label, value }: { label: string; value: string }) {
+/* =========================================================
+   SUMMARY LINE
+========================================================= */
+
+function SummaryLine({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div className="flex items-center justify-between gap-4 text-[10px]">
-      <span className="font-semibold text-slate-500">{label}</span>
-      <strong className="font-black text-slate-200">{value}</strong>
+
+      <span className="font-semibold text-slate-500">
+        {label}
+      </span>
+
+      <strong className="font-black text-slate-200">
+        {value}
+      </strong>
+
     </div>
   );
 }
 
-function MiniDarkStat({ label, value }: { label: string; value: string }) {
+/* =========================================================
+   MINI DARK STAT
+========================================================= */
+
+function MiniDarkStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-[15px] border border-white/10 bg-white/[0.04] p-3">
+
       <span className="block text-[7px] font-black uppercase tracking-[0.12em] text-slate-500">
         {label}
       </span>
-      <strong className="mt-1 block truncate text-[10px] font-black text-white">{value}</strong>
+
+      <strong className="mt-1 block truncate text-[10px] font-black text-white">
+        {value}
+      </strong>
+
     </div>
   );
 }
 
+/* =========================================================
+   EMPTY CART
+========================================================= */
+
 function EmptyCart() {
   const { text } = useLocale();
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{
+        opacity: 0,
+        y: 18,
+      }}
+      animate={{
+        opacity: 1,
+        y: 0,
+      }}
       className="mx-auto max-w-3xl overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.07)]"
     >
+
       <div className="grid md:grid-cols-[240px_1fr]">
+
         <div className="flex min-h-[220px] items-center justify-center bg-[#07111f] p-8">
+
           <motion.span
-            animate={{ y: [0, -7, 0] }}
-            transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+            animate={{
+              y: [0, -7, 0],
+            }}
+            transition={{
+              duration: 3.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
             className="flex h-24 w-24 items-center justify-center rounded-[30px] border border-white/10 bg-white/[0.06] text-blue-300"
           >
             <ShoppingBag size={34} />
           </motion.span>
+
         </div>
+
         <div className="p-7 sm:p-10">
+
           <span className="text-[8px] font-black uppercase tracking-[0.18em] text-blue-600">
-            {text("Votre panier", "سلة مشترياتك")}
+            {text(
+              "Votre panier",
+              "سلة مشترياتك"
+            )}
           </span>
+
           <h2 className="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-950">
-            {text("Encore vide.", "السلة فارغة.")}
+            {text(
+              "Encore vide.",
+              "السلة فارغة."
+            )}
           </h2>
+
           <p className="mt-3 max-w-md text-sm font-medium leading-6 text-slate-500">
-            {text("Parcourez le catalogue et ajoutez vos ordinateurs, accessoires et composants préférés.", "تصفح الكتالوج وأضف المنتجات التي تريدها إلى السلة.")}
+            {text(
+              "Parcourez le catalogue et ajoutez vos ordinateurs, accessoires et composants préférés.",
+              "تصفح الكتالوج وأضف المنتجات التي تريدها إلى السلة."
+            )}
           </p>
+
           <Link
             href="/articles"
             className="group mt-6 inline-flex h-12 items-center gap-2 rounded-2xl bg-slate-950 px-5 text-[10px] font-black text-white transition hover:bg-blue-600"
           >
-            {text("Découvrir le catalogue", "اكتشف الكتالوج")} <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+            {text(
+              "Découvrir le catalogue",
+              "اكتشف الكتالوج"
+            )}
+
+            <ArrowRight
+              size={14}
+              className="transition-transform group-hover:translate-x-1"
+            />
           </Link>
+
         </div>
+
       </div>
+
     </motion.div>
   );
 }
 
+/* =========================================================
+   LOADING STATE
+========================================================= */
+
 function LoadingState() {
   return (
     <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_400px]">
+
       <div className="space-y-3">
-        {[1, 2, 3].map((item) => (
-          <div key={item} className="h-[165px] animate-pulse rounded-[28px] bg-white" />
-        ))}
+
+        {[1, 2, 3].map(
+          (item) => (
+            <div
+              key={item}
+              className="h-[165px] animate-pulse rounded-[28px] bg-white"
+            />
+          )
+        )}
+
       </div>
+
       <div className="h-[500px] animate-pulse rounded-[30px] bg-slate-900" />
+
     </div>
   );
 }

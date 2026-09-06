@@ -235,8 +235,9 @@ export default function ArticlesPage() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
 
-  const [viewMode, setViewMode] =
-    useState<"table" | "cards">("table");
+  const [viewMode, setViewMode] = useState<
+    "table" | "cards"
+  >("table");
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -250,15 +251,14 @@ export default function ArticlesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingArticle, setEditingArticle] =
     useState<Article | null>(null);
-
-  const [savingArticle, setSavingArticle] = useState(false);
+  const [savingArticle, setSavingArticle] =
+    useState(false);
   const [formError, setFormError] = useState("");
 
   const [categories, setCategories] = useState<any[]>([]);
   const [marques, setMarques] = useState<any[]>([]);
-  const [fournisseurs, setFournisseurs] = useState<any[]>(
-    []
-  );
+  const [fournisseurs, setFournisseurs] =
+    useState<any[]>([]);
 
   const emptyArticleForm = {
     name: "",
@@ -279,15 +279,7 @@ export default function ArticlesPage() {
   const [articleForm, setArticleForm] =
     useState(emptyArticleForm);
 
-  const [selectedStatus, setSelectedStatus] = useState<
-    "all" | "active" | "inactive"
-  >("all");
-
-  const [selectedStock, setSelectedStock] = useState<
-    "all" | "available" | "low" | "out"
-  >("all");
-
-  async function loadOptions() {
+  async function loadLists() {
     try {
       const [c, m, f] = await Promise.all([
         apiFetch<any>("/categories?limit=200"),
@@ -297,30 +289,26 @@ export default function ArticlesPage() {
 
       const rows = (x: any) => {
         const d = x?.data ?? x;
-
-        if (Array.isArray(d)) return d;
-
-        return d?.rows || d?.data || [];
+        return Array.isArray(d)
+          ? d
+          : d?.rows || d?.data || [];
       };
 
       setCategories(rows(c));
       setMarques(rows(m));
       setFournisseurs(rows(f));
-    } catch (err) {
-      console.error(
-        "Erreur chargement options article:",
-        err
-      );
+    } catch {
+      // Les listes restent facultatives.
     }
   }
 
   async function openCreateModal() {
     setEditingArticle(null);
-    setArticleForm(emptyArticleForm);
+    setArticleForm({ ...emptyArticleForm });
     setFormError("");
     setFormOpen(true);
 
-    await loadOptions();
+    await loadLists();
   }
 
   async function openEditModal(article: Article) {
@@ -368,7 +356,7 @@ export default function ArticlesPage() {
 
     setFormOpen(true);
 
-    await loadOptions();
+    await loadLists();
   }
 
   async function saveArticle() {
@@ -389,6 +377,16 @@ export default function ArticlesPage() {
       return;
     }
 
+    if (
+      articleForm.stock !== "" &&
+      Number(articleForm.stock) < 0
+    ) {
+      setFormError(
+        "Le stock ne peut pas être négatif."
+      );
+      return;
+    }
+
     const body = {
       name: articleForm.name.trim(),
       nameAr:
@@ -401,22 +399,19 @@ export default function ArticlesPage() {
       oldPrice: articleForm.oldPrice
         ? Number(articleForm.oldPrice)
         : null,
-      purchasePrice:
-        articleForm.purchasePrice
-          ? Number(articleForm.purchasePrice)
-          : null,
+      purchasePrice: articleForm.purchasePrice
+        ? Number(articleForm.purchasePrice)
+        : null,
       stock:
         articleForm.stock === ""
           ? 0
           : Number(articleForm.stock),
-      categoryId:
-        articleForm.categoryId
-          ? Number(articleForm.categoryId)
-          : null,
-      marqueId:
-        articleForm.marqueId
-          ? Number(articleForm.marqueId)
-          : null,
+      categoryId: articleForm.categoryId
+        ? Number(articleForm.categoryId)
+        : null,
+      marqueId: articleForm.marqueId
+        ? Number(articleForm.marqueId)
+        : null,
       fournisseurId:
         articleForm.fournisseurId
           ? Number(articleForm.fournisseurId)
@@ -464,15 +459,28 @@ export default function ArticlesPage() {
     }
   }
 
+  const [selectedStatus, setSelectedStatus] =
+    useState<
+      "all" | "active" | "inactive"
+    >("all");
+
+  const [selectedStock, setSelectedStock] =
+    useState<
+      "all" | "available" | "low" | "out"
+    >("all");
+
   async function loadArticles(options?: {
     page?: number;
     search?: string;
     limit?: number;
     refresh?: boolean;
   }) {
-    const nextPage = options?.page ?? page;
-    const nextSearch = options?.search ?? search;
-    const nextLimit = options?.limit ?? limit;
+    const nextPage =
+      options?.page ?? page;
+    const nextSearch =
+      options?.search ?? search;
+    const nextLimit =
+      options?.limit ?? limit;
 
     try {
       setError("");
@@ -485,8 +493,15 @@ export default function ArticlesPage() {
 
       const params = new URLSearchParams();
 
-      params.set("page", String(nextPage));
-      params.set("limit", String(nextLimit));
+      params.set(
+        "page",
+        String(nextPage)
+      );
+
+      params.set(
+        "limit",
+        String(nextLimit)
+      );
 
       if (nextSearch.trim()) {
         params.set(
@@ -495,9 +510,10 @@ export default function ArticlesPage() {
         );
       }
 
-      const result = await apiFetch<ApiResult>(
-        `/articles?${params.toString()}`
-      );
+      const result =
+        await apiFetch<any>(
+          `/articles?${params.toString()}`
+        );
 
       const payload =
         result?.data ?? result;
@@ -573,7 +589,9 @@ export default function ArticlesPage() {
 
   function handleSearch() {
     setPage(1);
-    setSearch(searchInput.trim());
+    setSearch(
+      searchInput.trim()
+    );
   }
 
   function handleClearSearch() {
@@ -582,7 +600,9 @@ export default function ArticlesPage() {
     setPage(1);
   }
 
-  async function handleDelete(article: Article) {
+  async function handleDelete(
+    article: Article
+  ) {
     const confirmed = window.confirm(
       `Voulez-vous vraiment supprimer l'article "${article.name}" ?`
     );
@@ -683,15 +703,16 @@ export default function ArticlesPage() {
           toNumber(article.stock) <= 0
       ).length;
 
-    const lowStock = articles.filter(
-      (article) => {
+    const lowStock =
+      articles.filter((article) => {
         const stock = toNumber(
           article.stock
         );
 
-        return stock > 0 && stock <= 10;
-      }
-    ).length;
+        return (
+          stock > 0 && stock <= 10
+        );
+      }).length;
 
     return {
       total,
@@ -714,9 +735,11 @@ export default function ArticlesPage() {
   return (
     <div className="min-h-full bg-slate-50">
       <div className="mx-auto w-full max-w-[1800px] space-y-6 p-4 md:p-6 lg:p-8">
+
+        {/* HEADER */}
         <AdminPageHeader
           title="Articles"
-          description="Gérez votre catalogue, vos stocks, vos prix et vos articles."
+          subtitle="Gérez votre catalogue, vos stocks, vos prix et vos articles."
           icon={<Package size={22} />}
         />
 
@@ -731,6 +754,7 @@ export default function ArticlesPage() {
           </button>
         </div>
 
+        {/* ERROR */}
         {error && (
           <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-700 shadow-sm">
             <AlertCircle
@@ -750,9 +774,7 @@ export default function ArticlesPage() {
 
             <button
               type="button"
-              onClick={() =>
-                setError("")
-              }
+              onClick={() => setError("")}
               className="rounded-lg p-1 transition hover:bg-red-100"
             >
               <XCircle size={18} />
@@ -760,7 +782,10 @@ export default function ArticlesPage() {
           </div>
         )}
 
+        {/* STATS */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+
+          {/* TOTAL */}
           <button
             type="button"
             onClick={() => {
@@ -791,6 +816,7 @@ export default function ArticlesPage() {
             </div>
           </button>
 
+          {/* ACTIVE */}
           <button
             type="button"
             onClick={() => {
@@ -820,6 +846,7 @@ export default function ArticlesPage() {
             </p>
           </button>
 
+          {/* FEATURED */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
@@ -842,6 +869,7 @@ export default function ArticlesPage() {
             </p>
           </div>
 
+          {/* LOW STOCK */}
           <button
             type="button"
             onClick={() => {
@@ -871,6 +899,7 @@ export default function ArticlesPage() {
             </p>
           </button>
 
+          {/* OUT OF STOCK */}
           <button
             type="button"
             onClick={() => {
@@ -901,8 +930,11 @@ export default function ArticlesPage() {
           </button>
         </div>
 
+        {/* TOOLBAR */}
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+
+            {/* SEARCH */}
             <div className="flex w-full flex-col gap-3 md:flex-row xl:max-w-3xl">
               <div className="relative flex-1">
                 <Search
@@ -950,7 +982,10 @@ export default function ArticlesPage() {
               </button>
             </div>
 
+            {/* ACTIONS */}
             <div className="flex flex-wrap items-center gap-3">
+
+              {/* STATUS */}
               <select
                 value={selectedStatus}
                 onChange={(event) =>
@@ -966,14 +1001,17 @@ export default function ArticlesPage() {
                 <option value="all">
                   Tous les statuts
                 </option>
+
                 <option value="active">
                   Actifs
                 </option>
+
                 <option value="inactive">
                   Inactifs
                 </option>
               </select>
 
+              {/* STOCK */}
               <select
                 value={selectedStock}
                 onChange={(event) =>
@@ -990,17 +1028,21 @@ export default function ArticlesPage() {
                 <option value="all">
                   Tous les stocks
                 </option>
+
                 <option value="available">
                   En stock
                 </option>
+
                 <option value="low">
                   Stock faible
                 </option>
+
                 <option value="out">
                   Rupture
                 </option>
               </select>
 
+              {/* LIMIT */}
               <select
                 value={limit}
                 onChange={(event) => {
@@ -1025,6 +1067,7 @@ export default function ArticlesPage() {
                 </option>
               </select>
 
+              {/* REFRESH */}
               <button
                 type="button"
                 onClick={() =>
@@ -1046,6 +1089,7 @@ export default function ArticlesPage() {
                 />
               </button>
 
+              {/* VIEW SWITCH */}
               <div className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1">
                 <button
                   type="button"
@@ -1090,6 +1134,7 @@ export default function ArticlesPage() {
             </div>
           </div>
 
+          {/* ACTIVE FILTERS */}
           {(search ||
             selectedStatus !== "all" ||
             selectedStock !== "all") && (
@@ -1115,10 +1160,12 @@ export default function ArticlesPage() {
                 </span>
               )}
 
-              {selectedStatus !== "all" && (
+              {selectedStatus !==
+                "all" && (
                 <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
                   Statut :{" "}
-                  {selectedStatus === "active"
+                  {selectedStatus ===
+                  "active"
                     ? "Actif"
                     : "Inactif"}
 
@@ -1138,9 +1185,11 @@ export default function ArticlesPage() {
               {selectedStock !== "all" && (
                 <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
                   Stock :{" "}
-                  {selectedStock === "available"
+                  {selectedStock ===
+                  "available"
                     ? "En stock"
-                    : selectedStock === "low"
+                    : selectedStock ===
+                      "low"
                     ? "Faible"
                     : "Rupture"}
 
@@ -1176,6 +1225,7 @@ export default function ArticlesPage() {
           )}
         </div>
 
+        {/* CONTENT */}
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-10 shadow-sm">
             <div className="flex flex-col items-center justify-center py-16">
@@ -1195,7 +1245,8 @@ export default function ArticlesPage() {
               </p>
             </div>
           </div>
-        ) : filteredArticles.length === 0 ? (
+        ) : filteredArticles.length ===
+          0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
               <Package size={30} />
@@ -1206,8 +1257,9 @@ export default function ArticlesPage() {
             </h3>
 
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-              Aucun article ne correspond aux critères de recherche
-              ou de filtrage actuels.
+              Aucun article ne correspond
+              aux critères de recherche ou
+              de filtrage actuels.
             </p>
 
             <button
@@ -1227,6 +1279,9 @@ export default function ArticlesPage() {
             </button>
           </div>
         ) : viewMode === "table" ? (
+          /* ======================================================
+             TABLEAU
+          ====================================================== */
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
@@ -1235,12 +1290,15 @@ export default function ArticlesPage() {
                 </h2>
 
                 <p className="mt-1 text-xs font-medium text-slate-400">
-                  {filteredArticles.length} article
-                  {filteredArticles.length > 1
+                  {filteredArticles.length}{" "}
+                  article
+                  {filteredArticles.length >
+                  1
                     ? "s"
                     : ""}{" "}
                   affiché
-                  {filteredArticles.length > 1
+                  {filteredArticles.length >
+                  1
                     ? "s"
                     : ""}
                 </p>
@@ -1293,13 +1351,15 @@ export default function ArticlesPage() {
                 <tbody>
                   {filteredArticles.map(
                     (article) => {
-                      const stock = toNumber(
-                        article.stock
-                      );
+                      const stock =
+                        toNumber(
+                          article.stock
+                        );
 
-                      const price = toNumber(
-                        article.price
-                      );
+                      const price =
+                        toNumber(
+                          article.price
+                        );
 
                       const oldPrice =
                         toNumber(
@@ -1316,6 +1376,7 @@ export default function ArticlesPage() {
                           key={article.id}
                           className="group border-b border-slate-100 transition hover:bg-slate-50/70"
                         >
+                          {/* ARTICLE */}
                           <td className="px-6 py-5">
                             <div className="flex min-w-[340px] items-center gap-5">
                               <ImagePreview
@@ -1370,6 +1431,7 @@ export default function ArticlesPage() {
                             </div>
                           </td>
 
+                          {/* CODE */}
                           <td className="px-5 py-5">
                             <div className="space-y-1">
                               <p className="font-mono text-sm font-bold text-slate-700">
@@ -1388,10 +1450,13 @@ export default function ArticlesPage() {
                             </div>
                           </td>
 
+                          {/* CATEGORY */}
                           <td className="px-5 py-5">
                             <div className="flex items-center gap-2">
                               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
-                                <Boxes size={16} />
+                                <Boxes
+                                  size={16}
+                                />
                               </div>
 
                               <span className="max-w-[160px] truncate text-sm font-bold text-slate-700">
@@ -1401,10 +1466,13 @@ export default function ArticlesPage() {
                             </div>
                           </td>
 
+                          {/* MARQUE */}
                           <td className="px-5 py-5">
                             <div className="flex items-center gap-2">
                               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-[#FE5737]">
-                                <Building2 size={16} />
+                                <Building2
+                                  size={16}
+                                />
                               </div>
 
                               <span className="max-w-[140px] truncate text-sm font-bold text-slate-700">
@@ -1414,6 +1482,7 @@ export default function ArticlesPage() {
                             </div>
                           </td>
 
+                          {/* PRICE */}
                           <td className="px-5 py-5">
                             <div>
                               <p className="whitespace-nowrap text-sm font-black text-[#2563EB]">
@@ -1433,6 +1502,7 @@ export default function ArticlesPage() {
                             </div>
                           </td>
 
+                          {/* STOCK */}
                           <td className="px-5 py-5">
                             {stock <= 0 ? (
                               <div>
@@ -1451,8 +1521,10 @@ export default function ArticlesPage() {
                                 </span>
 
                                 <p className="mt-1 text-xs font-semibold text-slate-400">
-                                  {stock} unité
-                                  {stock > 1
+                                  {stock}{" "}
+                                  unité
+                                  {stock >
+                                  1
                                     ? "s"
                                     : ""}
                                 </p>
@@ -1464,12 +1536,14 @@ export default function ArticlesPage() {
                                 </span>
 
                                 <p className="mt-1 text-xs font-semibold text-slate-400">
-                                  {stock} unités
+                                  {stock}{" "}
+                                  unités
                                 </p>
                               </div>
                             )}
                           </td>
 
+                          {/* STATUS */}
                           <td className="px-5 py-5">
                             <StatusBadge
                               status={
@@ -1478,6 +1552,7 @@ export default function ArticlesPage() {
                             />
                           </td>
 
+                          {/* ACTIONS */}
                           <td className="px-5 py-5">
                             <div className="flex justify-end gap-2 opacity-100 transition lg:opacity-70 lg:group-hover:opacity-100">
                               <a
@@ -1485,9 +1560,12 @@ export default function ArticlesPage() {
                                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-[#2563EB]/20 hover:bg-[#2563EB]/5 hover:text-[#2563EB]"
                                 title="Voir"
                               >
-                                <Eye size={17} />
+                                <Eye
+                                  size={17}
+                                />
                               </a>
 
+                              {/* CORRECTION JSX */}
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1498,7 +1576,9 @@ export default function ArticlesPage() {
                                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-[#60A5FA]/30 hover:bg-[#60A5FA]/5 hover:text-[#2563EB]"
                                 title="Modifier"
                               >
-                                <Edit size={17} />
+                                <Edit
+                                  size={17}
+                                />
                               </button>
 
                               <button
@@ -1538,16 +1618,17 @@ export default function ArticlesPage() {
             </div>
           </div>
         ) : (
+          /* ======================================================
+             CARTES
+          ====================================================== */
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {filteredArticles.map(
               (article) => {
-                const stock = toNumber(
-                  article.stock
-                );
+                const stock =
+                  toNumber(article.stock);
 
-                const price = toNumber(
-                  article.price
-                );
+                const price =
+                  toNumber(article.price);
 
                 const oldPrice =
                   toNumber(
@@ -1564,6 +1645,7 @@ export default function ArticlesPage() {
                     key={article.id}
                     className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
                   >
+                    {/* IMAGE */}
                     <div className="relative flex h-64 items-center justify-center bg-slate-50 p-5">
                       <ImagePreview
                         article={article}
@@ -1621,6 +1703,7 @@ export default function ArticlesPage() {
                       </div>
                     </div>
 
+                    {/* BODY */}
                     <div className="p-5">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -1687,7 +1770,8 @@ export default function ArticlesPage() {
                               "mt-1 text-sm font-black",
                               stock <= 0
                                 ? "text-red-500"
-                                : stock <= 10
+                                : stock <=
+                                  10
                                 ? "text-amber-500"
                                 : "text-emerald-600",
                             ].join(" ")}
@@ -1723,8 +1807,10 @@ export default function ArticlesPage() {
           </div>
         )}
 
+        {/* PAGINATION */}
         {!loading &&
-          filteredArticles.length > 0 && (
+          filteredArticles.length >
+            0 && (
             <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-semibold text-slate-500">
                 Page{" "}
@@ -1816,6 +1902,7 @@ export default function ArticlesPage() {
             </div>
           )}
 
+        {/* FOOTER INFO */}
         {!loading &&
           articles.length > 0 && (
             <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-medium text-slate-400 shadow-sm sm:flex-row sm:items-center">
@@ -1847,13 +1934,16 @@ export default function ArticlesPage() {
           )}
       </div>
 
+      {/* =========================================================
+         MODAL CREATION / MODIFICATION
+      ========================================================= */}
       {formOpen && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
-          onMouseDown={(event) => {
+          onMouseDown={(e) => {
             if (
-              event.target ===
-                event.currentTarget &&
+              e.target ===
+                e.currentTarget &&
               !savingArticle
             ) {
               setFormOpen(false);
@@ -1861,6 +1951,8 @@ export default function ArticlesPage() {
           }}
         >
           <div className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[30px] bg-white shadow-2xl">
+
+            {/* MODAL HEADER */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-6 py-5 backdrop-blur sm:px-7">
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#60A5FA]">
@@ -1892,6 +1984,7 @@ export default function ArticlesPage() {
               </button>
             </div>
 
+            {/* FORM */}
             <div className="p-6 sm:p-7">
               {formError && (
                 <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs font-bold text-red-600">
@@ -1900,17 +1993,17 @@ export default function ArticlesPage() {
               )}
 
               <div className="grid gap-5 lg:grid-cols-2">
+
                 <Field label="Nom français *">
                   <input
                     value={
                       articleForm.name
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
-                        name:
-                          event.target
-                            .value,
+                        name: e.target
+                          .value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -1927,12 +2020,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.nameAr
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
                         nameAr:
-                          event.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -1945,12 +2037,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.code
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
-                        code:
-                          event.target
-                            .value,
+                        code: e.target
+                          .value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -1963,12 +2054,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.sku
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
-                        sku:
-                          event.target
-                            .value,
+                        sku: e.target
+                          .value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -1983,12 +2073,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.price
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
                         price:
-                          event.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -2003,12 +2092,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.oldPrice
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
                         oldPrice:
-                          event.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -2023,12 +2111,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.purchasePrice
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
                         purchasePrice:
-                          event.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -2043,12 +2130,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.stock
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
                         stock:
-                          event.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -2061,12 +2147,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.categoryId
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
                         categoryId:
-                          event.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -2076,14 +2161,14 @@ export default function ArticlesPage() {
                     </option>
 
                     {categories.map(
-                      (item: any) => (
+                      (x: any) => (
                         <option
-                          key={item.id}
-                          value={item.id}
+                          key={x.id}
+                          value={x.id}
                         >
-                          {item.name}
-                          {item.name_ar
-                            ? ` / ${item.name_ar}`
+                          {x.name}
+                          {x.name_ar
+                            ? ` / ${x.name_ar}`
                             : ""}
                         </option>
                       )
@@ -2096,12 +2181,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.marqueId
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
                         marqueId:
-                          event.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -2111,14 +2195,14 @@ export default function ArticlesPage() {
                     </option>
 
                     {marques.map(
-                      (item: any) => (
+                      (x: any) => (
                         <option
-                          key={item.id}
-                          value={item.id}
+                          key={x.id}
+                          value={x.id}
                         >
-                          {item.name}
-                          {item.name_ar
-                            ? ` / ${item.name_ar}`
+                          {x.name}
+                          {x.name_ar
+                            ? ` / ${x.name_ar}`
                             : ""}
                         </option>
                       )
@@ -2131,12 +2215,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.fournisseurId
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
                         fournisseurId:
-                          event.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -2146,13 +2229,13 @@ export default function ArticlesPage() {
                     </option>
 
                     {fournisseurs.map(
-                      (item: any) => (
+                      (x: any) => (
                         <option
-                          key={item.id}
-                          value={item.id}
+                          key={x.id}
+                          value={x.id}
                         >
-                          {item.nom ||
-                            item.name}
+                          {x.nom ||
+                            x.name}
                         </option>
                       )
                     )}
@@ -2164,12 +2247,11 @@ export default function ArticlesPage() {
                     value={
                       articleForm.status
                     }
-                    onChange={(event) =>
+                    onChange={(e) =>
                       setArticleForm({
                         ...articleForm,
                         status:
-                          event.target
-                            .value,
+                          e.target.value,
                       })
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
@@ -2189,18 +2271,18 @@ export default function ArticlesPage() {
                 </Field>
               </div>
 
+              {/* FEATURED */}
               <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-2xl bg-slate-50 p-4">
                 <input
                   type="checkbox"
                   checked={
                     articleForm.featured
                   }
-                  onChange={(event) =>
+                  onChange={(e) =>
                     setArticleForm({
                       ...articleForm,
                       featured:
-                        event.target
-                          .checked,
+                        e.target.checked,
                     })
                   }
                   className="h-4 w-4 accent-[#2563EB]"
@@ -2212,17 +2294,19 @@ export default function ArticlesPage() {
                   </b>
 
                   <small className="text-[10px] text-slate-400">
-                    Afficher cet article comme produit recommandé / à la une.
+                    Afficher cet article
+                    comme produit
+                    recommandé / à la
+                    une.
                   </small>
                 </span>
               </label>
 
+              {/* BUTTONS */}
               <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                 <button
                   type="button"
-                  disabled={
-                    savingArticle
-                  }
+                  disabled={savingArticle}
                   onClick={() =>
                     setFormOpen(false)
                   }
@@ -2233,12 +2317,8 @@ export default function ArticlesPage() {
 
                 <button
                   type="button"
-                  disabled={
-                    savingArticle
-                  }
-                  onClick={
-                    saveArticle
-                  }
+                  disabled={savingArticle}
+                  onClick={saveArticle}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-7 text-xs font-black text-white shadow-lg shadow-[#2563EB]/20 hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {savingArticle ? (
