@@ -16,39 +16,11 @@ async function articles(req, res) {
     params.push(q, q, q);
   }
   const [rows] = await pool.query(
-    `SELECT
-       a.id,
-       a.code,
-       a.sku,
-       a.name,
-       a.name_ar,
-       a.price,
-       a.old_price,
-       a.purchase_price,
-       a.stock,
-       a.stock_enabled,
-       a.category_id,
-       a.marque_id,
-       a.fournisseur_id,
-       c.name category_name,
-       m.name marque_name,
-       f.nom fournisseur_name,
-       (
-         SELECT ai.url
-         FROM article_images ai
-         WHERE ai.article_id=a.id
-         ORDER BY ai.is_primary DESC, ai.sort_order ASC, ai.id ASC
-         LIMIT 1
-       ) image_url,
-       (SELECT COALESCE(SUM(l.quantity_remaining),0)
-        FROM product_stock_lots l
-        WHERE l.article_id=a.id) lot_stock
-     FROM articles a
-     LEFT JOIN categories c ON c.id=a.category_id
-     LEFT JOIN marques m ON m.id=a.marque_id
-     LEFT JOIN fournisseurs f ON f.id=a.fournisseur_id
-     ${where}
-     ORDER BY a.id DESC`, params);
+    `SELECT a.id,a.code,a.sku,a.name,a.price,a.old_price,a.purchase_price,a.stock,a.stock_enabled,
+            f.nom fournisseur_name,
+            (SELECT COALESCE(SUM(l.quantity_remaining),0) FROM product_stock_lots l WHERE l.article_id=a.id) lot_stock
+     FROM articles a LEFT JOIN fournisseurs f ON f.id=a.fournisseur_id
+     ${where} ORDER BY a.id DESC`, params);
   res.json({ ok: true, data: rows });
 }
 

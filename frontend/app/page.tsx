@@ -112,8 +112,11 @@ function HomePageContent() {
 
     Promise.all([
       fetchCategories(locale),
-      fetchCatalog({ limit: 12 }, locale),
-      fetchCatalog({ promotion: 1, limit: 12 }, locale),
+      // Derniers produits ajoutés dans la base de données
+      fetchCatalog({ limit: 12, sort: "latest" }, locale),
+
+      // Uniquement les articles liés à une promotion active
+      fetchCatalog({ promotion: 1, limit: 12, sort: "latest" }, locale),
     ])
       .then(
         ([
@@ -1241,14 +1244,14 @@ function HomePageContent() {
           >
 
             <SectionHeading
-              badge="Sélection DOCTECH"
+              badge={text("Nouveautés", "وصل حديثا")}
               title={text(
-                "Nos produits populaires",
-                "منتجاتنا الأكثر طلبا"
+                "Derniers produits ajoutés",
+                "أحدث المنتجات المضافة"
               )}
               description={text(
-                "Découvrez une sélection de produits appréciés par nos clients.",
-                "اكتشف مجموعة من المنتجات المفضلة لدى عملائنا."
+                "Découvrez les derniers produits ajoutés dans notre catalogue.",
+                "اكتشف أحدث المنتجات المضافة إلى الكتالوج."
               )}
               href="/articles"
               link={text(
@@ -1262,7 +1265,7 @@ function HomePageContent() {
               <LuxuryInfiniteCarousel
                 duration={36}
                 gap={16}
-                ariaLabel="Produits populaires DOCTECH"
+                ariaLabel="Derniers produits DOCTECH"
                 viewportClassName="py-3"
                 itemClassName="
                   w-[min(82vw,310px)]

@@ -60,6 +60,10 @@ async function articles(req, res) {
     params,
   );
 
+  const orderBy = req.query.sort === "latest"
+    ? "a.created_at DESC, a.id DESC"
+    : "a.featured DESC, a.id DESC";
+
   const [rows] = await pool.query(
     `SELECT
        a.id,a.code,a.sku,a.name,a.name_ar,a.short_name,a.short_name_ar,a.slug,
@@ -80,7 +84,7 @@ async function articles(req, res) {
      JOIN categories c ON c.id=a.category_id
      LEFT JOIN marques m ON m.id=a.marque_id
      ${sqlWhere}
-     ORDER BY a.featured DESC,a.id DESC
+     ORDER BY ${orderBy}
      LIMIT ? OFFSET ?`,
     [...params, limit, offset],
   );
