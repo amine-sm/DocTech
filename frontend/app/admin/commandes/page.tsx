@@ -34,6 +34,10 @@ const statuses = [
 type Order = {
   id: number;
   tracking_number?: string;
+  delivery_tracking?: string;
+  delivery_provider?: string;
+  delivery_sync_status?: string;
+  delivery_sync_error?: string;
   customer_name?: string;
   phone?: string;
   wilaya?: string;
@@ -52,6 +56,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [changingStatus, setChangingStatus] = useState<number | null>(null);
+  const [syncingDelivery, setSyncingDelivery] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -98,6 +103,19 @@ export default function Page() {
       alert(e?.message || "Impossible de modifier le statut.");
     } finally {
       setChangingStatus(null);
+    }
+  }
+
+  async function syncDelivery(id: number) {
+    setSyncingDelivery(id);
+    try {
+      await apiFetch(`/commandes/${id}/sync-delivery`, { method: "POST" });
+      await load();
+      if (detail?.id === id) await openOrder(id);
+    } catch (e: any) {
+      alert(e?.message || "Impossible d'envoyer la commande à Elogistia.");
+    } finally {
+      setSyncingDelivery(null);
     }
   }
 
@@ -364,13 +382,29 @@ export default function Page() {
                         {(order.wilaya || order.commune) && (
                           <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-400">
                             <MapPin size={10} />
-
                             {order.wilaya || "—"}
-
-                            {order.commune
-                              ? ` • ${order.commune}`
-                              : ""}
+                            {order.commune ? ` • ${order.commune}` : ""}
                           </span>
+                        )}
+
+                        {order.delivery_type === "HOME" && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            {order.delivery_tracking ? (
+                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-black text-emerald-600">
+                                {order.delivery_tracking}
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => syncDelivery(order.id)}
+                                disabled={syncingDelivery === order.id}
+                                className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-1 text-[8px] font-black text-orange-600 disabled:opacity-50"
+                              >
+                                <RefreshCw size={9} className={syncingDelivery === order.id ? "animate-spin" : ""} />
+                                {syncingDelivery === order.id ? "Envoi…" : "Envoyer Elogistia"}
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -573,6 +607,13 @@ export default function Page() {
                     />
 
                     <InfoCard
+                      icon={<Package size={15} />}
+                      label="Tracking Elogistia"
+                      value={detail.delivery_tracking || "Non synchronisé"}
+                      highlight={Boolean(detail.delivery_tracking)}
+                    />
+
+                    <InfoCard
                       icon={<Clock3 size={15} />}
                       label="Total"
                       value={formatPrice(
@@ -594,6 +635,28 @@ export default function Page() {
                     <p className="mt-2 text-xs font-bold leading-5 text-slate-700">
                       {detail.address}
                     </p>
+                  </div>
+                )}
+
+                {detail.delivery_type === "HOME" && (
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-4">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-wider text-orange-500">Elogistia</p>
+                      <p className="mt-1 text-xs font-bold text-slate-700">
+                        {detail.delivery_tracking ? `Tracking : ${detail.delivery_tracking}` : "Commande non synchronisée avec le transporteur."}
+                      </p>
+                    </div>
+                    {!detail.delivery_tracking && (
+                      <button
+                        type="button"
+                        onClick={() => syncDelivery(detail.id)}
+                        disabled={syncingDelivery === detail.id}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-orange-500 px-4 text-[9px] font-black text-white disabled:opacity-60"
+                      >
+                        <RefreshCw size={13} className={syncingDelivery === detail.id ? "animate-spin" : ""} />
+                        {syncingDelivery === detail.id ? "Synchronisation…" : "Synchroniser"}
+                      </button>
+                    )}
                   </div>
                 )}
 

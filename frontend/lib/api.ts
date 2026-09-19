@@ -1,33 +1,601 @@
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
-const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000").replace(/\/$/, "");
 
-export type ApiResponse<T = unknown> = { ok: boolean; data?: T; user?: T; message?: string; pagination?: { page: number; limit: number; total: number; pages: number }; [key: string]: unknown };
+// lib/api.ts
 
-export class ApiError extends Error { status: number; data?: unknown; constructor(message: string, status = 500, data?: unknown) { super(message); this.name = "ApiError"; this.status = status; this.data = data; } }
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:4000/api";
 
-export function backendUrl(path?: string | null) {
-  if (!path) return "/images/categories/pc-portable.png";
-  if (/^https?:\/\//i.test(path) || path.startsWith("/images/")) return path;
-  return `${BACKEND_URL}${path.startsWith("/") ? "" : "/"}${path}`;
+/**
+ * URL de base du backend sans /api final.
+ *
+ * Exemple :
+ * API_URL = http://localhost:4000/api
+ *
+ * backendUrl("/uploads/test.jpg")
+ * =>
+ * http://localhost:4000/uploads/test.jpg
+ */
+export function backendUrl(path?: string | null): string {
+  if (!path) return "";
+
+  if (
+    path.startsWith("http://") ||
+    path.startsWith("https://") ||
+    path.startsWith("data:") ||
+    path.startsWith("blob:")
+  ) {
+    return path;
+  }
+
+  const backendBase = API_URL.replace(/\/api\/?$/, "");
+
+  const cleanPath = path.startsWith("/")
+    ? path
+    : `/${path}`;
+
+  return `${backendBase}${cleanPath}`;
 }
 
-export async function apiFetch<T = unknown>(path: string, options: RequestInit & { bodyJson?: unknown } = {}): Promise<ApiResponse<T>> {
-  const { bodyJson, headers, ...rest } = options;
-  const response = await fetch(`${API_URL}${path.startsWith("/") ? path : `/${path}`}`, {
-    ...rest,
+/**
+ * URL complète de l'API.
+ *
+ * Exemple :
+ * apiUrl("/auth/me")
+ * =>
+ * http://localhost:4000/api/auth/me
+ */
+export function apiUrl(path: string): string {
+  if (!path) return API_URL;
+
+  if (
+    path.startsWith("http://") ||
+    path.startsWith("https://")
+  ) {
+    return path;
+  }
+
+  const cleanBase = API_URL.replace(/\/+$/, "");
+
+  const cleanPath = path.startsWith("/")
+    ? path
+    : `/${path}`;
+
+  return `${cleanBase}${cleanPath}`;
+}
+
+/**
+ * Options personnalisées pour apiFetch.
+ */
+type ApiFetchOptions = RequestInit & {
+  bodyJson?: unknown;
+};
+
+/**
+ * Récupération du JWT stocké côté navigateur.
+ */
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+
+  return (
+    sessionStorage.getItem("doctech_access_token") ||
+    localStorage.getItem("doctech_access_token")
+  );
+}
+
+/**
+ * API principale.
+ *
+ * Supporte :
+ * - JWT Bearer
+ * - Cookie HttpOnly
+ * - JSON
+ * - FormData
+ * - GET / POST / PUT / PATCH / DELETE
+ */
+export async function apiFetch<T = any>(
+  path: string,
+  options: ApiFetchOptions = {}
+): Promise<T> {
+  const {
+    bodyJson,
+    headers: customHeaders,
+    ...fetchOptions
+  } = options;
+
+  const headers = new Headers(customHeaders);
+
+  headers.set("Accept", "application/json");
+
+  /**
+   * JSON
+   */
+  if (bodyJson !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  /**
+   * JWT fallback.
+   */
+  const token = getStoredToken();
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  /**
+   * Ne pas définir Content-Type manuellement
+   * pour FormData.
+   */
+  if (fetchOptions.body instanceof FormData) {
+    headers.delete("Content-Type");
+  }
+
+  const response = await fetch(apiUrl(path), {
+    ...fetchOptions,
+
+    /**
+     * Permet d'envoyer le cookie JWT HttpOnly.
+     */
     credentials: "include",
-    headers: { ...(bodyJson !== undefined ? { "Content-Type": "application/json" } : {}), ...headers },
-    body: bodyJson !== undefined ? JSON.stringify(bodyJson) : options.body,
+
+    headers,
+
+    body:
+      bodyJson !== undefined
+        ? JSON.stringify(bodyJson)
+        : fetchOptions.body,
   });
-  const text = await response.text();
-  let payload: ApiResponse<T> = { ok: response.ok };
-  if (text) { try { payload = JSON.parse(text); } catch { payload = { ok: response.ok, message: text }; } }
-  if (!response.ok) throw new ApiError(payload.message || `Erreur HTTP ${response.status}`, response.status, payload);
-  return payload;
+
+  /**
+   * Lecture de la réponse.
+   */
+  let data: any = null;
+
+  try {
+    const contentType =
+      response.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text;
+        }
+      }
+    }
+  } catch {
+    data = null;
+  }
+
+  /**
+   * Gestion des erreurs.
+   */
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        data?.error ||
+        `Erreur API ${response.status}`
+    );
+  }
+
+  return data as T;
 }
 
-export async function uploadImage(file: File) {
-  const form = new FormData(); form.append("image", file);
-  const result = await apiFetch<{ url: string }>("/uploads/image", { method: "POST", body: form });
-  return result.data;
+/**
+ * GET
+ */
+export async function apiGet<T = any>(
+  path: string,
+  options: ApiFetchOptions = {}
+): Promise<T> {
+  return apiFetch<T>(path, {
+    ...options,
+    method: "GET",
+  });
 }
+
+/**
+ * POST
+ *
+ * Exemple :
+ *
+ * apiPost("/products", {
+ *   name: "Clavier",
+ *   price: 3500
+ * })
+ */
+export async function apiPost<T = any>(
+  path: string,
+  body?: unknown,
+  options: ApiFetchOptions = {}
+): Promise<T> {
+  /**
+   * Si FormData, on l'envoie directement.
+   */
+  if (body instanceof FormData) {
+    return apiFetch<T>(path, {
+      ...options,
+      method: "POST",
+      body,
+    });
+  }
+
+  return apiFetch<T>(path, {
+    ...options,
+    method: "POST",
+    bodyJson: body,
+  });
+}
+
+/**
+ * PUT
+ */
+export async function apiPut<T = any>(
+  path: string,
+  body?: unknown,
+  options: ApiFetchOptions = {}
+): Promise<T> {
+  if (body instanceof FormData) {
+    return apiFetch<T>(path, {
+      ...options,
+      method: "PUT",
+      body,
+    });
+  }
+
+  return apiFetch<T>(path, {
+    ...options,
+    method: "PUT",
+    bodyJson: body,
+  });
+}
+
+/**
+ * PATCH
+ */
+export async function apiPatch<T = any>(
+  path: string,
+  body?: unknown,
+  options: ApiFetchOptions = {}
+): Promise<T> {
+  if (body instanceof FormData) {
+    return apiFetch<T>(path, {
+      ...options,
+      method: "PATCH",
+      body,
+    });
+  }
+
+  return apiFetch<T>(path, {
+    ...options,
+    method: "PATCH",
+    bodyJson: body,
+  });
+}
+
+/**
+ * DELETE
+ */
+export async function apiDelete<T = any>(
+  path: string,
+  options: ApiFetchOptions = {}
+): Promise<T> {
+  return apiFetch<T>(path, {
+    ...options,
+    method: "DELETE",
+  });
+}
+
+/**
+ * UPLOAD IMAGE
+ *
+ * Backend :
+ *
+ * POST /api/upload
+ *
+ * FormData :
+ * image = File
+ *
+ * Le backend peut retourner :
+ *
+ * {
+ *   "url": "/uploads/image.jpg"
+ * }
+ *
+ * ou :
+ *
+ * {
+ *   "imageUrl": "/uploads/image.jpg"
+ * }
+ */
+export async function uploadImage(
+  file: File,
+  fieldName = "image"
+): Promise<string> {
+  if (!file) {
+    throw new Error("Aucune image sélectionnée.");
+  }
+
+  const formData = new FormData();
+  formData.append(fieldName, file);
+
+  const token = getStoredToken();
+
+  const headers = new Headers();
+  headers.set("Accept", "application/json");
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  /**
+   * IMPORTANT :
+   * Ne jamais définir Content-Type manuellement
+   * pour FormData.
+   */
+  const response = await fetch(
+    apiUrl("/uploads/image"),
+    {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: formData,
+    }
+  );
+
+  let data: any = null;
+
+  try {
+    const contentType =
+      response.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text;
+        }
+      }
+    }
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+      data?.error ||
+      `Erreur upload ${response.status}`
+    );
+  }
+
+  /**
+   * Backend actuel :
+   *
+   * {
+   *   ok: true,
+   *   data: {
+   *     filename: "...",
+   *     url: "http://localhost:4000/uploads/..."
+   *   }
+   * }
+   */
+  const imagePath =
+    data?.data?.url ||
+    data?.url ||
+    data?.imageUrl ||
+    data?.image ||
+    data?.path ||
+    data?.file?.url;
+
+  if (!imagePath) {
+    throw new Error(
+      "L'upload a réussi mais aucune URL d'image n'a été retournée par le serveur."
+    );
+  }
+
+  /**
+   * URL absolue
+   */
+  if (
+    typeof imagePath === "string" &&
+    (
+      imagePath.startsWith("http://") ||
+      imagePath.startsWith("https://")
+    )
+  ) {
+    return imagePath;
+  }
+
+  /**
+   * URL relative
+   */
+  return backendUrl(String(imagePath));
+}
+
+/**
+ * UPLOAD MULTIPLE IMAGES
+ *
+ * Backend :
+ * POST /api/upload
+ *
+ * Plusieurs fichiers avec :
+ * images[]
+ */
+export async function uploadImages(
+  files: File[],
+  fieldName = "images"
+): Promise<string[]> {
+  if (!files || files.length === 0) {
+    return [];
+  }
+
+  const formData = new FormData();
+
+  for (const file of files) {
+    formData.append(fieldName, file);
+  }
+
+  const token = getStoredToken();
+
+  const headers = new Headers();
+
+  headers.set("Accept", "application/json");
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(
+    apiUrl("/upload"),
+    {
+      method: "POST",
+
+      credentials: "include",
+
+      headers,
+
+      body: formData,
+    }
+  );
+
+  let data: any = null;
+
+  try {
+    const contentType =
+      response.headers.get("content-type") || "";
+
+    if (contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text;
+        }
+      }
+    }
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        data?.error ||
+        `Erreur upload ${response.status}`
+    );
+  }
+
+  const images =
+    data?.urls ||
+    data?.images ||
+    data?.files ||
+    data?.data ||
+    [];
+
+  if (!Array.isArray(images)) {
+    throw new Error(
+      "Le serveur n'a pas retourné une liste d'images valide."
+    );
+  }
+
+  return images
+    .map((item: any) => {
+      const value =
+        typeof item === "string"
+          ? item
+          : item?.url ||
+            item?.imageUrl ||
+            item?.path;
+
+      if (!value) return null;
+
+      if (
+        value.startsWith("http://") ||
+        value.startsWith("https://")
+      ) {
+        return value;
+      }
+
+      return backendUrl(value);
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Convertit une URL d'image relative
+ * en URL complète.
+ *
+ * Exemple :
+ *
+ * imageUrl("/uploads/test.jpg")
+ *
+ * =>
+ * http://localhost:4000/uploads/test.jpg
+ */
+export function imageUrl(
+  value?: string | null
+): string {
+  if (!value) return "";
+
+  if (
+    value.startsWith("http://") ||
+    value.startsWith("https://") ||
+    value.startsWith("data:") ||
+    value.startsWith("blob:")
+  ) {
+    return value;
+  }
+
+  return backendUrl(value);
+}
+
+/**
+ * Vérifie si une URL est absolue.
+ */
+export function isAbsoluteUrl(
+  value: string
+): boolean {
+  return (
+    value.startsWith("http://") ||
+    value.startsWith("https://")
+  );
+}
+
+/**
+ * Récupère data si l'API retourne :
+ *
+ * {
+ *   data: [...]
+ * }
+ *
+ * sinon retourne directement la réponse.
+ */
+export function unwrap<T = any>(
+  response: any
+): T {
+  if (
+    response &&
+    typeof response === "object" &&
+    "data" in response
+  ) {
+    return response.data as T;
+  }
+
+  return response as T;
+}
+

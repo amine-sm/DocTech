@@ -48,6 +48,21 @@ export default function AdminShell({
   const router = useRouter();
   const { text } = useLocale();
 
+  /**
+   * IMPORTANT :
+   * Next peut retourner :
+   *
+   * /admin/connexion
+   *
+   * ou :
+   *
+   * /admin/connexion/
+   *
+   * On normalise donc le chemin pour éviter que
+   * la page de connexion appelle /api/auth/me.
+   */
+  const normalizedPath = path.replace(/\/+$/, "") || "/";
+
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [ready, setReady] = useState(false);
@@ -132,29 +147,48 @@ export default function AdminShell({
     },
   ];
 
+  /**
+   * AUTHENTIFICATION
+   *
+   * La page /admin/connexion ne doit jamais appeler /auth/me.
+   *
+   * On utilise normalizedPath afin de gérer :
+   * /admin/connexion
+   * /admin/connexion/
+   */
   useEffect(() => {
-    if (path === "/admin/connexion") {
+    if (normalizedPath === "/admin/connexion") {
       setReady(true);
       return;
     }
 
     let alive = true;
 
+    setReady(false);
+
     getMe()
       .then((result) => {
         if (!alive) return;
 
-        setUser((result.user || result.data) as SessionUser);
+        const currentUser =
+          result?.user || result?.data || null;
+
+        setUser(currentUser as SessionUser);
         setReady(true);
       })
       .catch(() => {
+        if (!alive) return;
+
+        setUser(null);
+        setReady(true);
+
         router.replace("/admin/connexion");
       });
 
     return () => {
       alive = false;
     };
-  }, [router, path]);
+  }, [router, normalizedPath]);
 
   async function signOut() {
     try {
@@ -171,10 +205,20 @@ export default function AdminShell({
     }, {});
   }, []);
 
-  if (path === "/admin/connexion") {
+  /**
+   * La page de connexion est publique.
+   *
+   * IMPORTANT :
+   * Utiliser normalizedPath ici pour accepter
+   * /admin/connexion et /admin/connexion/
+   */
+  if (normalizedPath === "/admin/connexion") {
     return <>{children}</>;
   }
 
+  /**
+   * Loader pendant la vérification de session.
+   */
   if (!ready) {
     return (
       <div className="grid min-h-screen place-items-center bg-[#f4f7fb]">
@@ -203,6 +247,7 @@ export default function AdminShell({
       >
 
         {/* Background decorations */}
+
         <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[#60A5FA]/15 blur-3xl" />
 
         <div className="absolute -left-24 bottom-32 h-64 w-64 rounded-full bg-[#FE5737]/10 blur-3xl" />
@@ -220,7 +265,7 @@ export default function AdminShell({
           >
 
             {/* =================================================== */}
-            {/* DOCTECH LOGO - REMPLACE LE D */}
+            {/* DOCTECH LOGO */}
             {/* =================================================== */}
 
             <span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white shadow-lg shadow-black/10">
@@ -237,6 +282,7 @@ export default function AdminShell({
             </span>
 
             {/* DOCTECH TEXT */}
+
             <span>
               <span className="block text-[19px] font-black tracking-tight">
                 DOC
@@ -251,6 +297,7 @@ export default function AdminShell({
           </Link>
 
           {/* Mobile close */}
+
           <button
             aria-label="Fermer"
             onClick={() => setOpen(false)}
@@ -278,9 +325,9 @@ export default function AdminShell({
 
                 {items.map(({ label, ar, href, icon: Icon }) => {
                   const active =
-                    path === href ||
+                    normalizedPath === href ||
                     (href !== "/admin/dashboard" &&
-                      path.startsWith(href + "/"));
+                      normalizedPath.startsWith(href + "/"));
 
                   return (
                     <Link
@@ -295,11 +342,13 @@ export default function AdminShell({
                     >
 
                       {/* Active indicator */}
+
                       {active && (
                         <span className="absolute inset-y-2 start-0 w-1 rounded-e-full bg-[#60A5FA]" />
                       )}
 
                       {/* Icon */}
+
                       <span
                         className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl transition ${
                           active
@@ -311,11 +360,13 @@ export default function AdminShell({
                       </span>
 
                       {/* Label */}
+
                       <span className="flex-1">
                         {text(label, ar)}
                       </span>
 
                       {/* Arrow */}
+
                       <ChevronRight
                         size={14}
                         className={`opacity-30 transition-transform rtl-flip ${
@@ -378,6 +429,7 @@ export default function AdminShell({
       </aside>
 
       {/* Mobile overlay */}
+
       {open && (
         <button
           aria-label="Fermer le menu"
@@ -401,6 +453,7 @@ export default function AdminShell({
           <div className="flex h-[72px] items-center gap-3 px-4 sm:px-6 lg:px-8">
 
             {/* Mobile menu */}
+
             <button
               onClick={() => setOpen(true)}
               className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm lg:hidden"
@@ -409,6 +462,7 @@ export default function AdminShell({
             </button>
 
             {/* Breadcrumb */}
+
             <div className="hidden min-w-0 sm:block">
 
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.16em] text-slate-400">
@@ -428,6 +482,7 @@ export default function AdminShell({
             </div>
 
             {/* Search */}
+
             <div className="mx-auto hidden max-w-xl flex-1 md:block md:px-8">
 
               <div className="flex h-10 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 text-slate-400 transition focus-within:border-[#60A5FA]/40 focus-within:bg-white">
@@ -449,6 +504,7 @@ export default function AdminShell({
             </div>
 
             {/* Right actions */}
+
             <div className="ms-auto flex items-center gap-2">
 
               <button className="relative grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:text-[#2563EB]">

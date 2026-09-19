@@ -31,6 +31,15 @@ async function run(){
   await conn.query(`INSERT IGNORE INTO role_permissions(role_id,permission_id) SELECT r.id,p.id FROM roles r JOIN permissions p ON p.code IN ('stock.view','stock.create') WHERE r.code='OPERATEUR'`);
   const [[{missing}]]=await conn.query(`SELECT COUNT(*) missing FROM articles a WHERE a.stock>0 AND NOT EXISTS(SELECT 1 FROM product_stock_lots l WHERE l.article_id=a.id)`);
   if(Number(missing)>0){await conn.query(`INSERT INTO product_stock_lots(article_id,quantity_initial,quantity_remaining,purchase_price,selling_price,supplier_id,reference,notes) SELECT a.id,a.stock,a.stock,a.purchase_price,a.price,a.fournisseur_id,'MIGRATION','Lot initial créé automatiquement lors de la mise à niveau' FROM articles a WHERE a.stock>0 AND NOT EXISTS(SELECT 1 FROM product_stock_lots l WHERE l.article_id=a.id)`); console.log(`[MIGRATION] ${missing} article(s) converti(s) en lot initial.`);}
+  await addColumn(conn,'commandes','delivery_provider','VARCHAR(30) NULL','delivery_type');
+  await addColumn(conn,'commandes','delivery_tracking','VARCHAR(120) NULL','delivery_provider');
+  await addColumn(conn,'commandes','delivery_sync_status',"ENUM('PENDING','SYNCED','ERROR') NOT NULL DEFAULT 'PENDING'",'delivery_tracking');
+  await addColumn(conn,'commandes','delivery_sync_error','TEXT NULL','delivery_sync_status');
+  await addColumn(conn,'commandes','delivery_synced_at','DATETIME NULL','delivery_sync_error');
+  await addColumn(conn,'commandes','delivery_wilaya_id','VARCHAR(30) NULL','wilaya');
+  await addColumn(conn,'commandes','delivery_commune_id','VARCHAR(30) NULL','commune');
+  await addColumn(conn,'commandes','delivery_mode','VARCHAR(30) NULL','delivery_commune_id');
+  await addColumn(conn,'commandes','delivery_stop_desk','VARCHAR(30) NULL','delivery_mode');
   console.log('Mise à jour stock terminée.');
  }finally{await conn.end();}
 }

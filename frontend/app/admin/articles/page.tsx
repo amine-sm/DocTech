@@ -12,29 +12,49 @@ import {
   Eye,
   Grid3X3,
   Image as ImageIcon,
+  ImagePlus,
   Package,
   Plus,
   RefreshCw,
   Search,
+  Save,
   Table2,
   Tag,
   Trash2,
   TrendingUp,
+  Upload,
+  X,
   XCircle,
-  Save,
 } from "lucide-react";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { apiFetch, backendUrl } from "@/lib/api";
+import {
+  apiFetch,
+  backendUrl,
+  uploadImage,
+} from "@/lib/api";
 import { formatPrice } from "@/lib/catalog";
+
+/* =========================================================
+   TYPES
+========================================================= */
+
+type ArticleImage = {
+  id?: number;
+  url: string;
+  alt_text?: string | null;
+  alt_text_ar?: string | null;
+  is_primary?: boolean | number | null;
+  sort_order?: number | null;
+};
 
 type Article = {
   id: number;
+
   name: string;
   name_ar?: string | null;
 
-  code?: string | null;
-  sku?: string | null;
+  slug?: string | null;
 
   price?: number | string | null;
   old_price?: number | string | null;
@@ -46,6 +66,7 @@ type Article = {
   status?: string | null;
 
   image_url?: string | null;
+  images?: ArticleImage[];
 
   category_id?: number | null;
   category_name?: string | null;
@@ -62,15 +83,37 @@ type Article = {
   updated_at?: string | null;
 };
 
-type ApiResult = {
-  data?: any;
-  message?: string;
-  success?: boolean;
+type ArticleForm = {
+  name: string;
+  nameAr: string;
+  slug: string;
+  imageUrl: string;
+  images: ArticleImage[];
+
+  price: string;
+  oldPrice: string;
+  purchasePrice: string;
+
+  stock: string;
+
+  categoryId: string;
+  marqueId: string;
+  fournisseurId: string;
+
+  status: string;
+  featured: boolean;
 };
+
+/* =========================================================
+   HELPERS
+========================================================= */
 
 function toNumber(value: any): number {
   const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
+
+  return Number.isFinite(number)
+    ? number
+    : 0;
 }
 
 function isTrue(value: any): boolean {
@@ -82,22 +125,58 @@ function isTrue(value: any): boolean {
   );
 }
 
+/**
+ * Génère automatiquement un slug propre.
+ *
+ * Exemple :
+ *
+ * Bosch Perceuse Professionnelle
+ * ->
+ * bosch-perceuse-professionnelle
+ */
+function generateSlug(
+  value: string
+): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
 function getPaginationPages(
   currentPage: number,
   totalPages: number
 ): (number | "...")[] {
   if (totalPages <= 7) {
     return Array.from(
-      { length: totalPages },
+      {
+        length: totalPages,
+      },
       (_, i) => i + 1
     );
   }
 
   if (currentPage <= 4) {
-    return [1, 2, 3, 4, 5, "...", totalPages];
+    return [
+      1,
+      2,
+      3,
+      4,
+      5,
+      "...",
+      totalPages,
+    ];
   }
 
-  if (currentPage >= totalPages - 3) {
+  if (
+    currentPage >=
+    totalPages - 3
+  ) {
     return [
       1,
       "...",
@@ -120,8 +199,12 @@ function getPaginationPages(
   ];
 }
 
-function normalizeStatus(status?: string | null) {
-  const value = String(status || "")
+function normalizeStatus(
+  status?: string | null
+) {
+  const value = String(
+    status || ""
+  )
     .toLowerCase()
     .trim();
 
@@ -146,12 +229,17 @@ function normalizeStatus(status?: string | null) {
   return value || "active";
 }
 
+/* =========================================================
+   STATUS BADGE
+========================================================= */
+
 function StatusBadge({
   status,
 }: {
   status?: string | null;
 }) {
-  const normalized = normalizeStatus(status);
+  const normalized =
+    normalizeStatus(status);
 
   if (normalized === "active") {
     return (
@@ -162,11 +250,24 @@ function StatusBadge({
     );
   }
 
-  if (normalized === "inactive") {
+  if (
+    normalized === "inactive"
+  ) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
         <XCircle size={13} />
         Inactif
+      </span>
+    );
+  }
+
+  if (
+    normalized === "rupture"
+  ) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
+        <XCircle size={13} />
+        Rupture
       </span>
     );
   }
@@ -179,6 +280,10 @@ function StatusBadge({
   );
 }
 
+/* =========================================================
+   IMAGE PREVIEW
+========================================================= */
+
 function ImagePreview({
   article,
   large = false,
@@ -186,7 +291,8 @@ function ImagePreview({
   article: Article;
   large?: boolean;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] =
+    useState(false);
 
   const src = article.image_url
     ? backendUrl(article.image_url)
@@ -197,7 +303,9 @@ function ImagePreview({
       <div
         className={[
           "flex shrink-0 items-center justify-center rounded-2xl bg-slate-100",
-          large ? "h-24 w-24" : "h-20 w-20",
+          large
+            ? "h-24 w-24"
+            : "h-20 w-20",
         ].join(" ")}
       >
         <ImageIcon
@@ -212,252 +320,143 @@ function ImagePreview({
     <div
       className={[
         "shrink-0 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm",
-        large ? "h-24 w-24" : "h-20 w-20",
+        large
+          ? "h-24 w-24"
+          : "h-20 w-20",
       ].join(" ")}
     >
       <img
         src={src}
-        alt={article.name || "Article"}
-        onError={() => setFailed(true)}
+        alt={
+          article.name ||
+          "Article"
+        }
+        onError={() =>
+          setFailed(true)
+        }
         className="h-full w-full object-contain p-2"
       />
     </div>
   );
 }
 
+/* =========================================================
+   FIELD
+========================================================= */
+
+function Field({
+  label,
+  children,
+  dir,
+}: {
+  label: string;
+  children: React.ReactNode;
+  dir?: "ltr" | "rtl";
+}) {
+  return (
+    <label
+      className="block"
+      dir={dir}
+    >
+      <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+
+      <div className="mt-2">
+        {children}
+      </div>
+    </label>
+  );
+}
+
+/* =========================================================
+   PAGE
+========================================================= */
+
 export default function ArticlesPage() {
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  /* =======================================================
+     DATA
+  ======================================================= */
 
-  const [error, setError] = useState("");
+  const [articles, setArticles] =
+    useState<Article[]>([]);
 
-  const [search, setSearch] = useState("");
-  const [searchInput, setSearchInput] = useState("");
+  const [categories, setCategories] =
+    useState<any[]>([]);
 
-  const [viewMode, setViewMode] = useState<
-    "table" | "cards"
-  >("table");
+  const [marques, setMarques] =
+    useState<any[]>([]);
 
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [fournisseurs, setFournisseurs] =
+    useState<any[]>([]);
 
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  /* =======================================================
+     LOADING
+  ======================================================= */
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+  const [savingArticle, setSavingArticle] =
+    useState(false);
+
+  const [uploadingImage, setUploadingImage] =
+    useState(false);
 
   const [deletingId, setDeletingId] =
     useState<number | null>(null);
 
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingArticle, setEditingArticle] =
-    useState<Article | null>(null);
-  const [savingArticle, setSavingArticle] =
-    useState(false);
-  const [formError, setFormError] = useState("");
+  /* =======================================================
+     ERRORS
+  ======================================================= */
 
-  const [categories, setCategories] = useState<any[]>([]);
-  const [marques, setMarques] = useState<any[]>([]);
-  const [fournisseurs, setFournisseurs] =
-    useState<any[]>([]);
+  const [error, setError] =
+    useState("");
 
-  const emptyArticleForm = {
-    name: "",
-    nameAr: "",
-    code: "",
-    sku: "",
-    price: "",
-    oldPrice: "",
-    purchasePrice: "",
-    stock: "0",
-    categoryId: "",
-    marqueId: "",
-    fournisseurId: "",
-    status: "ACTIF",
-    featured: false,
-  };
+  const [formError, setFormError] =
+    useState("");
 
-  const [articleForm, setArticleForm] =
-    useState(emptyArticleForm);
+  /* =======================================================
+     SEARCH
+  ======================================================= */
 
-  async function loadLists() {
-    try {
-      const [c, m, f] = await Promise.all([
-        apiFetch<any>("/categories?limit=200"),
-        apiFetch<any>("/marques?limit=200"),
-        apiFetch<any>("/fournisseurs?limit=200"),
-      ]);
+  const [search, setSearch] =
+    useState("");
 
-      const rows = (x: any) => {
-        const d = x?.data ?? x;
-        return Array.isArray(d)
-          ? d
-          : d?.rows || d?.data || [];
-      };
+  const [searchInput, setSearchInput] =
+    useState("");
 
-      setCategories(rows(c));
-      setMarques(rows(m));
-      setFournisseurs(rows(f));
-    } catch {
-      // Les listes restent facultatives.
-    }
-  }
+  /* =======================================================
+     VIEW
+  ======================================================= */
 
-  async function openCreateModal() {
-    setEditingArticle(null);
-    setArticleForm({ ...emptyArticleForm });
-    setFormError("");
-    setFormOpen(true);
+  const [viewMode, setViewMode] =
+    useState<
+      "table" | "cards"
+    >("table");
 
-    await loadLists();
-  }
+  /* =======================================================
+     PAGINATION
+  ======================================================= */
 
-  async function openEditModal(article: Article) {
-    setEditingArticle(article);
-    setFormError("");
+  const [page, setPage] =
+    useState(1);
 
-    setArticleForm({
-      name: article.name || "",
-      nameAr: article.name_ar || "",
-      code: article.code || "",
-      sku: article.sku || "",
-      price:
-        article.price != null
-          ? String(article.price)
-          : "",
-      oldPrice:
-        article.old_price != null
-          ? String(article.old_price)
-          : "",
-      purchasePrice:
-        article.purchase_price != null
-          ? String(article.purchase_price)
-          : "",
-      stock:
-        article.stock != null
-          ? String(article.stock)
-          : "0",
-      categoryId:
-        article.category_id != null
-          ? String(article.category_id)
-          : "",
-      marqueId:
-        article.marque_id != null
-          ? String(article.marque_id)
-          : "",
-      fournisseurId:
-        article.fournisseur_id != null
-          ? String(article.fournisseur_id)
-          : "",
-      status: String(
-        article.status || "ACTIF"
-      ).toUpperCase(),
-      featured: isTrue(article.featured),
-    });
+  const [limit, setLimit] =
+    useState(10);
 
-    setFormOpen(true);
+  const [total, setTotal] =
+    useState(0);
 
-    await loadLists();
-  }
+  const [totalPages, setTotalPages] =
+    useState(1);
 
-  async function saveArticle() {
-    if (!articleForm.name.trim()) {
-      setFormError(
-        "Le nom de l'article est obligatoire."
-      );
-      return;
-    }
-
-    if (
-      !articleForm.price ||
-      Number(articleForm.price) < 0
-    ) {
-      setFormError(
-        "Veuillez saisir un prix valide."
-      );
-      return;
-    }
-
-    if (
-      articleForm.stock !== "" &&
-      Number(articleForm.stock) < 0
-    ) {
-      setFormError(
-        "Le stock ne peut pas être négatif."
-      );
-      return;
-    }
-
-    const body = {
-      name: articleForm.name.trim(),
-      nameAr:
-        articleForm.nameAr.trim() || null,
-      code:
-        articleForm.code.trim() || null,
-      sku:
-        articleForm.sku.trim() || null,
-      price: Number(articleForm.price),
-      oldPrice: articleForm.oldPrice
-        ? Number(articleForm.oldPrice)
-        : null,
-      purchasePrice: articleForm.purchasePrice
-        ? Number(articleForm.purchasePrice)
-        : null,
-      stock:
-        articleForm.stock === ""
-          ? 0
-          : Number(articleForm.stock),
-      categoryId: articleForm.categoryId
-        ? Number(articleForm.categoryId)
-        : null,
-      marqueId: articleForm.marqueId
-        ? Number(articleForm.marqueId)
-        : null,
-      fournisseurId:
-        articleForm.fournisseurId
-          ? Number(articleForm.fournisseurId)
-          : null,
-      status: articleForm.status,
-      featured: articleForm.featured,
-    };
-
-    try {
-      setSavingArticle(true);
-      setFormError("");
-
-      if (editingArticle) {
-        await apiFetch(
-          `/articles/${editingArticle.id}`,
-          {
-            method: "PATCH",
-            bodyJson: body,
-          }
-        );
-      } else {
-        await apiFetch("/articles", {
-          method: "POST",
-          bodyJson: body,
-        });
-      }
-
-      setFormOpen(false);
-
-      await loadArticles({
-        page: editingArticle ? page : 1,
-        refresh: true,
-      });
-
-      if (!editingArticle) {
-        setPage(1);
-      }
-    } catch (err: any) {
-      setFormError(
-        err?.message ||
-          "Impossible d'enregistrer l'article."
-      );
-    } finally {
-      setSavingArticle(false);
-    }
-  }
+  /* =======================================================
+     FILTERS
+  ======================================================= */
 
   const [selectedStatus, setSelectedStatus] =
     useState<
@@ -466,19 +465,290 @@ export default function ArticlesPage() {
 
   const [selectedStock, setSelectedStock] =
     useState<
-      "all" | "available" | "low" | "out"
+      | "all"
+      | "available"
+      | "low"
+      | "out"
     >("all");
 
-  async function loadArticles(options?: {
-    page?: number;
-    search?: string;
-    limit?: number;
-    refresh?: boolean;
-  }) {
+  /* =======================================================
+     MODAL
+  ======================================================= */
+
+  const [formOpen, setFormOpen] =
+    useState(false);
+
+  const [editingArticle, setEditingArticle] =
+    useState<Article | null>(null);
+
+  /* =======================================================
+     EMPTY FORM
+  ======================================================= */
+
+  const emptyArticleForm: ArticleForm =
+    {
+      name: "",
+      nameAr: "",
+      slug: "",
+      imageUrl: "",
+      images: [],
+
+      price: "",
+      oldPrice: "",
+      purchasePrice: "",
+
+      stock: "0",
+
+      categoryId: "",
+      marqueId: "",
+      fournisseurId: "",
+
+      status: "ACTIF",
+
+      featured: false,
+    };
+
+  const [articleForm, setArticleForm] =
+    useState<ArticleForm>(
+      emptyArticleForm
+    );
+
+  /* =======================================================
+     LOAD LISTS
+  ======================================================= */
+
+  async function loadLists() {
+    try {
+      const [
+        categoriesResult,
+        marquesResult,
+        fournisseursResult,
+      ] = await Promise.all([
+        apiFetch<any>(
+          "/categories?limit=200"
+        ),
+
+        apiFetch<any>(
+          "/marques?limit=200"
+        ),
+
+        apiFetch<any>(
+          "/fournisseurs?limit=200"
+        ),
+      ]);
+
+      const rows = (result: any) => {
+        const data =
+          result?.data ??
+          result;
+
+        if (Array.isArray(data)) {
+          return data;
+        }
+
+        if (
+          Array.isArray(
+            data?.rows
+          )
+        ) {
+          return data.rows;
+        }
+
+        if (
+          Array.isArray(
+            data?.data
+          )
+        ) {
+          return data.data;
+        }
+
+        return [];
+      };
+
+      setCategories(
+        rows(categoriesResult)
+      );
+
+      setMarques(
+        rows(marquesResult)
+      );
+
+      setFournisseurs(
+        rows(fournisseursResult)
+      );
+    } catch (err) {
+      console.error(
+        "Erreur chargement listes:",
+        err
+      );
+    }
+  }
+
+  /* =======================================================
+     OPEN CREATE
+  ======================================================= */
+
+  async function openCreateModal() {
+    setEditingArticle(null);
+
+    setArticleForm({
+      ...emptyArticleForm,
+    });
+
+    setFormError("");
+
+    setFormOpen(true);
+
+    await loadLists();
+  }
+
+  /* =======================================================
+     OPEN EDIT
+  ======================================================= */
+
+  async function openEditModal(
+    article: Article
+  ) {
+    setEditingArticle(article);
+    setFormError("");
+    setFormOpen(true);
+
+    try {
+      const [detailResult] = await Promise.all([
+        apiFetch<any>(`/articles/${article.id}`),
+        loadLists(),
+      ]);
+
+      const detail = detailResult?.data ?? detailResult ?? article;
+      const rawImages = Array.isArray(detail?.images) ? detail.images : [];
+      const images: ArticleImage[] = rawImages.map((image: any, index: number) => ({
+        id: Number(image.id),
+        url: String(image.url || image.image_url || ""),
+        alt_text: image.alt_text ?? null,
+        alt_text_ar: image.alt_text_ar ?? null,
+        is_primary: isTrue(image.is_primary),
+        sort_order: Number(image.sort_order ?? index),
+      })).filter((image: ArticleImage) => image.url);
+
+      if (!images.length && detail.image_url) {
+        images.push({ url: detail.image_url, is_primary: true, sort_order: 0 });
+      }
+      if (images.length && !images.some((image) => isTrue(image.is_primary))) {
+        images[0].is_primary = true;
+      }
+      const primary = images.find((image) => isTrue(image.is_primary));
+
+      setArticleForm({
+        name: detail.name || "",
+        nameAr: detail.name_ar || "",
+        slug: detail.slug || generateSlug(detail.name || ""),
+        imageUrl: primary?.url || detail.image_url || "",
+        images,
+        price: detail.price != null ? String(detail.price) : "",
+        oldPrice: detail.old_price != null ? String(detail.old_price) : "",
+        purchasePrice: detail.purchase_price != null ? String(detail.purchase_price) : "",
+        stock: detail.stock != null ? String(detail.stock) : "0",
+        categoryId: detail.category_id != null ? String(detail.category_id) : "",
+        marqueId: detail.marque_id != null ? String(detail.marque_id) : "",
+        fournisseurId: detail.fournisseur_id != null ? String(detail.fournisseur_id) : "",
+        status: String(detail.status || "ACTIF").toUpperCase(),
+        featured: isTrue(detail.featured),
+      });
+    } catch (err: any) {
+      console.error("Erreur chargement article:", err);
+      setFormError(err?.message || "Impossible de charger les images de l'article.");
+    }
+  }
+
+  /* =======================================================
+     HANDLE NAME
+  ======================================================= */
+
+  function handleNameChange(
+    value: string
+  ) {
+    setArticleForm(
+      (current) => ({
+        ...current,
+
+        name: value,
+
+        slug:
+          generateSlug(value),
+      })
+    );
+  }
+
+  /* =======================================================
+     HANDLE IMAGE
+  ======================================================= */
+
+  async function handleImagesUpload(files?: FileList | File[]) {
+    if (!files || files.length === 0) return;
+    const selected = Array.from(files);
+    const invalid = selected.find((file) => !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024);
+    if (invalid) {
+      setFormError("Chaque image doit être JPG, PNG ou WEBP et ne pas dépasser 5 MB.");
+      return;
+    }
+    try {
+      setUploadingImage(true);
+      setFormError("");
+      const uploaded: ArticleImage[] = [];
+      for (const file of selected) {
+        const url = await uploadImage(file);
+        if (!url) throw new Error("URL de l'image manquante.");
+        uploaded.push({ url, is_primary: false, sort_order: articleForm.images.length + uploaded.length });
+      }
+      setArticleForm((current) => {
+        const images = [...current.images, ...uploaded];
+        if (!images.some((image) => isTrue(image.is_primary)) && images.length) images[0].is_primary = true;
+        const primary = images.find((image) => isTrue(image.is_primary));
+        return { ...current, images, imageUrl: primary?.url || "" };
+      });
+    } catch (err: any) {
+      console.error("Erreur upload images:", err);
+      setFormError(err?.message || "Impossible d'envoyer les images.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  function removeFormImage(index: number) {
+    setArticleForm((current) => {
+      const removed = current.images[index];
+      const images = current.images.filter((_, i) => i !== index);
+      if (removed && isTrue(removed.is_primary) && images.length) images.forEach((image, i) => { image.is_primary = i === 0; });
+      const primary = images.find((image) => isTrue(image.is_primary));
+      return { ...current, images, imageUrl: primary?.url || "" };
+    });
+  }
+
+  function setFormPrimaryImage(index: number) {
+    setArticleForm((current) => {
+      const images = current.images.map((image, i) => ({ ...image, is_primary: i === index }));
+      return { ...current, images, imageUrl: images[index]?.url || "" };
+    });
+  }
+
+  /* =======================================================
+     LOAD ARTICLES
+  ======================================================= */
+
+  async function loadArticles(
+    options?: {
+      page?: number;
+      search?: string;
+      limit?: number;
+      refresh?: boolean;
+    }
+  ) {
     const nextPage =
       options?.page ?? page;
+
     const nextSearch =
       options?.search ?? search;
+
     const nextLimit =
       options?.limit ?? limit;
 
@@ -491,7 +761,8 @@ export default function ArticlesPage() {
         setLoading(true);
       }
 
-      const params = new URLSearchParams();
+      const params =
+        new URLSearchParams();
 
       params.set(
         "page",
@@ -503,7 +774,9 @@ export default function ArticlesPage() {
         String(nextLimit)
       );
 
-      if (nextSearch.trim()) {
+      if (
+        nextSearch.trim()
+      ) {
         params.set(
           "search",
           nextSearch.trim()
@@ -516,24 +789,35 @@ export default function ArticlesPage() {
         );
 
       const payload =
-        result?.data ?? result;
+        result?.data ??
+        result;
 
-      let rows: Article[] = [];
+      let rows: Article[] =
+        [];
 
-      if (Array.isArray(payload)) {
+      if (
+        Array.isArray(payload)
+      ) {
         rows = payload;
       } else if (
-        Array.isArray(payload?.rows)
+        Array.isArray(
+          payload?.rows
+        )
       ) {
         rows = payload.rows;
       } else if (
-        Array.isArray(payload?.data)
+        Array.isArray(
+          payload?.data
+        )
       ) {
         rows = payload.data;
       } else if (
-        Array.isArray(payload?.articles)
+        Array.isArray(
+          payload?.articles
+        )
       ) {
-        rows = payload.articles;
+        rows =
+          payload.articles;
       }
 
       const pagination =
@@ -541,29 +825,39 @@ export default function ArticlesPage() {
         payload?.meta ||
         {};
 
-      const backendTotal = Number(
-        pagination?.total ??
-          payload?.total ??
-          result?.data?.total ??
-          rows.length
-      );
+      const backendTotal =
+        Number(
+          pagination?.total ??
+            payload?.total ??
+            result?.data?.total ??
+            rows.length
+        );
 
-      const backendPages = Number(
-        pagination?.totalPages ??
-          pagination?.pages ??
-          payload?.totalPages ??
-          Math.max(
-            1,
-            Math.ceil(
-              backendTotal / nextLimit
+      const backendPages =
+        Number(
+          pagination?.totalPages ??
+            pagination?.pages ??
+            payload?.totalPages ??
+            Math.max(
+              1,
+              Math.ceil(
+                backendTotal /
+                  nextLimit
+              )
             )
-          )
-      );
+        );
 
       setArticles(rows);
-      setTotal(backendTotal);
+
+      setTotal(
+        backendTotal
+      );
+
       setTotalPages(
-        Math.max(1, backendPages)
+        Math.max(
+          1,
+          backendPages
+        )
       );
     } catch (err: any) {
       console.error(
@@ -577,18 +871,32 @@ export default function ArticlesPage() {
       );
     } finally {
       setLoading(false);
+
       setRefreshing(false);
     }
   }
+
+  /* =======================================================
+     INITIAL LOAD
+  ======================================================= */
 
   useEffect(() => {
     loadArticles();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, limit, search]);
+  }, [
+    page,
+    limit,
+    search,
+  ]);
+
+  /* =======================================================
+     SEARCH
+  ======================================================= */
 
   function handleSearch() {
     setPage(1);
+
     setSearch(
       searchInput.trim()
     );
@@ -596,21 +904,119 @@ export default function ArticlesPage() {
 
   function handleClearSearch() {
     setSearchInput("");
+
     setSearch("");
+
     setPage(1);
   }
+
+  /* =======================================================
+     SAVE
+  ======================================================= */
+
+  async function saveArticle() {
+    if (!articleForm.name.trim()) return setFormError("Le nom de l'article est obligatoire.");
+    if (articleForm.price === "" || Number(articleForm.price) < 0) return setFormError("Veuillez saisir un prix de vente valide.");
+    if (articleForm.purchasePrice !== "" && Number(articleForm.purchasePrice) < 0) return setFormError("Le prix d'achat ne peut pas être négatif.");
+    if (articleForm.oldPrice !== "" && Number(articleForm.oldPrice) < 0) return setFormError("L'ancien prix ne peut pas être négatif.");
+    if (articleForm.stock !== "" && Number(articleForm.stock) < 0) return setFormError("Le stock ne peut pas être négatif.");
+
+    const slug = generateSlug(articleForm.name);
+    if (!slug) return setFormError("Impossible de générer le slug.");
+
+    const images = articleForm.images.filter((image) => image.url);
+    if (images.length && !images.some((image) => isTrue(image.is_primary))) images[0].is_primary = true;
+    const primary = images.find((image) => isTrue(image.is_primary));
+
+    const body = {
+      name: articleForm.name.trim(),
+      nameAr: articleForm.nameAr.trim() || null,
+      slug,
+      imageUrl: primary?.url || null,
+      price: Number(articleForm.price),
+      oldPrice: articleForm.oldPrice ? Number(articleForm.oldPrice) : null,
+      purchasePrice: articleForm.purchasePrice ? Number(articleForm.purchasePrice) : null,
+      stock: articleForm.stock === "" ? 0 : Number(articleForm.stock),
+      categoryId: articleForm.categoryId ? Number(articleForm.categoryId) : null,
+      marqueId: articleForm.marqueId ? Number(articleForm.marqueId) : null,
+      fournisseurId: articleForm.fournisseurId ? Number(articleForm.fournisseurId) : null,
+      status: articleForm.status,
+      featured: articleForm.featured,
+    };
+
+    try {
+      setSavingArticle(true);
+      setFormError("");
+
+      if (!editingArticle) {
+        const result = await apiFetch<any>("/articles", { method: "POST", bodyJson: body });
+        const articleId = Number(result?.id ?? result?.data?.id);
+        if (!articleId) throw new Error("L'article a été créé mais son identifiant est introuvable.");
+        for (const image of images.filter((item) => item.url !== primary?.url)) {
+          await apiFetch(`/articles/${articleId}/images`, {
+            method: "POST",
+            bodyJson: { url: image.url, altText: articleForm.name.trim(), altTextAr: articleForm.nameAr.trim() || null, isPrimary: false, sortOrder: Number(image.sort_order ?? 0) },
+          });
+        }
+      } else {
+        await apiFetch(`/articles/${editingArticle.id}`, { method: "PUT", bodyJson: body });
+        const detailResult = await apiFetch<any>(`/articles/${editingArticle.id}`);
+        const currentImages: ArticleImage[] = Array.isArray(detailResult?.data?.images) ? detailResult.data.images : [];
+        const desiredIds = new Set(images.filter((image) => image.id).map((image) => Number(image.id)));
+
+        for (const current of currentImages) {
+          if (current.id && !desiredIds.has(Number(current.id))) {
+            await apiFetch(`/articles/${editingArticle.id}/images/${current.id}`, { method: "DELETE" });
+          }
+        }
+
+        const addedIds: number[] = [];
+        for (const image of images.filter((item) => !item.id)) {
+          const added = await apiFetch<any>(`/articles/${editingArticle.id}/images`, {
+            method: "POST",
+            bodyJson: { url: image.url, altText: articleForm.name.trim(), altTextAr: articleForm.nameAr.trim() || null, isPrimary: false, sortOrder: Number(image.sort_order ?? 0) },
+          });
+          if (added?.id) addedIds.push(Number(added.id));
+        }
+
+        if (primary) {
+          const primaryId = primary.id ?? (addedIds.length ? addedIds[addedIds.length - 1] : undefined);
+          if (primaryId) await apiFetch(`/articles/${editingArticle.id}/images/${primaryId}/primary`, { method: "PATCH" });
+        }
+      }
+
+      setFormOpen(false);
+      await loadArticles({ page: editingArticle ? page : 1, refresh: true });
+      if (!editingArticle) setPage(1);
+    } catch (err: any) {
+      console.error("Erreur sauvegarde article:", err);
+      setFormError(err?.message || "Impossible d'enregistrer l'article.");
+    } finally {
+      setSavingArticle(false);
+    }
+  }
+
+  /* =======================================================
+     DELETE
+  ======================================================= */
 
   async function handleDelete(
     article: Article
   ) {
-    const confirmed = window.confirm(
-      `Voulez-vous vraiment supprimer l'article "${article.name}" ?`
-    );
+    const confirmed =
+      window.confirm(
+        `Voulez-vous vraiment supprimer l'article "${article.name}" ?`
+      );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
-      setDeletingId(article.id);
+      setDeletingId(
+        article.id
+      );
+
       setError("");
 
       await apiFetch(
@@ -638,123 +1044,181 @@ export default function ArticlesPage() {
     }
   }
 
-  const filteredArticles = useMemo(() => {
-    return articles.filter((article) => {
-      const status = normalizeStatus(
-        article.status
+  /* =======================================================
+     FILTERED ARTICLES
+  ======================================================= */
+
+  const filteredArticles =
+    useMemo(() => {
+      return articles.filter(
+        (article) => {
+          const status =
+            normalizeStatus(
+              article.status
+            );
+
+          const stock =
+            toNumber(
+              article.stock
+            );
+
+          if (
+            selectedStatus !==
+              "all" &&
+            status !==
+              selectedStatus
+          ) {
+            return false;
+          }
+
+          if (
+            selectedStock ===
+              "available" &&
+            stock <= 0
+          ) {
+            return false;
+          }
+
+          if (
+            selectedStock ===
+              "low" &&
+            (stock <= 0 ||
+              stock > 10)
+          ) {
+            return false;
+          }
+
+          if (
+            selectedStock ===
+              "out" &&
+            stock > 0
+          ) {
+            return false;
+          }
+
+          return true;
+        }
       );
+    }, [
+      articles,
+      selectedStatus,
+      selectedStock,
+    ]);
 
-      const stock = toNumber(
-        article.stock
-      );
+  /* =======================================================
+     STATS
+  ======================================================= */
 
-      if (
-        selectedStatus !== "all" &&
-        status !== selectedStatus
-      ) {
-        return false;
-      }
+  const stats =
+    useMemo(() => {
+      const active =
+        articles.filter(
+          (article) =>
+            normalizeStatus(
+              article.status
+            ) === "active"
+        ).length;
 
-      if (
-        selectedStock === "available" &&
-        stock <= 0
-      ) {
-        return false;
-      }
+      const featured =
+        articles.filter(
+          (article) =>
+            isTrue(
+              article.featured
+            )
+        ).length;
 
-      if (
-        selectedStock === "low" &&
-        (stock <= 0 || stock > 10)
-      ) {
-        return false;
-      }
+      const outOfStock =
+        articles.filter(
+          (article) =>
+            toNumber(
+              article.stock
+            ) <= 0
+        ).length;
 
-      if (
-        selectedStock === "out" &&
-        stock > 0
-      ) {
-        return false;
-      }
+      const lowStock =
+        articles.filter(
+          (article) => {
+            const stock =
+              toNumber(
+                article.stock
+              );
 
-      return true;
-    });
-  }, [
-    articles,
-    selectedStatus,
-    selectedStock,
-  ]);
+            return (
+              stock > 0 &&
+              stock <= 10
+            );
+          }
+        ).length;
 
-  const stats = useMemo(() => {
-    const active = articles.filter(
-      (article) =>
-        normalizeStatus(
-          article.status
-        ) === "active"
-    ).length;
-
-    const featured = articles.filter(
-      (article) =>
-        isTrue(article.featured)
-    ).length;
-
-    const outOfStock =
-      articles.filter(
-        (article) =>
-          toNumber(article.stock) <= 0
-      ).length;
-
-    const lowStock =
-      articles.filter((article) => {
-        const stock = toNumber(
-          article.stock
-        );
-
-        return (
-          stock > 0 && stock <= 10
-        );
-      }).length;
-
-    return {
+      return {
+        total,
+        active,
+        featured,
+        outOfStock,
+        lowStock,
+      };
+    }, [
+      articles,
       total,
-      active,
-      featured,
-      outOfStock,
-      lowStock,
-    };
-  }, [articles, total]);
+    ]);
 
-  const paginationPages = useMemo(
-    () =>
-      getPaginationPages(
+  /* =======================================================
+     PAGINATION
+  ======================================================= */
+
+  const paginationPages =
+    useMemo(
+      () =>
+        getPaginationPages(
+          page,
+          totalPages
+        ),
+      [
         page,
-        totalPages
-      ),
-    [page, totalPages]
-  );
+        totalPages,
+      ]
+    );
+
+  /* =======================================================
+     RETURN
+  ======================================================= */
 
   return (
     <div className="min-h-full bg-slate-50">
       <div className="mx-auto w-full max-w-[1800px] space-y-6 p-4 md:p-6 lg:p-8">
 
-        {/* HEADER */}
+        {/* =================================================
+            HEADER
+        ================================================= */}
+
         <AdminPageHeader
           title="Articles"
-          subtitle="Gérez votre catalogue, vos stocks, vos prix et vos articles."
-          icon={<Package size={22} />}
+          subtitle="Gérez votre catalogue, vos stocks, vos prix et vos produits."
+          icon={
+            <Package
+              size={22}
+            />
+          }
         />
 
         <div className="-mt-2 flex justify-end">
           <button
             type="button"
-            onClick={openCreateModal}
+            onClick={
+              openCreateModal
+            }
             className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#2563EB] px-5 text-xs font-black text-white shadow-lg shadow-[#2563EB]/20 transition hover:-translate-y-0.5 hover:bg-[#1d4ed8]"
           >
             <Plus size={17} />
+
             Nouvel article
           </button>
         </div>
 
-        {/* ERROR */}
+        {/* =================================================
+            ERROR
+        ================================================= */}
+
         {error && (
           <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-700 shadow-sm">
             <AlertCircle
@@ -774,7 +1238,9 @@ export default function ArticlesPage() {
 
             <button
               type="button"
-              onClick={() => setError("")}
+              onClick={() =>
+                setError("")
+              }
               className="rounded-lg p-1 transition hover:bg-red-100"
             >
               <XCircle size={18} />
@@ -782,15 +1248,24 @@ export default function ArticlesPage() {
           </div>
         )}
 
-        {/* STATS */}
+        {/* =================================================
+            STATS
+        ================================================= */}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
 
           {/* TOTAL */}
+
           <button
             type="button"
             onClick={() => {
-              setSelectedStatus("all");
-              setSelectedStock("all");
+              setSelectedStatus(
+                "all"
+              );
+
+              setSelectedStock(
+                "all"
+              );
             }}
             className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
           >
@@ -812,16 +1287,23 @@ export default function ArticlesPage() {
 
             <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-slate-400">
               <TrendingUp size={14} />
+
               Catalogue global
             </div>
           </button>
 
           {/* ACTIVE */}
+
           <button
             type="button"
             onClick={() => {
-              setSelectedStatus("active");
-              setSelectedStock("all");
+              setSelectedStatus(
+                "active"
+              );
+
+              setSelectedStock(
+                "all"
+              );
             }}
             className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
           >
@@ -837,7 +1319,9 @@ export default function ArticlesPage() {
               </div>
 
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <CheckCircle2 size={23} />
+                <CheckCircle2
+                  size={23}
+                />
               </div>
             </div>
 
@@ -847,6 +1331,7 @@ export default function ArticlesPage() {
           </button>
 
           {/* FEATURED */}
+
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
@@ -870,11 +1355,17 @@ export default function ArticlesPage() {
           </div>
 
           {/* LOW STOCK */}
+
           <button
             type="button"
             onClick={() => {
-              setSelectedStock("low");
-              setSelectedStatus("all");
+              setSelectedStock(
+                "low"
+              );
+
+              setSelectedStatus(
+                "all"
+              );
             }}
             className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
           >
@@ -890,7 +1381,9 @@ export default function ArticlesPage() {
               </div>
 
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-                <AlertCircle size={23} />
+                <AlertCircle
+                  size={23}
+                />
               </div>
             </div>
 
@@ -899,12 +1392,18 @@ export default function ArticlesPage() {
             </p>
           </button>
 
-          {/* OUT OF STOCK */}
+          {/* OUT */}
+
           <button
             type="button"
             onClick={() => {
-              setSelectedStock("out");
-              setSelectedStatus("all");
+              setSelectedStock(
+                "out"
+              );
+
+              setSelectedStatus(
+                "all"
+              );
             }}
             className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
           >
@@ -930,11 +1429,15 @@ export default function ArticlesPage() {
           </button>
         </div>
 
-        {/* TOOLBAR */}
+        {/* =================================================
+            TOOLBAR
+        ================================================= */}
+
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
 
             {/* SEARCH */}
+
             <div className="flex w-full flex-col gap-3 md:flex-row xl:max-w-3xl">
               <div className="relative flex-1">
                 <Search
@@ -943,20 +1446,24 @@ export default function ArticlesPage() {
                 />
 
                 <input
-                  value={searchInput}
+                  value={
+                    searchInput
+                  }
                   onChange={(event) =>
                     setSearchInput(
-                      event.target.value
+                      event.target
+                        .value
                     )
                   }
                   onKeyDown={(event) => {
                     if (
-                      event.key === "Enter"
+                      event.key ===
+                      "Enter"
                     ) {
                       handleSearch();
                     }
                   }}
-                  placeholder="Rechercher un article, code, SKU..."
+                  placeholder="Rechercher un article, nom ou slug..."
                   className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium text-slate-800 outline-none transition focus:border-[#60A5FA] focus:bg-white focus:ring-4 focus:ring-[#60A5FA]/10"
                 />
 
@@ -968,29 +1475,38 @@ export default function ArticlesPage() {
                     }
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                   >
-                    <XCircle size={17} />
+                    <XCircle
+                      size={17}
+                    />
                   </button>
                 )}
               </div>
 
               <button
                 type="button"
-                onClick={handleSearch}
+                onClick={
+                  handleSearch
+                }
                 className="h-12 rounded-xl bg-[#2563EB] px-6 text-sm font-bold text-white shadow-lg shadow-[#2563EB]/15 transition hover:-translate-y-0.5 hover:bg-[#1D4ED8]"
               >
                 Rechercher
               </button>
             </div>
 
-            {/* ACTIONS */}
+            {/* FILTERS */}
+
             <div className="flex flex-wrap items-center gap-3">
 
               {/* STATUS */}
+
               <select
-                value={selectedStatus}
+                value={
+                  selectedStatus
+                }
                 onChange={(event) =>
                   setSelectedStatus(
-                    event.target.value as
+                    event.target
+                      .value as
                       | "all"
                       | "active"
                       | "inactive"
@@ -1012,11 +1528,15 @@ export default function ArticlesPage() {
               </select>
 
               {/* STOCK */}
+
               <select
-                value={selectedStock}
+                value={
+                  selectedStock
+                }
                 onChange={(event) =>
                   setSelectedStock(
-                    event.target.value as
+                    event.target
+                      .value as
                       | "all"
                       | "available"
                       | "low"
@@ -1043,12 +1563,17 @@ export default function ArticlesPage() {
               </select>
 
               {/* LIMIT */}
+
               <select
                 value={limit}
                 onChange={(event) => {
                   setLimit(
-                    Number(event.target.value)
+                    Number(
+                      event.target
+                        .value
+                    )
                   );
+
                   setPage(1);
                 }}
                 className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#60A5FA]"
@@ -1056,18 +1581,22 @@ export default function ArticlesPage() {
                 <option value={10}>
                   10 / page
                 </option>
+
                 <option value={20}>
                   20 / page
                 </option>
+
                 <option value={50}>
                   50 / page
                 </option>
+
                 <option value={100}>
                   100 / page
                 </option>
               </select>
 
               {/* REFRESH */}
+
               <button
                 type="button"
                 onClick={() =>
@@ -1075,7 +1604,9 @@ export default function ArticlesPage() {
                     refresh: true,
                   })
                 }
-                disabled={refreshing}
+                disabled={
+                  refreshing
+                }
                 className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
                 title="Actualiser"
               >
@@ -1089,22 +1620,28 @@ export default function ArticlesPage() {
                 />
               </button>
 
-              {/* VIEW SWITCH */}
+              {/* VIEW */}
+
               <div className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1">
+
                 <button
                   type="button"
                   onClick={() =>
-                    setViewMode("table")
+                    setViewMode(
+                      "table"
+                    )
                   }
                   className={[
                     "flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-bold transition",
-                    viewMode === "table"
+                    viewMode ===
+                    "table"
                       ? "bg-white text-[#2563EB] shadow-sm"
                       : "text-slate-500 hover:text-slate-800",
                   ].join(" ")}
-                  title="Vue tableau"
                 >
-                  <Table2 size={17} />
+                  <Table2
+                    size={17}
+                  />
 
                   <span className="hidden sm:inline">
                     Tableau
@@ -1114,17 +1651,21 @@ export default function ArticlesPage() {
                 <button
                   type="button"
                   onClick={() =>
-                    setViewMode("cards")
+                    setViewMode(
+                      "cards"
+                    )
                   }
                   className={[
                     "flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-bold transition",
-                    viewMode === "cards"
+                    viewMode ===
+                    "cards"
                       ? "bg-white text-[#2563EB] shadow-sm"
                       : "text-slate-500 hover:text-slate-800",
                   ].join(" ")}
-                  title="Vue cartes"
                 >
-                  <Grid3X3 size={17} />
+                  <Grid3X3
+                    size={17}
+                  />
 
                   <span className="hidden sm:inline">
                     Cartes
@@ -1135,27 +1676,40 @@ export default function ArticlesPage() {
           </div>
 
           {/* ACTIVE FILTERS */}
+
           {(search ||
-            selectedStatus !== "all" ||
-            selectedStock !== "all") && (
+            selectedStatus !==
+              "all" ||
+            selectedStock !==
+              "all") && (
             <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+
               <span className="text-xs font-bold text-slate-400">
                 Filtres :
               </span>
 
               {search && (
                 <span className="inline-flex items-center gap-2 rounded-full bg-[#2563EB]/10 px-3 py-1.5 text-xs font-bold text-[#2563EB]">
-                  Recherche : {search}
+                  Recherche :{" "}
+                  {search}
 
                   <button
                     type="button"
                     onClick={() => {
-                      setSearch("");
-                      setSearchInput("");
+                      setSearch(
+                        ""
+                      );
+
+                      setSearchInput(
+                        ""
+                      );
+
                       setPage(1);
                     }}
                   >
-                    <XCircle size={14} />
+                    <XCircle
+                      size={14}
+                    />
                   </button>
                 </span>
               )}
@@ -1177,12 +1731,15 @@ export default function ArticlesPage() {
                       )
                     }
                   >
-                    <XCircle size={14} />
+                    <XCircle
+                      size={14}
+                    />
                   </button>
                 </span>
               )}
 
-              {selectedStock !== "all" && (
+              {selectedStock !==
+                "all" && (
                 <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
                   Stock :{" "}
                   {selectedStock ===
@@ -1201,7 +1758,9 @@ export default function ArticlesPage() {
                       )
                     }
                   >
-                    <XCircle size={14} />
+                    <XCircle
+                      size={14}
+                    />
                   </button>
                 </span>
               )}
@@ -1209,12 +1768,22 @@ export default function ArticlesPage() {
               <button
                 type="button"
                 onClick={() => {
-                  setSearch("");
-                  setSearchInput("");
+                  setSearch(
+                    ""
+                  );
+
+                  setSearchInput(
+                    ""
+                  );
+
                   setSelectedStatus(
                     "all"
                   );
-                  setSelectedStock("all");
+
+                  setSelectedStock(
+                    "all"
+                  );
+
                   setPage(1);
                 }}
                 className="ml-1 text-xs font-bold text-[#FE5737] hover:underline"
@@ -1225,7 +1794,10 @@ export default function ArticlesPage() {
           )}
         </div>
 
-        {/* CONTENT */}
+        {/* =================================================
+            CONTENT
+        ================================================= */}
+
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-10 shadow-sm">
             <div className="flex flex-col items-center justify-center py-16">
@@ -1249,7 +1821,9 @@ export default function ArticlesPage() {
           0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-              <Package size={30} />
+              <Package
+                size={30}
+              />
             </div>
 
             <h3 className="mt-5 text-lg font-black text-slate-900">
@@ -1257,20 +1831,28 @@ export default function ArticlesPage() {
             </h3>
 
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-              Aucun article ne correspond
-              aux critères de recherche ou
-              de filtrage actuels.
+              Aucun article ne correspond aux critères actuels.
             </p>
 
             <button
               type="button"
               onClick={() => {
-                setSearch("");
-                setSearchInput("");
+                setSearch(
+                  ""
+                );
+
+                setSearchInput(
+                  ""
+                );
+
                 setSelectedStatus(
                   "all"
                 );
-                setSelectedStock("all");
+
+                setSelectedStock(
+                  "all"
+                );
+
                 setPage(1);
               }}
               className="mt-6 rounded-xl bg-[#2563EB] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1D4ED8]"
@@ -1278,11 +1860,15 @@ export default function ArticlesPage() {
               Réinitialiser les filtres
             </button>
           </div>
-        ) : viewMode === "table" ? (
-          /* ======================================================
-             TABLEAU
-          ====================================================== */
+        ) : viewMode ===
+          "table" ? (
+
+          /* =================================================
+             TABLE
+          ================================================= */
+
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <h2 className="text-base font-black text-slate-900">
@@ -1290,7 +1876,9 @@ export default function ArticlesPage() {
                 </h2>
 
                 <p className="mt-1 text-xs font-medium text-slate-400">
-                  {filteredArticles.length}{" "}
+                  {
+                    filteredArticles.length
+                  }{" "}
                   article
                   {filteredArticles.length >
                   1
@@ -1306,20 +1894,19 @@ export default function ArticlesPage() {
 
               <div className="hidden items-center gap-2 text-xs font-semibold text-slate-400 md:flex">
                 <div className="h-2 w-2 rounded-full bg-emerald-500" />
+
                 Catalogue synchronisé
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1350px] border-collapse">
+              <table className="w-full min-w-[1200px] border-collapse">
+
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
+
                     <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       Article
-                    </th>
-
-                    <th className="px-5 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
-                      Référence
                     </th>
 
                     <th className="px-5 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
@@ -1345,6 +1932,7 @@ export default function ArticlesPage() {
                     <th className="px-5 py-4 text-right text-xs font-black uppercase tracking-wider text-slate-400">
                       Actions
                     </th>
+
                   </tr>
                 </thead>
 
@@ -1373,12 +1961,17 @@ export default function ArticlesPage() {
 
                       return (
                         <tr
-                          key={article.id}
+                          key={
+                            article.id
+                          }
                           className="group border-b border-slate-100 transition hover:bg-slate-50/70"
                         >
+
                           {/* ARTICLE */}
+
                           <td className="px-6 py-5">
-                            <div className="flex min-w-[340px] items-center gap-5">
+                            <div className="flex min-w-[360px] items-center gap-5">
+
                               <ImagePreview
                                 article={
                                   article
@@ -1387,8 +1980,10 @@ export default function ArticlesPage() {
                               />
 
                               <div className="min-w-0">
+
                                 <div className="flex items-center gap-2">
-                                  <h3 className="max-w-[280px] truncate text-sm font-black text-slate-900">
+
+                                  <h3 className="max-w-[300px] truncate text-sm font-black text-slate-900">
                                     {
                                       article.name
                                     }
@@ -1399,12 +1994,13 @@ export default function ArticlesPage() {
                                       ⭐ TOP
                                     </span>
                                   )}
+
                                 </div>
 
                                 {article.name_ar && (
                                   <p
                                     dir="rtl"
-                                    className="mt-1 max-w-[280px] truncate text-xs font-medium text-slate-400"
+                                    className="mt-1 max-w-[300px] truncate text-xs font-medium text-slate-400"
                                   >
                                     {
                                       article.name_ar
@@ -1413,6 +2009,7 @@ export default function ArticlesPage() {
                                 )}
 
                                 <div className="mt-2 flex items-center gap-2">
+
                                   <span className="rounded-lg bg-slate-100 px-2 py-1 font-mono text-[10px] font-bold text-slate-500">
                                     ID #
                                     {
@@ -1420,71 +2017,71 @@ export default function ArticlesPage() {
                                     }
                                   </span>
 
-                                  {article.stock_enabled !==
-                                    false && (
-                                    <span className="text-[10px] font-semibold text-slate-400">
-                                      Gestion stock
+                                  {article.slug && (
+                                    <span className="max-w-[200px] truncate rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-500">
+                                      /{
+                                        article.slug
+                                      }
                                     </span>
                                   )}
+
                                 </div>
+
                               </div>
-                            </div>
-                          </td>
-
-                          {/* CODE */}
-                          <td className="px-5 py-5">
-                            <div className="space-y-1">
-                              <p className="font-mono text-sm font-bold text-slate-700">
-                                {article.code ||
-                                  "—"}
-                              </p>
-
-                              {article.sku && (
-                                <p className="text-xs font-medium text-slate-400">
-                                  SKU :{" "}
-                                  {
-                                    article.sku
-                                  }
-                                </p>
-                              )}
                             </div>
                           </td>
 
                           {/* CATEGORY */}
+
                           <td className="px-5 py-5">
                             <div className="flex items-center gap-2">
+
                               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
                                 <Boxes
-                                  size={16}
+                                  size={
+                                    16
+                                  }
                                 />
                               </div>
 
                               <span className="max-w-[160px] truncate text-sm font-bold text-slate-700">
-                                {article.category_name ||
-                                  "Sans catégorie"}
+                                {
+                                  article.category_name ||
+                                  "Sans catégorie"
+                                }
                               </span>
+
                             </div>
                           </td>
 
                           {/* MARQUE */}
+
                           <td className="px-5 py-5">
                             <div className="flex items-center gap-2">
+
                               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-[#FE5737]">
                                 <Building2
-                                  size={16}
+                                  size={
+                                    16
+                                  }
                                 />
                               </div>
 
                               <span className="max-w-[140px] truncate text-sm font-bold text-slate-700">
-                                {article.marque_name ||
-                                  "Sans marque"}
+                                {
+                                  article.marque_name ||
+                                  "Sans marque"
+                                }
                               </span>
+
                             </div>
                           </td>
 
                           {/* PRICE */}
+
                           <td className="px-5 py-5">
                             <div>
+
                               <p className="whitespace-nowrap text-sm font-black text-[#2563EB]">
                                 {formatPrice(
                                   price
@@ -1499,13 +2096,30 @@ export default function ArticlesPage() {
                                   )}
                                 </p>
                               )}
+
+                              {article.purchase_price !=
+                                null && (
+                                <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                                  Achat :{" "}
+                                  {formatPrice(
+                                    toNumber(
+                                      article.purchase_price
+                                    )
+                                  )}
+                                </p>
+                              )}
+
                             </div>
                           </td>
 
                           {/* STOCK */}
+
                           <td className="px-5 py-5">
-                            {stock <= 0 ? (
+
+                            {stock <=
+                            0 ? (
                               <div>
+
                                 <span className="inline-flex rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-600">
                                   Rupture
                                 </span>
@@ -1513,9 +2127,12 @@ export default function ArticlesPage() {
                                 <p className="mt-1 text-xs font-semibold text-slate-400">
                                   0 unité
                                 </p>
+
                               </div>
-                            ) : stock <= 10 ? (
+                            ) : stock <=
+                              10 ? (
                               <div>
+
                                 <span className="inline-flex rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">
                                   Stock faible
                                 </span>
@@ -1528,9 +2145,11 @@ export default function ArticlesPage() {
                                     ? "s"
                                     : ""}
                                 </p>
+
                               </div>
                             ) : (
                               <div>
+
                                 <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
                                   En stock
                                 </span>
@@ -1539,11 +2158,14 @@ export default function ArticlesPage() {
                                   {stock}{" "}
                                   unités
                                 </p>
+
                               </div>
                             )}
+
                           </td>
 
                           {/* STATUS */}
+
                           <td className="px-5 py-5">
                             <StatusBadge
                               status={
@@ -1553,19 +2175,23 @@ export default function ArticlesPage() {
                           </td>
 
                           {/* ACTIONS */}
+
                           <td className="px-5 py-5">
-                            <div className="flex justify-end gap-2 opacity-100 transition lg:opacity-70 lg:group-hover:opacity-100">
+
+                            <div className="flex justify-end gap-2">
+
                               <a
                                 href={`/admin/articles/${article.id}`}
                                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-[#2563EB]/20 hover:bg-[#2563EB]/5 hover:text-[#2563EB]"
                                 title="Voir"
                               >
                                 <Eye
-                                  size={17}
+                                  size={
+                                    17
+                                  }
                                 />
                               </a>
 
-                              {/* CORRECTION JSX */}
                               <button
                                 type="button"
                                 onClick={() =>
@@ -1577,7 +2203,9 @@ export default function ArticlesPage() {
                                 title="Modifier"
                               >
                                 <Edit
-                                  size={17}
+                                  size={
+                                    17
+                                  }
                                 />
                               </button>
 
@@ -1598,17 +2226,23 @@ export default function ArticlesPage() {
                                 {deletingId ===
                                 article.id ? (
                                   <RefreshCw
-                                    size={17}
+                                    size={
+                                      17
+                                    }
                                     className="animate-spin"
                                   />
                                 ) : (
                                   <Trash2
-                                    size={17}
+                                    size={
+                                      17
+                                    }
                                   />
                                 )}
                               </button>
+
                             </div>
                           </td>
+
                         </tr>
                       );
                     }
@@ -1617,18 +2251,26 @@ export default function ArticlesPage() {
               </table>
             </div>
           </div>
+
         ) : (
-          /* ======================================================
-             CARTES
-          ====================================================== */
+
+          /* =================================================
+             CARDS
+          ================================================= */
+
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+
             {filteredArticles.map(
               (article) => {
                 const stock =
-                  toNumber(article.stock);
+                  toNumber(
+                    article.stock
+                  );
 
                 const price =
-                  toNumber(article.price);
+                  toNumber(
+                    article.price
+                  );
 
                 const oldPrice =
                   toNumber(
@@ -1642,13 +2284,20 @@ export default function ArticlesPage() {
 
                 return (
                   <div
-                    key={article.id}
+                    key={
+                      article.id
+                    }
                     className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
                   >
+
                     {/* IMAGE */}
+
                     <div className="relative flex h-64 items-center justify-center bg-slate-50 p-5">
+
                       <ImagePreview
-                        article={article}
+                        article={
+                          article
+                        }
                         large
                       />
 
@@ -1667,12 +2316,15 @@ export default function ArticlesPage() {
                       </div>
 
                       <div className="absolute inset-x-4 bottom-4 flex translate-y-2 justify-center gap-2 opacity-0 transition duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+
                         <a
                           href={`/admin/articles/${article.id}`}
                           className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-700 shadow-xl"
                           title="Voir"
                         >
-                          <Eye size={17} />
+                          <Eye
+                            size={17}
+                          />
                         </a>
 
                         <button
@@ -1685,7 +2337,9 @@ export default function ArticlesPage() {
                           className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-700 shadow-xl"
                           title="Modifier"
                         >
-                          <Edit size={17} />
+                          <Edit
+                            size={17}
+                          />
                         </button>
 
                         <button
@@ -1698,17 +2352,26 @@ export default function ArticlesPage() {
                           className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-red-500 shadow-xl"
                           title="Supprimer"
                         >
-                          <Trash2 size={17} />
+                          <Trash2
+                            size={17}
+                          />
                         </button>
+
                       </div>
                     </div>
 
                     {/* BODY */}
+
                     <div className="p-5">
+
                       <div className="mb-3 flex items-start justify-between gap-3">
+
                         <div className="min-w-0">
+
                           <h3 className="truncate text-base font-black text-slate-900">
-                            {article.name}
+                            {
+                              article.name
+                            }
                           </h3>
 
                           {article.name_ar && (
@@ -1721,10 +2384,21 @@ export default function ArticlesPage() {
                               }
                             </p>
                           )}
+
+                          {article.slug && (
+                            <p className="mt-1 truncate text-[10px] font-semibold text-blue-400">
+                              /{
+                                article.slug
+                              }
+                            </p>
+                          )}
+
                         </div>
+
                       </div>
 
                       <div className="mb-4 flex flex-wrap gap-2">
+
                         {article.category_name && (
                           <span className="rounded-lg bg-[#2563EB]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#2563EB]">
                             {
@@ -1740,10 +2414,13 @@ export default function ArticlesPage() {
                             }
                           </span>
                         )}
+
                       </div>
 
                       <div className="flex items-end justify-between border-t border-slate-100 pt-4">
+
                         <div>
+
                           <p className="text-xl font-black text-[#2563EB]">
                             {formatPrice(
                               price
@@ -1758,9 +2435,11 @@ export default function ArticlesPage() {
                               )}
                             </p>
                           )}
+
                         </div>
 
                         <div className="text-right">
+
                           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                             Stock
                           </p>
@@ -1768,7 +2447,8 @@ export default function ArticlesPage() {
                           <p
                             className={[
                               "mt-1 text-sm font-black",
-                              stock <= 0
+                              stock <=
+                                0
                                 ? "text-red-500"
                                 : stock <=
                                   10
@@ -1778,14 +2458,12 @@ export default function ArticlesPage() {
                           >
                             {stock}
                           </p>
+
                         </div>
+
                       </div>
 
-                      <div className="mt-4 flex items-center justify-between text-xs">
-                        <span className="font-mono font-bold text-slate-400">
-                          {article.code ||
-                            "—"}
-                        </span>
+                      <div className="mt-4 flex items-center justify-end text-xs">
 
                         <button
                           type="button"
@@ -1798,20 +2476,27 @@ export default function ArticlesPage() {
                         >
                           Modifier →
                         </button>
+
                       </div>
+
                     </div>
                   </div>
                 );
               }
             )}
+
           </div>
         )}
 
-        {/* PAGINATION */}
+        {/* =================================================
+            PAGINATION
+        ================================================= */}
+
         {!loading &&
           filteredArticles.length >
             0 && (
             <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+
               <p className="text-sm font-semibold text-slate-500">
                 Page{" "}
                 <span className="font-black text-slate-900">
@@ -1819,14 +2504,18 @@ export default function ArticlesPage() {
                 </span>{" "}
                 sur{" "}
                 <span className="font-black text-slate-900">
-                  {totalPages}
+                  {
+                    totalPages
+                  }
                 </span>
 
-                {total > 0 && (
+                {total >
+                  0 && (
                   <>
                     {" "}
                     · {total} article
-                    {total > 1
+                    {total >
+                    1
                       ? "s"
                       : ""}{" "}
                     au total
@@ -1835,26 +2524,38 @@ export default function ArticlesPage() {
               </p>
 
               <div className="flex items-center gap-1.5">
+
                 <button
                   type="button"
-                  disabled={page <= 1}
+                  disabled={
+                    page <= 1
+                  }
                   onClick={() =>
                     setPage(
-                      (current) =>
+                      (
+                        current
+                      ) =>
                         Math.max(
                           1,
-                          current - 1
+                          current -
+                            1
                         )
                     )
                   }
                   className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <ChevronLeft size={17} />
+                  <ChevronLeft
+                    size={17}
+                  />
                 </button>
 
                 {paginationPages.map(
-                  (item, index) =>
-                    item === "..." ? (
+                  (
+                    item,
+                    index
+                  ) =>
+                    item ===
+                    "..." ? (
                       <span
                         key={`dots-${index}`}
                         className="flex h-10 w-8 items-center justify-center text-sm font-bold text-slate-400"
@@ -1863,19 +2564,28 @@ export default function ArticlesPage() {
                       </span>
                     ) : (
                       <button
-                        key={item}
+                        key={
+                          item
+                        }
                         type="button"
                         onClick={() =>
-                          setPage(item)
+                          setPage(
+                            item
+                          )
                         }
                         className={[
                           "hidden h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-black transition sm:flex",
-                          page === item
+                          page ===
+                          item
                             ? "bg-[#2563EB] text-white shadow-lg shadow-[#2563EB]/20"
                             : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-                        ].join(" ")}
+                        ].join(
+                          " "
+                        )}
                       >
-                        {item}
+                        {
+                          item
+                        }
                       </button>
                     )
                 )}
@@ -1883,78 +2593,63 @@ export default function ArticlesPage() {
                 <button
                   type="button"
                   disabled={
-                    page >= totalPages
+                    page >=
+                    totalPages
                   }
                   onClick={() =>
                     setPage(
-                      (current) =>
+                      (
+                        current
+                      ) =>
                         Math.min(
                           totalPages,
-                          current + 1
+                          current +
+                            1
                         )
                     )
                   }
                   className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <ChevronRight size={17} />
+                  <ChevronRight
+                    size={17}
+                  />
                 </button>
+
               </div>
             </div>
           )}
 
-        {/* FOOTER INFO */}
-        {!loading &&
-          articles.length > 0 && (
-            <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-xs font-medium text-slate-400 shadow-sm sm:flex-row sm:items-center">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-[#60A5FA]" />
-                Gestion des articles
-              </div>
-
-              <div className="flex items-center gap-4">
-                <span>
-                  Affichage :{" "}
-                  <strong className="text-slate-700">
-                    {viewMode === "table"
-                      ? "Tableau"
-                      : "Cartes"}
-                  </strong>
-                </span>
-
-                <span>
-                  Résultats :{" "}
-                  <strong className="text-slate-700">
-                    {
-                      filteredArticles.length
-                    }
-                  </strong>
-                </span>
-              </div>
-            </div>
-          )}
       </div>
 
-      {/* =========================================================
-         MODAL CREATION / MODIFICATION
-      ========================================================= */}
+      {/* =====================================================
+          MODAL
+      ===================================================== */}
+
       {formOpen && (
         <div
           className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
-          onMouseDown={(e) => {
+          onMouseDown={(event) => {
             if (
-              e.target ===
-                e.currentTarget &&
-              !savingArticle
+              event.target ===
+                event.currentTarget &&
+              !savingArticle &&
+              !uploadingImage
             ) {
-              setFormOpen(false);
+              setFormOpen(
+                false
+              );
             }
           }}
         >
+
           <div className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[30px] bg-white shadow-2xl">
 
-            {/* MODAL HEADER */}
+            {/* HEADER */}
+
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-6 py-5 backdrop-blur sm:px-7">
+
               <div>
+
                 <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#60A5FA]">
                   Catalogue
                 </p>
@@ -1967,295 +2662,466 @@ export default function ArticlesPage() {
 
                 <p className="mt-1 text-xs text-slate-400">
                   {editingArticle
-                    ? "Modifiez les informations directement depuis cette fenêtre."
-                    : "Créez un article sans quitter la liste du catalogue."}
+                    ? "Modifiez les informations du produit."
+                    : "Ajoutez un nouveau produit au catalogue."}
                 </p>
+
               </div>
 
               <button
                 type="button"
-                disabled={savingArticle}
+                disabled={
+                  savingArticle ||
+                  uploadingImage
+                }
                 onClick={() =>
-                  setFormOpen(false)
+                  setFormOpen(
+                    false
+                  )
                 }
                 className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200 disabled:opacity-50"
               >
-                <XCircle size={19} />
+                <X size={19} />
               </button>
+
             </div>
 
             {/* FORM */}
+
             <div className="p-6 sm:p-7">
+
               {formError && (
-                <div className="mb-5 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs font-bold text-red-600">
-                  {formError}
+                <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs font-bold text-red-600">
+
+                  <AlertCircle
+                    size={17}
+                    className="mt-0.5 shrink-0"
+                  />
+
+                  <span>
+                    {
+                      formError
+                    }
+                  </span>
+
                 </div>
               )}
 
               <div className="grid gap-5 lg:grid-cols-2">
 
+                {/* NAME */}
+
                 <Field label="Nom français *">
+
                   <input
                     value={
                       articleForm.name
                     }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        name: e.target
-                          .value,
-                      })
+                    onChange={(event) =>
+                      handleNameChange(
+                        event
+                          .target
+                          .value
+                      )
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                    placeholder="Ex. Crème hydratante"
+                    placeholder="Ex. Perceuse Bosch Professional"
                   />
+
                 </Field>
+
+                {/* ARABIC */}
 
                 <Field
                   label="الاسم بالعربية"
                   dir="rtl"
                 >
+
                   <input
                     dir="rtl"
                     value={
                       articleForm.nameAr
                     }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        nameAr:
-                          e.target.value,
-                      })
+                    onChange={(event) =>
+                      setArticleForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          nameAr:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
                     placeholder="اسم المنتج"
                   />
+
                 </Field>
 
-                <Field label="Code article">
+                {/* SLUG */}
+
+                <Field label="Slug automatique">
+
                   <input
                     value={
-                      articleForm.code
+                      articleForm.slug
                     }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        code: e.target
-                          .value,
-                      })
-                    }
-                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                    placeholder="ART-001"
+                    readOnly
+                    disabled
+                    className="h-12 w-full cursor-not-allowed rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-500 outline-none"
+                    placeholder="le-slug-sera-genere-automatiquement"
                   />
+
+                  <p className="mt-1.5 text-[10px] font-semibold text-slate-400">
+                    Le slug est généré automatiquement à partir du nom français.
+                  </p>
+
                 </Field>
 
-                <Field label="SKU">
-                  <input
-                    value={
-                      articleForm.sku
-                    }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        sku: e.target
-                          .value,
-                      })
-                    }
-                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                    placeholder="SKU-001"
-                  />
+                {/* IMAGES */}
+
+                <Field label="Images du produit">
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
+                    {articleForm.images.length ? (
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {articleForm.images.map((image, index) => (
+                          <div key={`${image.id ?? "new"}-${image.url}-${index}`} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                            <img src={backendUrl(image.url)} alt={articleForm.name || "Image produit"} className="h-32 w-full object-contain p-2" />
+                            {isTrue(image.is_primary) && (
+                              <span className="absolute left-2 top-2 rounded-full bg-[#2563EB] px-2 py-1 text-[9px] font-black text-white">PRINCIPALE</span>
+                            )}
+                            <div className="absolute inset-x-0 bottom-0 flex gap-1 bg-white/95 p-2 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
+                              {!isTrue(image.is_primary) && (
+                                <button type="button" onClick={() => setFormPrimaryImage(index)} className="flex-1 rounded-lg bg-blue-50 px-2 py-1.5 text-[9px] font-black text-[#2563EB] hover:bg-blue-100">Principale</button>
+                              )}
+                              <button type="button" onClick={() => removeFormImage(index)} className="rounded-lg bg-red-50 px-2 py-1.5 text-red-600 hover:bg-red-100" title="Supprimer"><Trash2 size={13} /></button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mb-3 flex h-40 flex-col items-center justify-center rounded-2xl bg-white text-slate-300">
+                        <ImageIcon size={42} />
+                        <p className="mt-2 text-xs font-bold text-slate-400">Aucune image</p>
+                      </div>
+                    )}
+
+                    <label className="mt-3 flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white text-xs font-black text-[#2563EB] shadow-sm transition hover:bg-blue-50">
+                      {uploadingImage ? <><RefreshCw size={16} className="animate-spin" />Upload en cours...</> : <><ImagePlus size={17} />Ajouter plusieurs images</>}
+                      <input type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingImage} onChange={(event) => { void handleImagesUpload(event.target.files || undefined); event.target.value = ""; }} />
+                    </label>
+                    <p className="mt-2 text-center text-[10px] font-medium text-slate-400">Sélectionnez plusieurs images — JPG, PNG ou WEBP — maximum 5 MB par image.</p>
+                  </div>
                 </Field>
 
-                <Field label="Prix de vente (DZD) *">
-                  <input
-                    type="number"
-                    min="0"
-                    value={
-                      articleForm.price
-                    }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        price:
-                          e.target.value,
-                      })
-                    }
-                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                    placeholder="2500"
-                  />
-                </Field>
-
-                <Field label="Ancien prix (DZD)">
-                  <input
-                    type="number"
-                    min="0"
-                    value={
-                      articleForm.oldPrice
-                    }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        oldPrice:
-                          e.target.value,
-                      })
-                    }
-                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                    placeholder="3000"
-                  />
-                </Field>
+                {/* PURCHASE PRICE */}
 
                 <Field label="Prix d'achat (DZD)">
+
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
                     value={
                       articleForm.purchasePrice
                     }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        purchasePrice:
-                          e.target.value,
-                      })
+                    onChange={(event) =>
+                      setArticleForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          purchasePrice:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                    placeholder="1500"
+                    placeholder="15000"
                   />
+
                 </Field>
 
+                {/* SALE PRICE */}
+
+                <Field label="Prix de vente (DZD) *">
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={
+                      articleForm.price
+                    }
+                    onChange={(event) =>
+                      setArticleForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          price:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
+                    }
+                    className="h-12 w-full rounded-2xl border border-[#2563EB]/30 bg-blue-50/30 px-4 text-sm font-bold text-[#2563EB] outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                    placeholder="22000"
+                  />
+
+                </Field>
+
+                {/* OLD PRICE */}
+
+                <Field label="Ancien prix (DZD)">
+
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={
+                      articleForm.oldPrice
+                    }
+                    onChange={(event) =>
+                      setArticleForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          oldPrice:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
+                    }
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                    placeholder="25000"
+                  />
+
+                </Field>
+
+                {/* STOCK */}
+
                 <Field label="Stock">
+
                   <input
                     type="number"
                     min="0"
                     value={
                       articleForm.stock
                     }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        stock:
-                          e.target.value,
-                      })
+                    onChange={(event) =>
+                      setArticleForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          stock:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
                     placeholder="0"
                   />
+
                 </Field>
 
+                {/* CATEGORY */}
+
                 <Field label="Catégorie">
+
                   <select
                     value={
                       articleForm.categoryId
                     }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        categoryId:
-                          e.target.value,
-                      })
+                    onChange={(event) =>
+                      setArticleForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          categoryId:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
                   >
+
                     <option value="">
                       Aucune catégorie
                     </option>
 
                     {categories.map(
-                      (x: any) => (
+                      (
+                        category: any
+                      ) => (
                         <option
-                          key={x.id}
-                          value={x.id}
+                          key={
+                            category.id
+                          }
+                          value={
+                            category.id
+                          }
                         >
-                          {x.name}
-                          {x.name_ar
-                            ? ` / ${x.name_ar}`
+                          {
+                            category.name
+                          }
+
+                          {category.name_ar
+                            ? ` / ${category.name_ar}`
                             : ""}
                         </option>
                       )
                     )}
+
                   </select>
+
                 </Field>
 
+                {/* MARQUE */}
+
                 <Field label="Marque">
+
                   <select
                     value={
                       articleForm.marqueId
                     }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        marqueId:
-                          e.target.value,
-                      })
+                    onChange={(event) =>
+                      setArticleForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          marqueId:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
                   >
+
                     <option value="">
                       Aucune marque
                     </option>
 
                     {marques.map(
-                      (x: any) => (
+                      (
+                        marque: any
+                      ) => (
                         <option
-                          key={x.id}
-                          value={x.id}
+                          key={
+                            marque.id
+                          }
+                          value={
+                            marque.id
+                          }
                         >
-                          {x.name}
-                          {x.name_ar
-                            ? ` / ${x.name_ar}`
+                          {
+                            marque.name
+                          }
+
+                          {marque.name_ar
+                            ? ` / ${marque.name_ar}`
                             : ""}
                         </option>
                       )
                     )}
+
                   </select>
+
                 </Field>
 
+                {/* FOURNISSEUR */}
+
                 <Field label="Fournisseur">
+
                   <select
                     value={
                       articleForm.fournisseurId
                     }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        fournisseurId:
-                          e.target.value,
-                      })
+                    onChange={(event) =>
+                      setArticleForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          fournisseurId:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
                   >
+
                     <option value="">
                       Aucun fournisseur
                     </option>
 
                     {fournisseurs.map(
-                      (x: any) => (
+                      (
+                        fournisseur: any
+                      ) => (
                         <option
-                          key={x.id}
-                          value={x.id}
+                          key={
+                            fournisseur.id
+                          }
+                          value={
+                            fournisseur.id
+                          }
                         >
-                          {x.nom ||
-                            x.name}
+                          {
+                            fournisseur.nom ||
+                            fournisseur.name
+                          }
                         </option>
                       )
                     )}
+
                   </select>
+
                 </Field>
 
+                {/* STATUS */}
+
                 <Field label="Statut">
+
                   <select
                     value={
                       articleForm.status
                     }
-                    onChange={(e) =>
-                      setArticleForm({
-                        ...articleForm,
-                        status:
-                          e.target.value,
-                      })
+                    onChange={(event) =>
+                      setArticleForm(
+                        (
+                          current
+                        ) => ({
+                          ...current,
+                          status:
+                            event
+                              .target
+                              .value,
+                        })
+                      )
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
                   >
+
                     <option value="ACTIF">
                       Actif
                     </option>
@@ -2267,48 +3133,66 @@ export default function ArticlesPage() {
                     <option value="RUPTURE">
                       Rupture
                     </option>
+
                   </select>
+
                 </Field>
+
               </div>
 
               {/* FEATURED */}
+
               <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-2xl bg-slate-50 p-4">
+
                 <input
                   type="checkbox"
                   checked={
                     articleForm.featured
                   }
-                  onChange={(e) =>
-                    setArticleForm({
-                      ...articleForm,
-                      featured:
-                        e.target.checked,
-                    })
+                  onChange={(event) =>
+                    setArticleForm(
+                      (
+                        current
+                      ) => ({
+                        ...current,
+                        featured:
+                          event
+                            .target
+                            .checked,
+                      })
+                    )
                   }
                   className="h-4 w-4 accent-[#2563EB]"
                 />
 
                 <span>
+
                   <b className="block text-xs font-black">
                     Article mis en avant
                   </b>
 
                   <small className="text-[10px] text-slate-400">
-                    Afficher cet article
-                    comme produit
-                    recommandé / à la
-                    une.
+                    Afficher cet article comme produit recommandé / à la une.
                   </small>
+
                 </span>
+
               </label>
 
               {/* BUTTONS */}
+
               <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+
                 <button
                   type="button"
-                  disabled={savingArticle}
+                  disabled={
+                    savingArticle ||
+                    uploadingImage
+                  }
                   onClick={() =>
-                    setFormOpen(false)
+                    setFormOpen(
+                      false
+                    )
                   }
                   className="h-11 rounded-xl border border-slate-200 px-6 text-xs font-black text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
@@ -2317,17 +3201,25 @@ export default function ArticlesPage() {
 
                 <button
                   type="button"
-                  disabled={savingArticle}
-                  onClick={saveArticle}
+                  disabled={
+                    savingArticle ||
+                    uploadingImage
+                  }
+                  onClick={
+                    saveArticle
+                  }
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-7 text-xs font-black text-white shadow-lg shadow-[#2563EB]/20 hover:bg-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-60"
                 >
+
                   {savingArticle ? (
                     <RefreshCw
                       size={14}
                       className="animate-spin"
                     />
                   ) : (
-                    <Save size={14} />
+                    <Save
+                      size={14}
+                    />
                   )}
 
                   {savingArticle
@@ -2335,37 +3227,16 @@ export default function ArticlesPage() {
                     : editingArticle
                     ? "Enregistrer les modifications"
                     : "Créer l'article"}
+
                 </button>
+
               </div>
+
             </div>
           </div>
         </div>
       )}
+
     </div>
-  );
-}
-
-function Field({
-  label,
-  children,
-  dir,
-}: {
-  label: string;
-  children: React.ReactNode;
-  dir?: "ltr" | "rtl";
-}) {
-  return (
-    <label
-      className="block"
-      dir={dir}
-    >
-      <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
-        {label}
-      </span>
-
-      <div className="mt-2">
-        {children}
-      </div>
-    </label>
   );
 }

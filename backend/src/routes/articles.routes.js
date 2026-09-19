@@ -36,6 +36,13 @@ router.put(
   asyncHandler(articlesController.update),
 );
 
+// Compatibilité frontend : PATCH /articles/:id
+router.patch(
+  "/:id",
+  authorize("articles.update"),
+  asyncHandler(articlesController.update),
+);
+
 // Supprimer un article
 router.delete(
   "/:id",

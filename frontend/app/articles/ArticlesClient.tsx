@@ -67,7 +67,7 @@ export default function ArticlesClient() {
         <ShopHero
           eyebrow={text("Catalogue DOCTECH", "كتالوج DOCTECH")}
           title={category || brand ? title : text("Trouvez votre prochain équipement", "اعثر على تجهيزك القادم")}
-          description={activeBrand?.description || activeCategory?.description || text("Découvrez notre catalogue connecté directement à votre base MySQL.", "اكتشف الكتالوج المرتبط مباشرة بقاعدة بيانات MySQL.")}
+          description={activeBrand?.description || activeCategory?.description || text("", "")}
           icon={<Grid2X2 size={13} />}
         >
           <div className="mt-7 flex items-center gap-2 text-[11px] font-bold text-slate-500">

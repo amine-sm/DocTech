@@ -57,10 +57,10 @@ async function create(req, res) {
   const b = req.body;
   if (!b.name || !b.categoryId) return res.status(400).json({ ok: false, message: "Nom français et catégorie obligatoires." });
   const code = b.code || `ART-${Date.now().toString().slice(-8)}`;
-  const slug = await uniqueSlug(connection, b.name);
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
+    const slug = await uniqueSlug(connection, b.name);
     const [result] = await connection.query(
       `INSERT INTO articles
        (code,sku,name,name_ar,short_name,short_name_ar,slug,short_description,short_description_ar,description,description_ar,

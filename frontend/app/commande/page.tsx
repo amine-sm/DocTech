@@ -37,58 +37,8 @@ import {
 } from "@/lib/cart";
 import { formatPrice } from "@/lib/catalog";
 import { apiFetch } from "@/lib/api";
+import { getDeliveryMunicipalities, getDeliveryWilayas, getShippingCosts, type DeliveryCommune, type DeliveryWilaya } from "@/lib/delivery";
 import { useLocale } from "@/components/LocaleProvider";
-
-const wilayas = [
-  "Adrar",
-  "Chlef",
-  "Laghouat",
-  "Oum El Bouaghi",
-  "Batna",
-  "Béjaïa",
-  "Biskra",
-  "Béchar",
-  "Blida",
-  "Bouira",
-  "Tamanrasset",
-  "Tébessa",
-  "Tlemcen",
-  "Tiaret",
-  "Tizi Ouzou",
-  "Alger",
-  "Djelfa",
-  "Jijel",
-  "Sétif",
-  "Saïda",
-  "Skikda",
-  "Sidi Bel Abbès",
-  "Annaba",
-  "Guelma",
-  "Constantine",
-  "Médéa",
-  "Mostaganem",
-  "M'Sila",
-  "Mascara",
-  "Ouargla",
-  "Oran",
-  "El Bayadh",
-  "Illizi",
-  "Bordj Bou Arréridj",
-  "Boumerdès",
-  "El Tarf",
-  "Tindouf",
-  "Tissemsilt",
-  "El Oued",
-  "Khenchela",
-  "Souk Ahras",
-  "Tipaza",
-  "Mila",
-  "Aïn Defla",
-  "Naâma",
-  "Aïn Témouchent",
-  "Ghardaïa",
-  "Relizane",
-];
 
 const HOME_DELIVERY = 800;
 
@@ -100,11 +50,66 @@ export default function OrderPage() {
   const [deliveryType, setDeliveryType] = useState<"home" | "store">("home");
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [deliveryWilayas, setDeliveryWilayas] = useState<DeliveryWilaya[]>([]);
+  const [deliveryCommunes, setDeliveryCommunes] = useState<DeliveryCommune[]>([]);
+  const [shippingCosts, setShippingCosts] = useState<Record<string, number>>({});
+  const [selectedWilayaId, setSelectedWilayaId] = useState("");
+  const [loadingDelivery, setLoadingDelivery] = useState(true);
+  const [loadingCommunes, setLoadingCommunes] = useState(false);
+  const [selectedCommuneId, setSelectedCommuneId] = useState("");
 
   useEffect(() => {
     setItems(getCart());
     setReady(true);
+
+    let cancelled = false;
+    async function loadDelivery() {
+      setLoadingDelivery(true);
+      try {
+        const [wilayaRows, shipping] = await Promise.all([
+          getDeliveryWilayas(),
+          getShippingCosts(),
+        ]);
+        if (cancelled) return;
+        setDeliveryWilayas(wilayaRows);
+        const costs: Record<string, number> = {};
+        for (const row of shipping.items || []) {
+          if (row.home == null) continue;
+          const byId = row.wilayaId !== undefined ? String(row.wilayaId) : "";
+          if (byId) costs[byId] = Number(row.home);
+          const matchingWilaya = wilayaRows.find(
+            (wilaya) => String(wilaya.name).trim().toLowerCase() === String(row.name || "").trim().toLowerCase()
+          );
+          if (matchingWilaya) costs[String(matchingWilaya.id)] = Number(row.home);
+        }
+        setShippingCosts(costs);
+      } catch (error) {
+        console.error("Elogistia delivery data:", error);
+      } finally {
+        if (!cancelled) setLoadingDelivery(false);
+      }
+    }
+    loadDelivery();
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    setSelectedCommuneId("");
+    if (!selectedWilayaId) {
+      setDeliveryCommunes([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingCommunes(true);
+    getDeliveryMunicipalities(selectedWilayaId)
+      .then((rows) => { if (!cancelled) setDeliveryCommunes(rows); })
+      .catch((error) => {
+        console.error("Elogistia municipalities:", error);
+        if (!cancelled) setDeliveryCommunes([]);
+      })
+      .finally(() => { if (!cancelled) setLoadingCommunes(false); });
+    return () => { cancelled = true; };
+  }, [selectedWilayaId]);
 
   const subtotal = useMemo(
     () => getCartSubtotal(items),
@@ -113,7 +118,7 @@ export default function OrderPage() {
 
   const deliveryFee =
     deliveryType === "home" && items.length
-      ? HOME_DELIVERY
+      ? (shippingCosts[selectedWilayaId] ?? HOME_DELIVERY)
       : 0;
 
   const total = subtotal + deliveryFee;
@@ -150,15 +155,19 @@ export default function OrderPage() {
             ),
             wilaya:
               deliveryType === "home"
-                ? String(
-                    form.get("wilaya") || ""
-                  )
+                ? String(form.get("wilayaName") || "")
+                : null,
+            wilayaId:
+              deliveryType === "home"
+                ? String(form.get("wilaya") || "")
                 : null,
             commune:
               deliveryType === "home"
-                ? String(
-                    form.get("commune") || ""
-                  )
+                ? String(form.get("communeName") || "")
+                : null,
+            communeId:
+              deliveryType === "home"
+                ? String(form.get("commune") || "")
                 : null,
             address:
               deliveryType === "home"
@@ -484,38 +493,30 @@ export default function OrderPage() {
                                 <select
                                   required
                                   name="wilaya"
-                                  defaultValue=""
+                                  value={selectedWilayaId}
+                                  onChange={(event) => setSelectedWilayaId(event.target.value)}
+                                  disabled={loadingDelivery}
                                   className={`${inputClass} appearance-none pr-10`}
                                 >
-                                  <option
-                                    value=""
-                                    disabled
-                                  >
-                                    {text(
-                                      "Choisir une wilaya",
-                                      "اختر الولاية"
-                                    )}
+                                  <option value="" disabled>
+                                    {loadingDelivery
+                                      ? text("Chargement des wilayas…", "جاري تحميل الولايات…")
+                                      : text("Choisir une wilaya", "اختر الولاية")}
                                   </option>
 
-                                  {wilayas.map(
-                                    (
-                                      wilaya
-                                    ) => (
-                                      <option
-                                        key={
-                                          wilaya
-                                        }
-                                        value={
-                                          wilaya
-                                        }
-                                      >
-                                        {
-                                          wilaya
-                                        }
-                                      </option>
-                                    )
-                                  )}
+                                  {deliveryWilayas.map((wilaya) => (
+                                    <option key={String(wilaya.id)} value={String(wilaya.id)}>
+                                      {wilaya.name}
+                                    </option>
+                                  ))}
                                 </select>
+
+                                <input
+                                  type="hidden"
+                                  name="wilayaName"
+                                  value={deliveryWilayas.find((item) => String(item.id) === selectedWilayaId)?.name || ""}
+                                  readOnly
+                                />
 
                                 <ChevronDown
                                   size={15}
@@ -535,17 +536,39 @@ export default function OrderPage() {
                                 />
                               }
                             >
-                              <input
-                                required
-                                name="commune"
-                                placeholder={text(
-                                  "Votre commune",
-                                  "بلديتك"
-                                )}
-                                className={
-                                  inputClass
-                                }
-                              />
+                              <div className="relative">
+                                <select
+                                  required
+                                  name="commune"
+                                  value={selectedCommuneId}
+                                  onChange={(event) => setSelectedCommuneId(event.target.value)}
+                                  disabled={!selectedWilayaId || loadingCommunes}
+                                  className={`${inputClass} appearance-none pr-10`}
+                                >
+                                  <option value="" disabled>
+                                    {loadingCommunes
+                                      ? text("Chargement…", "جاري التحميل…")
+                                      : !selectedWilayaId
+                                        ? text("Choisissez d'abord la wilaya", "اختر الولاية أولاً")
+                                        : text("Choisir une commune", "اختر البلدية")}
+                                  </option>
+                                  {deliveryCommunes.map((commune) => (
+                                    <option key={String(commune.id)} value={String(commune.id)}>
+                                      {commune.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="hidden"
+                                  name="communeName"
+                                  value={deliveryCommunes.find((item) => String(item.id) === selectedCommuneId)?.name || ""}
+                                  readOnly
+                                />
+                                <ChevronDown
+                                  size={15}
+                                  className="pointer-events-none absolute end-4 top-1/2 -translate-y-1/2 text-slate-400"
+                                />
+                              </div>
                             </Field>
 
                             <div className="sm:col-span-2">
