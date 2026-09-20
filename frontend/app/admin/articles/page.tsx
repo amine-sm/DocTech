@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
 import {
   AlertCircle,
   Boxes,
@@ -22,17 +23,18 @@ import {
   Tag,
   Trash2,
   TrendingUp,
-  Upload,
   X,
   XCircle,
 } from "lucide-react";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+
 import {
   apiFetch,
   backendUrl,
   uploadImage,
 } from "@/lib/api";
+
 import { formatPrice } from "@/lib/catalog";
 
 /* =========================================================
@@ -54,6 +56,9 @@ type Article = {
   name: string;
   name_ar?: string | null;
 
+  description?: string | null;
+  description_ar?: string | null;
+
   slug?: string | null;
 
   price?: number | string | null;
@@ -66,6 +71,7 @@ type Article = {
   status?: string | null;
 
   image_url?: string | null;
+
   images?: ArticleImage[];
 
   category_id?: number | null;
@@ -86,8 +92,14 @@ type Article = {
 type ArticleForm = {
   name: string;
   nameAr: string;
+
+  description: string;
+  descriptionAr: string;
+
   slug: string;
+
   imageUrl: string;
+
   images: ArticleImage[];
 
   price: string;
@@ -101,6 +113,7 @@ type ArticleForm = {
   fournisseurId: string;
 
   status: string;
+
   featured: boolean;
 };
 
@@ -125,18 +138,7 @@ function isTrue(value: any): boolean {
   );
 }
 
-/**
- * Génère automatiquement un slug propre.
- *
- * Exemple :
- *
- * Bosch Perceuse Professionnelle
- * ->
- * bosch-perceuse-professionnelle
- */
-function generateSlug(
-  value: string
-): string {
+function generateSlug(value: string): string {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -173,10 +175,7 @@ function getPaginationPages(
     ];
   }
 
-  if (
-    currentPage >=
-    totalPages - 3
-  ) {
+  if (currentPage >= totalPages - 3) {
     return [
       1,
       "...",
@@ -202,9 +201,7 @@ function getPaginationPages(
 function normalizeStatus(
   status?: string | null
 ) {
-  const value = String(
-    status || ""
-  )
+  const value = String(status || "")
     .toLowerCase()
     .trim();
 
@@ -226,7 +223,71 @@ function normalizeStatus(
     return "inactive";
   }
 
+  if (
+    value === "rupture" ||
+    value === "out_of_stock" ||
+    value === "out"
+  ) {
+    return "rupture";
+  }
+
   return value || "active";
+}
+
+function normalizeArticle(
+  article: any
+): Article {
+  return {
+    ...article,
+
+    id: Number(article.id),
+
+    name: article.name || "",
+
+    name_ar:
+      article.name_ar ??
+      article.nameAr ??
+      null,
+
+    description:
+      article.description ??
+      null,
+
+    description_ar:
+      article.description_ar ??
+      article.descriptionAr ??
+      null,
+
+    image_url:
+      article.image_url ??
+      article.imageUrl ??
+      null,
+
+    category_id:
+      article.category_id ??
+      article.categoryId ??
+      null,
+
+    marque_id:
+      article.marque_id ??
+      article.marqueId ??
+      null,
+
+    fournisseur_id:
+      article.fournisseur_id ??
+      article.fournisseurId ??
+      null,
+
+    old_price:
+      article.old_price ??
+      article.oldPrice ??
+      null,
+
+    purchase_price:
+      article.purchase_price ??
+      article.purchasePrice ??
+      null,
+  };
 }
 
 /* =========================================================
@@ -250,9 +311,7 @@ function StatusBadge({
     );
   }
 
-  if (
-    normalized === "inactive"
-  ) {
+  if (normalized === "inactive") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
         <XCircle size={13} />
@@ -261,9 +320,7 @@ function StatusBadge({
     );
   }
 
-  if (
-    normalized === "rupture"
-  ) {
+  if (normalized === "rupture") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
         <XCircle size={13} />
@@ -327,10 +384,7 @@ function ImagePreview({
     >
       <img
         src={src}
-        alt={
-          article.name ||
-          "Article"
-        }
+        alt={article.name || "Article"}
         onError={() =>
           setFailed(true)
         }
@@ -409,6 +463,16 @@ export default function ArticlesPage() {
   const [deletingId, setDeletingId] =
     useState<number | null>(null);
 
+  const [updatingStockId, setUpdatingStockId] =
+    useState<number | null>(null);
+
+  /* =======================================================
+     STOCK INPUTS
+  ======================================================= */
+
+  const [stockInputs, setStockInputs] =
+    useState<Record<number, string>>({});
+
   /* =======================================================
      ERRORS
   ======================================================= */
@@ -454,6 +518,15 @@ export default function ArticlesPage() {
   const [totalPages, setTotalPages] =
     useState(1);
 
+  const [serverStats, setServerStats] =
+    useState({
+      total: 0,
+      active: 0,
+      featured: 0,
+      outOfStock: 0,
+      lowStock: 0,
+    });
+
   /* =======================================================
      FILTERS
   ======================================================= */
@@ -465,10 +538,10 @@ export default function ArticlesPage() {
 
   const [selectedStock, setSelectedStock] =
     useState<
-      | "all"
-      | "available"
-      | "low"
-      | "out"
+      "all" |
+      "available" |
+      "low" |
+      "out"
     >("all");
 
   /* =======================================================
@@ -489,8 +562,14 @@ export default function ArticlesPage() {
     {
       name: "",
       nameAr: "",
+
+      description: "",
+      descriptionAr: "",
+
       slug: "",
+
       imageUrl: "",
+
       images: [],
 
       price: "",
@@ -610,58 +689,222 @@ export default function ArticlesPage() {
     article: Article
   ) {
     setEditingArticle(article);
+
     setFormError("");
+
     setFormOpen(true);
 
     try {
-      const [detailResult] = await Promise.all([
-        apiFetch<any>(`/articles/${article.id}`),
+      const [
+        detailResult,
+      ] = await Promise.all([
+        apiFetch<any>(
+          `/articles/${article.id}`
+        ),
         loadLists(),
       ]);
 
-      const detail = detailResult?.data ?? detailResult ?? article;
-      const rawImages = Array.isArray(detail?.images) ? detail.images : [];
-      const images: ArticleImage[] = rawImages.map((image: any, index: number) => ({
-        id: Number(image.id),
-        url: String(image.url || image.image_url || ""),
-        alt_text: image.alt_text ?? null,
-        alt_text_ar: image.alt_text_ar ?? null,
-        is_primary: isTrue(image.is_primary),
-        sort_order: Number(image.sort_order ?? index),
-      })).filter((image: ArticleImage) => image.url);
+      const detail =
+        detailResult?.data ??
+        detailResult ??
+        article;
 
-      if (!images.length && detail.image_url) {
-        images.push({ url: detail.image_url, is_primary: true, sort_order: 0 });
+      const rawImages =
+        Array.isArray(
+          detail?.images
+        )
+          ? detail.images
+          : [];
+
+      const images: ArticleImage[] =
+        rawImages
+          .map(
+            (
+              image: any,
+              index: number
+            ) => ({
+              id:
+                image.id != null
+                  ? Number(
+                      image.id
+                    )
+                  : undefined,
+
+              url: String(
+                image.url ||
+                  image.image_url ||
+                  ""
+              ),
+
+              alt_text:
+                image.alt_text ??
+                null,
+
+              alt_text_ar:
+                image.alt_text_ar ??
+                null,
+
+              is_primary:
+                isTrue(
+                  image.is_primary
+                ),
+
+              sort_order:
+                Number(
+                  image.sort_order ??
+                    index
+                ),
+            })
+          )
+          .filter(
+            (
+              image: ArticleImage
+            ) => image.url
+          );
+
+      if (
+        !images.length &&
+        detail.image_url
+      ) {
+        images.push({
+          url: detail.image_url,
+          is_primary: true,
+          sort_order: 0,
+        });
       }
-      if (images.length && !images.some((image) => isTrue(image.is_primary))) {
-        images[0].is_primary = true;
+
+      if (
+        images.length &&
+        !images.some(
+          (image) =>
+            isTrue(
+              image.is_primary
+            )
+        )
+      ) {
+        images[0].is_primary =
+          true;
       }
-      const primary = images.find((image) => isTrue(image.is_primary));
+
+      const primary =
+        images.find(
+          (image) =>
+            isTrue(
+              image.is_primary
+            )
+        );
 
       setArticleForm({
-        name: detail.name || "",
-        nameAr: detail.name_ar || "",
-        slug: detail.slug || generateSlug(detail.name || ""),
-        imageUrl: primary?.url || detail.image_url || "",
+        name:
+          detail.name || "",
+
+        nameAr:
+          detail.name_ar ??
+          detail.nameAr ??
+          "",
+
+        description:
+          detail.description ??
+          "",
+
+        descriptionAr:
+          detail.description_ar ??
+          detail.descriptionAr ??
+          "",
+
+        slug:
+          detail.slug ||
+          generateSlug(
+            detail.name || ""
+          ),
+
+        imageUrl:
+          primary?.url ||
+          detail.image_url ||
+          "",
+
         images,
-        price: detail.price != null ? String(detail.price) : "",
-        oldPrice: detail.old_price != null ? String(detail.old_price) : "",
-        purchasePrice: detail.purchase_price != null ? String(detail.purchase_price) : "",
-        stock: detail.stock != null ? String(detail.stock) : "0",
-        categoryId: detail.category_id != null ? String(detail.category_id) : "",
-        marqueId: detail.marque_id != null ? String(detail.marque_id) : "",
-        fournisseurId: detail.fournisseur_id != null ? String(detail.fournisseur_id) : "",
-        status: String(detail.status || "ACTIF").toUpperCase(),
-        featured: isTrue(detail.featured),
+
+        price:
+          detail.price != null
+            ? String(
+                detail.price
+              )
+            : "",
+
+        oldPrice:
+          detail.old_price !=
+          null
+            ? String(
+                detail.old_price
+              )
+            : "",
+
+        purchasePrice:
+          detail.purchase_price !=
+          null
+            ? String(
+                detail.purchase_price
+              )
+            : "",
+
+        stock:
+          detail.stock != null
+            ? String(
+                detail.stock
+              )
+            : "0",
+
+        categoryId:
+          detail.category_id !=
+          null
+            ? String(
+                detail.category_id
+              )
+            : "",
+
+        marqueId:
+          detail.marque_id !=
+          null
+            ? String(
+                detail.marque_id
+              )
+            : "",
+
+        fournisseurId:
+          detail.fournisseur_id !=
+          null
+            ? String(
+                detail.fournisseur_id
+              )
+            : "",
+
+        status:
+          String(
+            detail.status ||
+              "ACTIF"
+          ).toUpperCase(),
+
+        featured:
+          isTrue(
+            detail.featured
+          ),
       });
     } catch (err: any) {
-      console.error("Erreur chargement article:", err);
-      setFormError(err?.message || "Impossible de charger les images de l'article.");
+      console.error(
+        "Erreur chargement article:",
+        err
+      );
+
+      setFormError(
+        err?.message ||
+          "Impossible de charger l'article."
+      );
     }
   }
 
   /* =======================================================
-     HANDLE NAME
+     NAME
   ======================================================= */
 
   function handleNameChange(
@@ -674,61 +917,227 @@ export default function ArticlesPage() {
         name: value,
 
         slug:
-          generateSlug(value),
+          generateSlug(
+            value
+          ),
       })
     );
   }
 
   /* =======================================================
-     HANDLE IMAGE
+     IMAGES
   ======================================================= */
 
-  async function handleImagesUpload(files?: FileList | File[]) {
-    if (!files || files.length === 0) return;
-    const selected = Array.from(files);
-    const invalid = selected.find((file) => !file.type.startsWith("image/") || file.size > 5 * 1024 * 1024);
-    if (invalid) {
-      setFormError("Chaque image doit être JPG, PNG ou WEBP et ne pas dépasser 5 MB.");
+  async function handleImagesUpload(
+    files?: FileList | File[]
+  ) {
+    if (
+      !files ||
+      files.length === 0
+    ) {
       return;
     }
+
+    const selected =
+      Array.from(files);
+
+    const invalid =
+      selected.find(
+        (file) =>
+          !file.type.startsWith(
+            "image/"
+          ) ||
+          file.size >
+            5 *
+              1024 *
+              1024
+      );
+
+    if (invalid) {
+      setFormError(
+        "Chaque image doit être JPG, PNG ou WEBP et ne pas dépasser 5 MB."
+      );
+
+      return;
+    }
+
     try {
-      setUploadingImage(true);
+      setUploadingImage(
+        true
+      );
+
       setFormError("");
-      const uploaded: ArticleImage[] = [];
-      for (const file of selected) {
-        const url = await uploadImage(file);
-        if (!url) throw new Error("URL de l'image manquante.");
-        uploaded.push({ url, is_primary: false, sort_order: articleForm.images.length + uploaded.length });
+
+      const uploaded: ArticleImage[] =
+        [];
+
+      for (
+        const file of selected
+      ) {
+        const url =
+          await uploadImage(
+            file
+          );
+
+        if (!url) {
+          throw new Error(
+            "URL de l'image manquante."
+          );
+        }
+
+        uploaded.push({
+          url,
+
+          is_primary:
+            false,
+
+          sort_order:
+            articleForm.images
+              .length +
+            uploaded.length,
+        });
       }
-      setArticleForm((current) => {
-        const images = [...current.images, ...uploaded];
-        if (!images.some((image) => isTrue(image.is_primary)) && images.length) images[0].is_primary = true;
-        const primary = images.find((image) => isTrue(image.is_primary));
-        return { ...current, images, imageUrl: primary?.url || "" };
-      });
+
+      setArticleForm(
+        (current) => {
+          const images = [
+            ...current.images,
+            ...uploaded,
+          ];
+
+          if (
+            !images.some(
+              (image) =>
+                isTrue(
+                  image.is_primary
+                )
+            ) &&
+            images.length
+          ) {
+            images[0].is_primary =
+              true;
+          }
+
+          const primary =
+            images.find(
+              (image) =>
+                isTrue(
+                  image.is_primary
+                )
+            );
+
+          return {
+            ...current,
+
+            images,
+
+            imageUrl:
+              primary?.url ||
+              "",
+          };
+        }
+      );
     } catch (err: any) {
-      console.error("Erreur upload images:", err);
-      setFormError(err?.message || "Impossible d'envoyer les images.");
+      console.error(
+        "Erreur upload images:",
+        err
+      );
+
+      setFormError(
+        err?.message ||
+          "Impossible d'envoyer les images."
+      );
     } finally {
-      setUploadingImage(false);
+      setUploadingImage(
+        false
+      );
     }
   }
 
-  function removeFormImage(index: number) {
-    setArticleForm((current) => {
-      const removed = current.images[index];
-      const images = current.images.filter((_, i) => i !== index);
-      if (removed && isTrue(removed.is_primary) && images.length) images.forEach((image, i) => { image.is_primary = i === 0; });
-      const primary = images.find((image) => isTrue(image.is_primary));
-      return { ...current, images, imageUrl: primary?.url || "" };
-    });
+  function removeFormImage(
+    index: number
+  ) {
+    setArticleForm(
+      (current) => {
+        const removed =
+          current.images[
+            index
+          ];
+
+        const images =
+          current.images.filter(
+            (_, i) =>
+              i !== index
+          );
+
+        if (
+          removed &&
+          isTrue(
+            removed.is_primary
+          ) &&
+          images.length
+        ) {
+          images.forEach(
+            (
+              image,
+              i
+            ) => {
+              image.is_primary =
+                i === 0;
+            }
+          );
+        }
+
+        const primary =
+          images.find(
+            (image) =>
+              isTrue(
+                image.is_primary
+              )
+          );
+
+        return {
+          ...current,
+
+          images,
+
+          imageUrl:
+            primary?.url ||
+            "",
+        };
+      }
+    );
   }
 
-  function setFormPrimaryImage(index: number) {
-    setArticleForm((current) => {
-      const images = current.images.map((image, i) => ({ ...image, is_primary: i === index }));
-      return { ...current, images, imageUrl: images[index]?.url || "" };
-    });
+  function setFormPrimaryImage(
+    index: number
+  ) {
+    setArticleForm(
+      (current) => {
+        const images =
+          current.images.map(
+            (
+              image,
+              i
+            ) => ({
+              ...image,
+
+              is_primary:
+                i === index,
+            })
+          );
+
+        return {
+          ...current,
+
+          images,
+
+          imageUrl:
+            images[index]?.url ||
+            "",
+        };
+      }
+    );
   }
 
   /* =======================================================
@@ -744,21 +1153,30 @@ export default function ArticlesPage() {
     }
   ) {
     const nextPage =
-      options?.page ?? page;
+      options?.page ??
+      page;
 
     const nextSearch =
-      options?.search ?? search;
+      options?.search ??
+      search;
 
     const nextLimit =
-      options?.limit ?? limit;
+      options?.limit ??
+      limit;
 
     try {
       setError("");
 
-      if (options?.refresh) {
-        setRefreshing(true);
+      if (
+        options?.refresh
+      ) {
+        setRefreshing(
+          true
+        );
       } else {
-        setLoading(true);
+        setLoading(
+          true
+        );
       }
 
       const params =
@@ -796,28 +1214,41 @@ export default function ArticlesPage() {
         [];
 
       if (
-        Array.isArray(payload)
+        Array.isArray(
+          payload
+        )
       ) {
-        rows = payload;
+        rows =
+          payload.map(
+            normalizeArticle
+          );
       } else if (
         Array.isArray(
           payload?.rows
         )
       ) {
-        rows = payload.rows;
+        rows =
+          payload.rows.map(
+            normalizeArticle
+          );
       } else if (
         Array.isArray(
           payload?.data
         )
       ) {
-        rows = payload.data;
+        rows =
+          payload.data.map(
+            normalizeArticle
+          );
       } else if (
         Array.isArray(
           payload?.articles
         )
       ) {
         rows =
-          payload.articles;
+          payload.articles.map(
+            normalizeArticle
+          );
       }
 
       const pagination =
@@ -832,6 +1263,18 @@ export default function ArticlesPage() {
             result?.data?.total ??
             rows.length
         );
+
+      const globalTotalRaw =
+        result?.totalAll ??
+        payload?.totalAll ??
+        result?.data?.totalAll;
+
+      const globalTotal =
+        Number.isFinite(
+          Number(globalTotalRaw)
+        )
+          ? Number(globalTotalRaw)
+          : backendTotal;
 
       const backendPages =
         Number(
@@ -859,6 +1302,74 @@ export default function ArticlesPage() {
           backendPages
         )
       );
+
+      /*
+       * Synchroniser les valeurs
+       * des inputs de stock avec
+       * les valeurs retournées
+       * par le serveur.
+       */
+      setStockInputs(
+        (current) => {
+          const next = {
+            ...current,
+          };
+
+          for (
+            const article of rows
+          ) {
+            next[
+              article.id
+            ] = String(
+              toNumber(
+                article.stock
+              )
+            );
+          }
+
+          return next;
+        }
+      );
+
+      const backendStats =
+        payload?.statistics ??
+        payload?.stats ??
+        result?.statistics ??
+        result?.stats;
+
+      if (backendStats) {
+        setServerStats({
+          total: globalTotal,
+
+          active: Number(
+            backendStats.active ??
+              0
+          ),
+
+          featured: Number(
+            backendStats.featured ??
+              0
+          ),
+
+          outOfStock: Number(
+            backendStats.outOfStock ??
+              0
+          ),
+
+          lowStock: Number(
+            backendStats.lowStock ??
+              0
+          ),
+        });
+      } else {
+        setServerStats({
+          total: globalTotal,
+          active: 0,
+          featured: 0,
+          outOfStock: 0,
+          lowStock: 0,
+        });
+      }
     } catch (err: any) {
       console.error(
         "Erreur chargement articles:",
@@ -870,129 +1381,612 @@ export default function ArticlesPage() {
           "Impossible de charger les articles."
       );
     } finally {
-      setLoading(false);
+      setLoading(
+        false
+      );
 
-      setRefreshing(false);
+      setRefreshing(
+        false
+      );
     }
   }
 
   /* =======================================================
-     INITIAL LOAD
+     INITIAL LOAD / PAGINATION
   ======================================================= */
 
   useEffect(() => {
     loadArticles();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    page,
-    limit,
-    search,
-  ]);
+  }, [page, limit, search]);
 
   /* =======================================================
      SEARCH
   ======================================================= */
 
   function handleSearch() {
-    setPage(1);
+    const value =
+      searchInput.trim();
 
-    setSearch(
-      searchInput.trim()
-    );
+    setPage(1);
+    setSearch(value);
   }
 
   function handleClearSearch() {
     setSearchInput("");
-
     setSearch("");
-
     setPage(1);
   }
 
   /* =======================================================
-     SAVE
+     STOCK INPUT
+  ======================================================= */
+
+  function handleStockInputChange(
+    articleId: number,
+    value: string
+  ) {
+    if (
+      value === "" ||
+      /^\d+$/.test(value)
+    ) {
+      setStockInputs(
+        (current) => ({
+          ...current,
+
+          [articleId]:
+            value,
+        })
+      );
+    }
+  }
+
+  /* =======================================================
+     UPDATE STOCK
+  ======================================================= */
+
+  async function updateArticleStock(
+    article: Article
+  ) {
+    const rawValue =
+      stockInputs[
+        article.id
+      ] ??
+      String(
+        toNumber(
+          article.stock
+        )
+      );
+
+    const stock =
+      Math.floor(
+        Number(rawValue)
+      );
+
+    if (
+      rawValue === "" ||
+      !Number.isFinite(stock) ||
+      stock < 0
+    ) {
+      setError(
+        "Le stock doit être un nombre entier positif."
+      );
+
+      return;
+    }
+
+    try {
+      setUpdatingStockId(
+        article.id
+      );
+
+      setError("");
+
+      /*
+       * Mise à jour du stock uniquement.
+       */
+      await apiFetch(
+        `/articles/${article.id}`,
+        {
+          method: "PUT",
+
+          bodyJson: {
+            stock,
+          },
+        }
+      );
+
+      /*
+       * Mise à jour locale immédiate
+       * pour éviter un affichage ancien.
+       */
+      setArticles(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id ===
+              article.id
+                ? {
+                    ...item,
+                    stock,
+                  }
+                : item
+          )
+      );
+
+      setStockInputs(
+        (current) => ({
+          ...current,
+
+          [article.id]:
+            String(stock),
+        })
+      );
+
+      /*
+       * Rechargement serveur
+       * pour les statistiques.
+       */
+      await loadArticles({
+        page,
+        search,
+        limit,
+        refresh: true,
+      });
+    } catch (err: any) {
+      console.error(
+        "Erreur modification stock:",
+        err
+      );
+
+      setError(
+        err?.message ||
+          "Impossible de modifier le stock."
+      );
+    } finally {
+      setUpdatingStockId(
+        null
+      );
+    }
+  }
+
+  /* =======================================================
+     SAVE ARTICLE
   ======================================================= */
 
   async function saveArticle() {
-    if (!articleForm.name.trim()) return setFormError("Le nom de l'article est obligatoire.");
-    if (articleForm.price === "" || Number(articleForm.price) < 0) return setFormError("Veuillez saisir un prix de vente valide.");
-    if (articleForm.purchasePrice !== "" && Number(articleForm.purchasePrice) < 0) return setFormError("Le prix d'achat ne peut pas être négatif.");
-    if (articleForm.oldPrice !== "" && Number(articleForm.oldPrice) < 0) return setFormError("L'ancien prix ne peut pas être négatif.");
-    if (articleForm.stock !== "" && Number(articleForm.stock) < 0) return setFormError("Le stock ne peut pas être négatif.");
+    if (
+      !articleForm.name.trim()
+    ) {
+      setFormError(
+        "Le nom de l'article est obligatoire."
+      );
 
-    const slug = generateSlug(articleForm.name);
-    if (!slug) return setFormError("Impossible de générer le slug.");
+      return;
+    }
 
-    const images = articleForm.images.filter((image) => image.url);
-    if (images.length && !images.some((image) => isTrue(image.is_primary))) images[0].is_primary = true;
-    const primary = images.find((image) => isTrue(image.is_primary));
+    if (
+      articleForm.price === "" ||
+      Number(
+        articleForm.price
+      ) < 0
+    ) {
+      setFormError(
+        "Veuillez saisir un prix de vente valide."
+      );
+
+      return;
+    }
+
+    if (
+      articleForm.purchasePrice !==
+        "" &&
+      Number(
+        articleForm.purchasePrice
+      ) < 0
+    ) {
+      setFormError(
+        "Le prix d'achat ne peut pas être négatif."
+      );
+
+      return;
+    }
+
+    if (
+      articleForm.oldPrice !==
+        "" &&
+      Number(
+        articleForm.oldPrice
+      ) < 0
+    ) {
+      setFormError(
+        "L'ancien prix ne peut pas être négatif."
+      );
+
+      return;
+    }
+
+    if (
+      articleForm.stock !==
+        "" &&
+      Number(
+        articleForm.stock
+      ) < 0
+    ) {
+      setFormError(
+        "Le stock ne peut pas être négatif."
+      );
+
+      return;
+    }
+
+    const slug =
+      generateSlug(
+        articleForm.name
+      );
+
+    if (!slug) {
+      setFormError(
+        "Impossible de générer le slug."
+      );
+
+      return;
+    }
+
+    const images =
+      articleForm.images.filter(
+        (image) =>
+          image.url
+      );
+
+    if (
+      images.length &&
+      !images.some(
+        (image) =>
+          isTrue(
+            image.is_primary
+          )
+      )
+    ) {
+      images[0].is_primary =
+        true;
+    }
+
+    const primary =
+      images.find(
+        (image) =>
+          isTrue(
+            image.is_primary
+          )
+      );
 
     const body = {
-      name: articleForm.name.trim(),
-      nameAr: articleForm.nameAr.trim() || null,
+      name:
+        articleForm.name.trim(),
+
+      nameAr:
+        articleForm.nameAr.trim() ||
+        null,
+
+      description:
+        articleForm.description.trim() ||
+        null,
+
+      descriptionAr:
+        articleForm.descriptionAr.trim() ||
+        null,
+
       slug,
-      imageUrl: primary?.url || null,
-      price: Number(articleForm.price),
-      oldPrice: articleForm.oldPrice ? Number(articleForm.oldPrice) : null,
-      purchasePrice: articleForm.purchasePrice ? Number(articleForm.purchasePrice) : null,
-      stock: articleForm.stock === "" ? 0 : Number(articleForm.stock),
-      categoryId: articleForm.categoryId ? Number(articleForm.categoryId) : null,
-      marqueId: articleForm.marqueId ? Number(articleForm.marqueId) : null,
-      fournisseurId: articleForm.fournisseurId ? Number(articleForm.fournisseurId) : null,
-      status: articleForm.status,
-      featured: articleForm.featured,
+
+      imageUrl:
+        primary?.url ||
+        null,
+
+      price:
+        Number(
+          articleForm.price
+        ),
+
+      oldPrice:
+        articleForm.oldPrice
+          ? Number(
+              articleForm.oldPrice
+            )
+          : null,
+
+      purchasePrice:
+        articleForm.purchasePrice
+          ? Number(
+              articleForm.purchasePrice
+            )
+          : null,
+
+      stock:
+        articleForm.stock === ""
+          ? 0
+          : Math.floor(
+              Number(
+                articleForm.stock
+              )
+            ),
+
+      categoryId:
+        articleForm.categoryId
+          ? Number(
+              articleForm.categoryId
+            )
+          : null,
+
+      marqueId:
+        articleForm.marqueId
+          ? Number(
+              articleForm.marqueId
+            )
+          : null,
+
+      fournisseurId:
+        articleForm.fournisseurId
+          ? Number(
+              articleForm.fournisseurId
+            )
+          : null,
+
+      status:
+        articleForm.status,
+
+      featured:
+        articleForm.featured,
     };
 
     try {
-      setSavingArticle(true);
+      setSavingArticle(
+        true
+      );
+
       setFormError("");
 
+      /* CREATE */
+
       if (!editingArticle) {
-        const result = await apiFetch<any>("/articles", { method: "POST", bodyJson: body });
-        const articleId = Number(result?.id ?? result?.data?.id);
-        if (!articleId) throw new Error("L'article a été créé mais son identifiant est introuvable.");
-        for (const image of images.filter((item) => item.url !== primary?.url)) {
-          await apiFetch(`/articles/${articleId}/images`, {
-            method: "POST",
-            bodyJson: { url: image.url, altText: articleForm.name.trim(), altTextAr: articleForm.nameAr.trim() || null, isPrimary: false, sortOrder: Number(image.sort_order ?? 0) },
-          });
-        }
-      } else {
-        await apiFetch(`/articles/${editingArticle.id}`, { method: "PUT", bodyJson: body });
-        const detailResult = await apiFetch<any>(`/articles/${editingArticle.id}`);
-        const currentImages: ArticleImage[] = Array.isArray(detailResult?.data?.images) ? detailResult.data.images : [];
-        const desiredIds = new Set(images.filter((image) => image.id).map((image) => Number(image.id)));
+        const result =
+          await apiFetch<any>(
+            "/articles",
+            {
+              method:
+                "POST",
 
-        for (const current of currentImages) {
-          if (current.id && !desiredIds.has(Number(current.id))) {
-            await apiFetch(`/articles/${editingArticle.id}/images/${current.id}`, { method: "DELETE" });
-          }
-        }
+              bodyJson:
+                body,
+            }
+          );
 
-        const addedIds: number[] = [];
-        for (const image of images.filter((item) => !item.id)) {
-          const added = await apiFetch<any>(`/articles/${editingArticle.id}/images`, {
-            method: "POST",
-            bodyJson: { url: image.url, altText: articleForm.name.trim(), altTextAr: articleForm.nameAr.trim() || null, isPrimary: false, sortOrder: Number(image.sort_order ?? 0) },
-          });
-          if (added?.id) addedIds.push(Number(added.id));
+        const articleId =
+          Number(
+            result?.id ??
+              result?.data
+                ?.id
+          );
+
+        if (!articleId) {
+          throw new Error(
+            "L'article a été créé mais son identifiant est introuvable."
+          );
         }
 
-        if (primary) {
-          const primaryId = primary.id ?? (addedIds.length ? addedIds[addedIds.length - 1] : undefined);
-          if (primaryId) await apiFetch(`/articles/${editingArticle.id}/images/${primaryId}/primary`, { method: "PATCH" });
+        for (
+          const image of images.filter(
+            (item) =>
+              item.url !==
+              primary?.url
+          )
+        ) {
+          await apiFetch(
+            `/articles/${articleId}/images`,
+            {
+              method:
+                "POST",
+
+              bodyJson: {
+                url:
+                  image.url,
+
+                altText:
+                  articleForm.name.trim(),
+
+                altTextAr:
+                  articleForm.nameAr.trim() ||
+                  null,
+
+                isPrimary:
+                  false,
+
+                sortOrder:
+                  Number(
+                    image.sort_order ??
+                      0
+                  ),
+              },
+            }
+          );
         }
       }
 
-      setFormOpen(false);
-      await loadArticles({ page: editingArticle ? page : 1, refresh: true });
-      if (!editingArticle) setPage(1);
+      /* UPDATE */
+
+      else {
+        await apiFetch(
+          `/articles/${editingArticle.id}`,
+          {
+            method:
+              "PUT",
+
+            bodyJson:
+              body,
+          }
+        );
+
+        const detailResult =
+          await apiFetch<any>(
+            `/articles/${editingArticle.id}`
+          );
+
+        const currentImages: ArticleImage[] =
+          Array.isArray(
+            detailResult
+              ?.data
+              ?.images
+          )
+            ? detailResult
+                .data
+                .images
+            : [];
+
+        const desiredIds =
+          new Set(
+            images
+              .filter(
+                (image) =>
+                  image.id
+              )
+              .map(
+                (image) =>
+                  Number(
+                    image.id
+                  )
+              )
+          );
+
+        for (
+          const current of currentImages
+        ) {
+          if (
+            current.id &&
+            !desiredIds.has(
+              Number(
+                current.id
+              )
+            )
+          ) {
+            await apiFetch(
+              `/articles/${editingArticle.id}/images/${current.id}`,
+              {
+                method:
+                  "DELETE",
+              }
+            );
+          }
+        }
+
+        const addedIds: number[] =
+          [];
+
+        for (
+          const image of images.filter(
+            (item) =>
+              !item.id
+          )
+        ) {
+          const added =
+            await apiFetch<any>(
+              `/articles/${editingArticle.id}/images`,
+              {
+                method:
+                  "POST",
+
+                bodyJson: {
+                  url:
+                    image.url,
+
+                  altText:
+                    articleForm.name.trim(),
+
+                  altTextAr:
+                    articleForm.nameAr.trim() ||
+                    null,
+
+                  isPrimary:
+                    false,
+
+                  sortOrder:
+                    Number(
+                      image.sort_order ??
+                        0
+                    ),
+                },
+              }
+            );
+
+          if (
+            added?.id
+          ) {
+            addedIds.push(
+              Number(
+                added.id
+              )
+            );
+          }
+        }
+
+        if (primary) {
+          const primaryId =
+            primary.id ??
+            (
+              addedIds.length
+                ? addedIds[
+                    addedIds.length -
+                      1
+                  ]
+                : undefined
+            );
+
+          if (
+            primaryId
+          ) {
+            await apiFetch(
+              `/articles/${editingArticle.id}/images/${primaryId}/primary`,
+              {
+                method:
+                  "PATCH",
+              }
+            );
+          }
+        }
+      }
+
+      setFormOpen(
+        false
+      );
+
+      await loadArticles({
+        page:
+          editingArticle
+            ? page
+            : 1,
+
+        refresh:
+          true,
+      });
+
+      if (
+        !editingArticle
+      ) {
+        setPage(1);
+      }
     } catch (err: any) {
-      console.error("Erreur sauvegarde article:", err);
-      setFormError(err?.message || "Impossible d'enregistrer l'article.");
+      console.error(
+        "Erreur sauvegarde article:",
+        err
+      );
+
+      setFormError(
+        err?.message ||
+          "Impossible d'enregistrer l'article."
+      );
     } finally {
-      setSavingArticle(false);
+      setSavingArticle(
+        false
+      );
     }
   }
 
@@ -1022,12 +2016,14 @@ export default function ArticlesPage() {
       await apiFetch(
         `/articles/${article.id}`,
         {
-          method: "DELETE",
+          method:
+            "DELETE",
         }
       );
 
       await loadArticles({
-        refresh: true,
+        refresh:
+          true,
       });
     } catch (err: any) {
       console.error(
@@ -1040,12 +2036,14 @@ export default function ArticlesPage() {
           "Impossible de supprimer cet article."
       );
     } finally {
-      setDeletingId(null);
+      setDeletingId(
+        null
+      );
     }
   }
 
   /* =======================================================
-     FILTERED ARTICLES
+     FILTER
   ======================================================= */
 
   const filteredArticles =
@@ -1082,8 +2080,10 @@ export default function ArticlesPage() {
           if (
             selectedStock ===
               "low" &&
-            (stock <= 0 ||
-              stock > 10)
+            (
+              stock <= 0 ||
+              stock > 10
+            )
           ) {
             return false;
           }
@@ -1109,58 +2109,7 @@ export default function ArticlesPage() {
      STATS
   ======================================================= */
 
-  const stats =
-    useMemo(() => {
-      const active =
-        articles.filter(
-          (article) =>
-            normalizeStatus(
-              article.status
-            ) === "active"
-        ).length;
-
-      const featured =
-        articles.filter(
-          (article) =>
-            isTrue(
-              article.featured
-            )
-        ).length;
-
-      const outOfStock =
-        articles.filter(
-          (article) =>
-            toNumber(
-              article.stock
-            ) <= 0
-        ).length;
-
-      const lowStock =
-        articles.filter(
-          (article) => {
-            const stock =
-              toNumber(
-                article.stock
-              );
-
-            return (
-              stock > 0 &&
-              stock <= 10
-            );
-          }
-        ).length;
-
-      return {
-        total,
-        active,
-        featured,
-        outOfStock,
-        lowStock,
-      };
-    }, [
-      articles,
-      total,
-    ]);
+  const stats = serverStats;
 
   /* =======================================================
      PAGINATION
@@ -1187,17 +2136,13 @@ export default function ArticlesPage() {
     <div className="min-h-full bg-slate-50">
       <div className="mx-auto w-full max-w-[1800px] space-y-6 p-4 md:p-6 lg:p-8">
 
-        {/* =================================================
-            HEADER
-        ================================================= */}
+        {/* HEADER */}
 
         <AdminPageHeader
           title="Articles"
-          subtitle="Gérez votre catalogue, vos stocks, vos prix et vos produits."
+          subtitle="Gérez votre catalogue, vos descriptions, vos stocks, vos prix et vos produits."
           icon={
-            <Package
-              size={22}
-            />
+            <Package size={22} />
           }
         />
 
@@ -1210,14 +2155,11 @@ export default function ArticlesPage() {
             className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#2563EB] px-5 text-xs font-black text-white shadow-lg shadow-[#2563EB]/20 transition hover:-translate-y-0.5 hover:bg-[#1d4ed8]"
           >
             <Plus size={17} />
-
             Nouvel article
           </button>
         </div>
 
-        {/* =================================================
-            ERROR
-        ================================================= */}
+        {/* ERROR */}
 
         {error && (
           <div className="flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-red-700 shadow-sm">
@@ -1248,13 +2190,9 @@ export default function ArticlesPage() {
           </div>
         )}
 
-        {/* =================================================
-            STATS
-        ================================================= */}
+        {/* STATS */}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-
-          {/* TOTAL */}
 
           <button
             type="button"
@@ -1267,7 +2205,7 @@ export default function ArticlesPage() {
                 "all"
               );
             }}
-            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
+            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
           >
             <div className="flex items-start justify-between">
               <div>
@@ -1287,12 +2225,9 @@ export default function ArticlesPage() {
 
             <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-slate-400">
               <TrendingUp size={14} />
-
               Catalogue global
             </div>
           </button>
-
-          {/* ACTIVE */}
 
           <button
             type="button"
@@ -1305,7 +2240,7 @@ export default function ArticlesPage() {
                 "all"
               );
             }}
-            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
+            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
           >
             <div className="flex items-start justify-between">
               <div>
@@ -1330,8 +2265,6 @@ export default function ArticlesPage() {
             </p>
           </button>
 
-          {/* FEATURED */}
-
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-start justify-between">
               <div>
@@ -1354,8 +2287,6 @@ export default function ArticlesPage() {
             </p>
           </div>
 
-          {/* LOW STOCK */}
-
           <button
             type="button"
             onClick={() => {
@@ -1367,7 +2298,7 @@ export default function ArticlesPage() {
                 "all"
               );
             }}
-            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
+            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
           >
             <div className="flex items-start justify-between">
               <div>
@@ -1392,8 +2323,6 @@ export default function ArticlesPage() {
             </p>
           </button>
 
-          {/* OUT */}
-
           <button
             type="button"
             onClick={() => {
@@ -1405,7 +2334,7 @@ export default function ArticlesPage() {
                 "all"
               );
             }}
-            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
+            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
           >
             <div className="flex items-start justify-between">
               <div>
@@ -1429,374 +2358,318 @@ export default function ArticlesPage() {
           </button>
         </div>
 
-        {/* =================================================
-            TOOLBAR
-        ================================================= */}
+        {/* =====================================================
+            SEARCH + FILTERS + DISPLAY CONTROLS
+        ====================================================== */}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
 
-            {/* SEARCH */}
+          {/* SEARCH */}
+          <div className="border-b border-slate-100 p-4 sm:p-5 lg:p-6">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#2563EB]">
+                  Recherche
+                </p>
+                <h2 className="mt-1 text-base font-black text-slate-900 sm:text-lg">
+                  Rechercher dans le catalogue
+                </h2>
+              </div>
 
-            <div className="flex w-full flex-col gap-3 md:flex-row xl:max-w-3xl">
-              <div className="relative flex-1">
+              {(search || searchInput) && (
+                <button
+                  type="button"
+                  onClick={handleClearSearch}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+                >
+                  <X size={14} />
+                  Effacer
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-3 lg:flex-row">
+              <div className="relative min-w-0 flex-1">
                 <Search
                   size={19}
                   className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
                 />
 
                 <input
-                  value={
-                    searchInput
-                  }
+                  value={searchInput}
                   onChange={(event) =>
-                    setSearchInput(
-                      event.target
-                        .value
-                    )
+                    setSearchInput(event.target.value)
                   }
                   onKeyDown={(event) => {
-                    if (
-                      event.key ===
-                      "Enter"
-                    ) {
+                    if (event.key === "Enter") {
                       handleSearch();
                     }
                   }}
-                  placeholder="Rechercher un article, nom ou slug..."
-                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium text-slate-800 outline-none transition focus:border-[#60A5FA] focus:bg-white focus:ring-4 focus:ring-[#60A5FA]/10"
+                  placeholder="Nom, référence, catégorie, marque..."
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-11 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#60A5FA] focus:bg-white focus:ring-4 focus:ring-[#60A5FA]/10"
                 />
 
                 {searchInput && (
                   <button
                     type="button"
-                    onClick={
-                      handleClearSearch
-                    }
+                    onClick={() => setSearchInput("")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    title="Effacer la saisie"
                   >
-                    <XCircle
-                      size={17}
-                    />
+                    <XCircle size={17} />
                   </button>
                 )}
               </div>
 
               <button
                 type="button"
-                onClick={
-                  handleSearch
-                }
-                className="h-12 rounded-xl bg-[#2563EB] px-6 text-sm font-bold text-white shadow-lg shadow-[#2563EB]/15 transition hover:-translate-y-0.5 hover:bg-[#1D4ED8]"
+                onClick={handleSearch}
+                className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-6 text-sm font-black text-white shadow-lg shadow-[#2563EB]/15 transition hover:-translate-y-0.5 hover:bg-[#1D4ED8] lg:min-w-[150px]"
               >
+                <Search size={17} />
                 Rechercher
               </button>
             </div>
 
-            {/* FILTERS */}
+            <p className="mt-2 text-[11px] font-medium text-slate-400">
+              Appuyez sur <span className="font-black text-slate-500">Entrée</span> pour lancer la recherche.
+            </p>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+          {/* FILTERS */}
+          <div className="p-4 sm:p-5 lg:p-6">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#2563EB]">
+                  Filtres
+                </p>
+                <h2 className="mt-1 text-base font-black text-slate-900 sm:text-lg">
+                  Affiner les résultats
+                </h2>
+              </div>
+
+              <span className="text-xs font-semibold text-slate-400">
+                {filteredArticles.length} article{filteredArticles.length > 1 ? "s" : ""} sur cette page
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
 
               {/* STATUS */}
-
-              <select
-                value={
-                  selectedStatus
-                }
-                onChange={(event) =>
-                  setSelectedStatus(
-                    event.target
-                      .value as
-                      | "all"
-                      | "active"
-                      | "inactive"
-                  )
-                }
-                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#60A5FA]"
-              >
-                <option value="all">
-                  Tous les statuts
-                </option>
-
-                <option value="active">
-                  Actifs
-                </option>
-
-                <option value="inactive">
-                  Inactifs
-                </option>
-              </select>
+              <label className="block">
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  Statut
+                </span>
+                <select
+                  value={selectedStatus}
+                  onChange={(event) => {
+                    setSelectedStatus(
+                      event.target.value as
+                        | "all"
+                        | "active"
+                        | "inactive"
+                    );
+                    setPage(1);
+                  }}
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-[#60A5FA] focus:bg-white focus:ring-4 focus:ring-[#60A5FA]/10"
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="active">Actifs</option>
+                  <option value="inactive">Inactifs</option>
+                </select>
+              </label>
 
               {/* STOCK */}
-
-              <select
-                value={
-                  selectedStock
-                }
-                onChange={(event) =>
-                  setSelectedStock(
-                    event.target
-                      .value as
-                      | "all"
-                      | "available"
-                      | "low"
-                      | "out"
-                  )
-                }
-                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#60A5FA]"
-              >
-                <option value="all">
-                  Tous les stocks
-                </option>
-
-                <option value="available">
-                  En stock
-                </option>
-
-                <option value="low">
-                  Stock faible
-                </option>
-
-                <option value="out">
-                  Rupture
-                </option>
-              </select>
+              <label className="block">
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  Stock
+                </span>
+                <select
+                  value={selectedStock}
+                  onChange={(event) => {
+                    setSelectedStock(
+                      event.target.value as
+                        | "all"
+                        | "available"
+                        | "low"
+                        | "out"
+                    );
+                    setPage(1);
+                  }}
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-[#60A5FA] focus:bg-white focus:ring-4 focus:ring-[#60A5FA]/10"
+                >
+                  <option value="all">Tous les stocks</option>
+                  <option value="available">En stock</option>
+                  <option value="low">Stock faible</option>
+                  <option value="out">Rupture</option>
+                </select>
+              </label>
 
               {/* LIMIT */}
+              <label className="block">
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  Articles par page
+                </span>
+                <select
+                  value={limit}
+                  onChange={(event) => {
+                    setLimit(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-[#60A5FA] focus:bg-white focus:ring-4 focus:ring-[#60A5FA]/10"
+                >
+                  <option value={10}>10 articles</option>
+                  <option value={20}>20 articles</option>
+                  <option value={50}>50 articles</option>
+                  <option value={100}>100 articles</option>
+                </select>
+              </label>
 
-              <select
-                value={limit}
-                onChange={(event) => {
-                  setLimit(
-                    Number(
-                      event.target
-                        .value
-                    )
-                  );
+              {/* ACTIONS */}
+              <div>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  Affichage
+                </span>
+                <div className="flex h-12 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("table")}
+                    className={[
+                      "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition",
+                      viewMode === "table"
+                        ? "bg-[#2563EB] text-white shadow-md shadow-[#2563EB]/15"
+                        : "border border-slate-200 bg-slate-50 text-slate-500 hover:bg-white hover:text-slate-800",
+                    ].join(" ")}
+                  >
+                    <Table2 size={16} />
+                    <span>Tableau</span>
+                  </button>
 
-                  setPage(1);
-                }}
-                className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#60A5FA]"
-              >
-                <option value={10}>
-                  10 / page
-                </option>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("cards")}
+                    className={[
+                      "flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-xs font-black transition",
+                      viewMode === "cards"
+                        ? "bg-[#2563EB] text-white shadow-md shadow-[#2563EB]/15"
+                        : "border border-slate-200 bg-slate-50 text-slate-500 hover:bg-white hover:text-slate-800",
+                    ].join(" ")}
+                  >
+                    <Grid3X3 size={16} />
+                    <span>Cartes</span>
+                  </button>
+                </div>
+              </div>
+            </div>
 
-                <option value={20}>
-                  20 / page
-                </option>
+            {/* ACTIVE FILTERS */}
+            <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-slate-50 p-3 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+                  Filtres actifs
+                </span>
+              </div>
 
-                <option value={50}>
-                  50 / page
-                </option>
+              <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                {search && (
+                  <span className="inline-flex max-w-full items-center gap-2 rounded-full bg-[#2563EB]/10 px-3 py-1.5 text-xs font-bold text-[#2563EB]">
+                    <Search size={13} />
+                    <span className="truncate">Recherche : {search}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch("");
+                        setSearchInput("");
+                        setPage(1);
+                      }}
+                      className="rounded-full p-0.5 transition hover:bg-[#2563EB]/10"
+                      title="Supprimer ce filtre"
+                    >
+                      <X size={13} />
+                    </button>
+                  </span>
+                )}
 
-                <option value={100}>
-                  100 / page
-                </option>
-              </select>
+                {selectedStatus !== "all" && (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                    <CheckCircle2 size={13} />
+                    Statut : {selectedStatus === "active" ? "Actif" : "Inactif"}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStatus("all");
+                        setPage(1);
+                      }}
+                      className="rounded-full p-0.5 transition hover:bg-emerald-100"
+                      title="Supprimer ce filtre"
+                    >
+                      <X size={13} />
+                    </button>
+                  </span>
+                )}
 
-              {/* REFRESH */}
+                {selectedStock !== "all" && (
+                  <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
+                    <Boxes size={13} />
+                    Stock : {selectedStock === "available" ? "En stock" : selectedStock === "low" ? "Faible" : "Rupture"}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStock("all");
+                        setPage(1);
+                      }}
+                      className="rounded-full p-0.5 transition hover:bg-amber-100"
+                      title="Supprimer ce filtre"
+                    >
+                      <X size={13} />
+                    </button>
+                  </span>
+                )}
 
-              <button
-                type="button"
-                onClick={() =>
-                  loadArticles({
-                    refresh: true,
-                  })
-                }
-                disabled={
-                  refreshing
-                }
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
-                title="Actualiser"
-              >
-                <RefreshCw
-                  size={18}
-                  className={
-                    refreshing
-                      ? "animate-spin"
-                      : ""
-                  }
-                />
-              </button>
+                {!search && selectedStatus === "all" && selectedStock === "all" && (
+                  <span className="text-xs font-medium text-slate-400">
+                    Aucun filtre supplémentaire appliqué.
+                  </span>
+                )}
+              </div>
 
-              {/* VIEW */}
-
-              <div className="flex h-11 items-center rounded-xl border border-slate-200 bg-slate-100 p-1">
+              <div className="flex shrink-0 gap-2">
+                {(search || selectedStatus !== "all" || selectedStock !== "all") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setSearchInput("");
+                      setSelectedStatus("all");
+                      setSelectedStock("all");
+                      setPage(1);
+                    }}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#FE5737]/10 px-3 text-xs font-black text-[#FE5737] transition hover:bg-[#FE5737]/15"
+                  >
+                    <X size={14} />
+                    Tout réinitialiser
+                  </button>
+                )}
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setViewMode(
-                      "table"
-                    )
-                  }
-                  className={[
-                    "flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-bold transition",
-                    viewMode ===
-                    "table"
-                      ? "bg-white text-[#2563EB] shadow-sm"
-                      : "text-slate-500 hover:text-slate-800",
-                  ].join(" ")}
+                  onClick={() => loadArticles({ refresh: true })}
+                  disabled={refreshing}
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Actualiser"
                 >
-                  <Table2
-                    size={17}
+                  <RefreshCw
+                    size={14}
+                    className={refreshing ? "animate-spin" : ""}
                   />
-
-                  <span className="hidden sm:inline">
-                    Tableau
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setViewMode(
-                      "cards"
-                    )
-                  }
-                  className={[
-                    "flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-bold transition",
-                    viewMode ===
-                    "cards"
-                      ? "bg-white text-[#2563EB] shadow-sm"
-                      : "text-slate-500 hover:text-slate-800",
-                  ].join(" ")}
-                >
-                  <Grid3X3
-                    size={17}
-                  />
-
-                  <span className="hidden sm:inline">
-                    Cartes
-                  </span>
+                  Actualiser
                 </button>
               </div>
             </div>
           </div>
+        </section>
 
-          {/* ACTIVE FILTERS */}
-
-          {(search ||
-            selectedStatus !==
-              "all" ||
-            selectedStock !==
-              "all") && (
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
-
-              <span className="text-xs font-bold text-slate-400">
-                Filtres :
-              </span>
-
-              {search && (
-                <span className="inline-flex items-center gap-2 rounded-full bg-[#2563EB]/10 px-3 py-1.5 text-xs font-bold text-[#2563EB]">
-                  Recherche :{" "}
-                  {search}
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch(
-                        ""
-                      );
-
-                      setSearchInput(
-                        ""
-                      );
-
-                      setPage(1);
-                    }}
-                  >
-                    <XCircle
-                      size={14}
-                    />
-                  </button>
-                </span>
-              )}
-
-              {selectedStatus !==
-                "all" && (
-                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                  Statut :{" "}
-                  {selectedStatus ===
-                  "active"
-                    ? "Actif"
-                    : "Inactif"}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedStatus(
-                        "all"
-                      )
-                    }
-                  >
-                    <XCircle
-                      size={14}
-                    />
-                  </button>
-                </span>
-              )}
-
-              {selectedStock !==
-                "all" && (
-                <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
-                  Stock :{" "}
-                  {selectedStock ===
-                  "available"
-                    ? "En stock"
-                    : selectedStock ===
-                      "low"
-                    ? "Faible"
-                    : "Rupture"}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedStock(
-                        "all"
-                      )
-                    }
-                  >
-                    <XCircle
-                      size={14}
-                    />
-                  </button>
-                </span>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch(
-                    ""
-                  );
-
-                  setSearchInput(
-                    ""
-                  );
-
-                  setSelectedStatus(
-                    "all"
-                  );
-
-                  setSelectedStock(
-                    "all"
-                  );
-
-                  setPage(1);
-                }}
-                className="ml-1 text-xs font-bold text-[#FE5737] hover:underline"
-              >
-                Réinitialiser
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* =================================================
-            CONTENT
-        ================================================= */}
+        {/* CONTENT */}
 
         {loading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-10 shadow-sm">
@@ -1811,19 +2684,13 @@ export default function ArticlesPage() {
               <p className="mt-4 text-sm font-bold text-slate-700">
                 Chargement des articles...
               </p>
-
-              <p className="mt-1 text-xs text-slate-400">
-                Veuillez patienter
-              </p>
             </div>
           </div>
         ) : filteredArticles.length ===
           0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white px-6 py-16 text-center shadow-sm">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
-              <Package
-                size={30}
-              />
+              <Package size={30} />
             </div>
 
             <h3 className="mt-5 text-lg font-black text-slate-900">
@@ -1837,22 +2704,14 @@ export default function ArticlesPage() {
             <button
               type="button"
               onClick={() => {
-                setSearch(
-                  ""
-                );
-
-                setSearchInput(
-                  ""
-                );
-
+                setSearch("");
+                setSearchInput("");
                 setSelectedStatus(
                   "all"
                 );
-
                 setSelectedStock(
                   "all"
                 );
-
                 setPage(1);
               }}
               className="mt-6 rounded-xl bg-[#2563EB] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#1D4ED8]"
@@ -1876,10 +2735,7 @@ export default function ArticlesPage() {
                 </h2>
 
                 <p className="mt-1 text-xs font-medium text-slate-400">
-                  {
-                    filteredArticles.length
-                  }{" "}
-                  article
+                  {filteredArticles.length} article
                   {filteredArticles.length >
                   1
                     ? "s"
@@ -1891,45 +2747,39 @@ export default function ArticlesPage() {
                     : ""}
                 </p>
               </div>
-
-              <div className="hidden items-center gap-2 text-xs font-semibold text-slate-400 md:flex">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" />
-
-                Catalogue synchronisé
-              </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="w-full overflow-x-auto">
               <table className="w-full min-w-[1200px] border-collapse">
 
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/80 text-left">
 
-                    <th className="px-6 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[30%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       Article
                     </th>
 
-                    <th className="px-5 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[14%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       Catégorie
                     </th>
 
-                    <th className="px-5 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[14%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       Marque
                     </th>
 
-                    <th className="px-5 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[13%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       Prix
                     </th>
 
-                    <th className="px-5 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[15%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       Stock
                     </th>
 
-                    <th className="px-5 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[10%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       Statut
                     </th>
 
-                    <th className="px-5 py-4 text-right text-xs font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[17%] px-4 py-4 text-right text-xs font-black uppercase tracking-wider text-slate-400">
                       Actions
                     </th>
 
@@ -1959,6 +2809,10 @@ export default function ArticlesPage() {
                           article.featured
                         );
 
+                      const isUpdatingStock =
+                        updatingStockId ===
+                        article.id;
+
                       return (
                         <tr
                           key={
@@ -1970,7 +2824,7 @@ export default function ArticlesPage() {
                           {/* ARTICLE */}
 
                           <td className="px-6 py-5">
-                            <div className="flex min-w-[360px] items-center gap-5">
+                            <div className="flex min-w-0 items-center gap-3">
 
                               <ImagePreview
                                 article={
@@ -1983,7 +2837,7 @@ export default function ArticlesPage() {
 
                                 <div className="flex items-center gap-2">
 
-                                  <h3 className="max-w-[300px] truncate text-sm font-black text-slate-900">
+                                  <h3 className="max-w-full truncate text-sm font-black text-slate-900">
                                     {
                                       article.name
                                     }
@@ -2000,7 +2854,7 @@ export default function ArticlesPage() {
                                 {article.name_ar && (
                                   <p
                                     dir="rtl"
-                                    className="mt-1 max-w-[300px] truncate text-xs font-medium text-slate-400"
+                                    className="mt-1 max-w-full truncate text-xs font-medium text-slate-400"
                                   >
                                     {
                                       article.name_ar
@@ -2018,15 +2872,15 @@ export default function ArticlesPage() {
                                   </span>
 
                                   {article.slug && (
-                                    <span className="max-w-[200px] truncate rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-500">
-                                      /{
+                                    <span className="max-w-[160px] truncate rounded-lg bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-500">
+                                      /
+                                      {
                                         article.slug
                                       }
                                     </span>
                                   )}
 
                                 </div>
-
                               </div>
                             </div>
                           </td>
@@ -2038,9 +2892,7 @@ export default function ArticlesPage() {
 
                               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
                                 <Boxes
-                                  size={
-                                    16
-                                  }
+                                  size={16}
                                 />
                               </div>
 
@@ -2050,7 +2902,6 @@ export default function ArticlesPage() {
                                   "Sans catégorie"
                                 }
                               </span>
-
                             </div>
                           </td>
 
@@ -2061,9 +2912,7 @@ export default function ArticlesPage() {
 
                               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-[#FE5737]">
                                 <Building2
-                                  size={
-                                    16
-                                  }
+                                  size={16}
                                 />
                               </div>
 
@@ -2073,95 +2922,158 @@ export default function ArticlesPage() {
                                   "Sans marque"
                                 }
                               </span>
-
                             </div>
                           </td>
 
                           {/* PRICE */}
 
                           <td className="px-5 py-5">
-                            <div>
+                            <p className="whitespace-nowrap text-sm font-black text-[#2563EB]">
+                              {formatPrice(
+                                price
+                              )}
+                            </p>
 
-                              <p className="whitespace-nowrap text-sm font-black text-[#2563EB]">
+                            {oldPrice >
+                              price && (
+                              <p className="mt-1 whitespace-nowrap text-xs font-semibold text-slate-400 line-through">
                                 {formatPrice(
-                                  price
+                                  oldPrice
                                 )}
                               </p>
+                            )}
 
-                              {oldPrice >
-                                price && (
-                                <p className="mt-1 whitespace-nowrap text-xs font-semibold text-slate-400 line-through">
-                                  {formatPrice(
-                                    oldPrice
-                                  )}
-                                </p>
-                              )}
-
-                              {article.purchase_price !=
-                                null && (
-                                <p className="mt-1 text-[10px] font-semibold text-slate-400">
-                                  Achat :{" "}
-                                  {formatPrice(
-                                    toNumber(
-                                      article.purchase_price
-                                    )
-                                  )}
-                                </p>
-                              )}
-
-                            </div>
+                            {article.purchase_price !=
+                              null && (
+                              <p className="mt-1 text-[10px] font-semibold text-slate-400">
+                                Achat :
+                                {" "}
+                                {formatPrice(
+                                  toNumber(
+                                    article.purchase_price
+                                  )
+                                )}
+                              </p>
+                            )}
                           </td>
 
-                          {/* STOCK */}
+                          {/* =================================================
+                             STOCK - MODIFICATION DIRECTE
+                          ================================================= */}
 
                           <td className="px-5 py-5">
+                            <div className="min-w-[165px]">
 
-                            {stock <=
-                            0 ? (
-                              <div>
+                              {/* BADGE */}
 
+                              {stock <=
+                              0 ? (
                                 <span className="inline-flex rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-600">
                                   Rupture
                                 </span>
-
-                                <p className="mt-1 text-xs font-semibold text-slate-400">
-                                  0 unité
-                                </p>
-
-                              </div>
-                            ) : stock <=
-                              10 ? (
-                              <div>
-
+                              ) : stock <=
+                                10 ? (
                                 <span className="inline-flex rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">
                                   Stock faible
                                 </span>
-
-                                <p className="mt-1 text-xs font-semibold text-slate-400">
-                                  {stock}{" "}
-                                  unité
-                                  {stock >
-                                  1
-                                    ? "s"
-                                    : ""}
-                                </p>
-
-                              </div>
-                            ) : (
-                              <div>
-
+                              ) : (
                                 <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
                                   En stock
                                 </span>
+                              )}
 
-                                <p className="mt-1 text-xs font-semibold text-slate-400">
-                                  {stock}{" "}
-                                  unités
-                                </p>
+                              <p className="mt-1 text-xs font-semibold text-slate-400">
+                                {stock} unité
+                                {stock >
+                                1
+                                  ? "s"
+                                  : ""}
+                              </p>
+
+                              {/* INPUT + SAVE */}
+
+                              <div className="mt-3 flex items-center gap-2">
+
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  inputMode="numeric"
+                                  value={
+                                    stockInputs[
+                                      article.id
+                                    ] ??
+                                    String(
+                                      stock
+                                    )
+                                  }
+                                  disabled={
+                                    isUpdatingStock
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    handleStockInputChange(
+                                      article.id,
+                                      event
+                                        .target
+                                        .value
+                                    )
+                                  }
+                                  onKeyDown={(
+                                    event
+                                  ) => {
+                                    if (
+                                      event.key ===
+                                      "Enter"
+                                    ) {
+                                      event.preventDefault();
+
+                                      void updateArticleStock(
+                                        article
+                                      );
+                                    }
+                                  }}
+                                  className="h-9 w-[82px] rounded-lg border border-slate-200 bg-white px-2 text-center text-xs font-black text-slate-700 outline-none transition focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10 disabled:bg-slate-100"
+                                />
+
+                                <button
+                                  type="button"
+                                  disabled={
+                                    isUpdatingStock
+                                  }
+                                  onClick={() =>
+                                    void updateArticleStock(
+                                      article
+                                    )
+                                  }
+                                  className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2563EB] text-white shadow-sm transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50"
+                                  title="Enregistrer le stock"
+                                >
+                                  {isUpdatingStock ? (
+                                    <RefreshCw
+                                      size={15}
+                                      className="animate-spin"
+                                    />
+                                  ) : (
+                                    <CheckCircle2
+                                      size={15}
+                                    />
+                                  )}
+                                </button>
 
                               </div>
-                            )}
 
+                              <p className="mt-1.5 text-[9px] font-semibold text-slate-400">
+                                Entrée puis
+                                <span className="font-black text-slate-500">
+                                  {" "}
+                                  Entrée
+                                </span>{" "}
+                                ou ✓
+                              </p>
+
+                            </div>
                           </td>
 
                           {/* STATUS */}
@@ -2186,9 +3098,7 @@ export default function ArticlesPage() {
                                 title="Voir"
                               >
                                 <Eye
-                                  size={
-                                    17
-                                  }
+                                  size={17}
                                 />
                               </a>
 
@@ -2203,9 +3113,7 @@ export default function ArticlesPage() {
                                 title="Modifier"
                               >
                                 <Edit
-                                  size={
-                                    17
-                                  }
+                                  size={17}
                                 />
                               </button>
 
@@ -2226,16 +3134,12 @@ export default function ArticlesPage() {
                                 {deletingId ===
                                 article.id ? (
                                   <RefreshCw
-                                    size={
-                                      17
-                                    }
+                                    size={17}
                                     className="animate-spin"
                                   />
                                 ) : (
                                   <Trash2
-                                    size={
-                                      17
-                                    }
+                                    size={17}
                                   />
                                 )}
                               </button>
@@ -2282,6 +3186,10 @@ export default function ArticlesPage() {
                     article.featured
                   );
 
+                const isUpdatingStock =
+                  updatingStockId ===
+                  article.id;
+
                 return (
                   <div
                     key={
@@ -2289,8 +3197,6 @@ export default function ArticlesPage() {
                     }
                     className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
                   >
-
-                    {/* IMAGE */}
 
                     <div className="relative flex h-64 items-center justify-center bg-slate-50 p-5">
 
@@ -2360,44 +3266,26 @@ export default function ArticlesPage() {
                       </div>
                     </div>
 
-                    {/* BODY */}
-
                     <div className="p-5">
 
-                      <div className="mb-3 flex items-start justify-between gap-3">
+                      <h3 className="truncate text-base font-black text-slate-900">
+                        {
+                          article.name
+                        }
+                      </h3>
 
-                        <div className="min-w-0">
+                      {article.name_ar && (
+                        <p
+                          dir="rtl"
+                          className="mt-1 truncate text-xs text-slate-400"
+                        >
+                          {
+                            article.name_ar
+                          }
+                        </p>
+                      )}
 
-                          <h3 className="truncate text-base font-black text-slate-900">
-                            {
-                              article.name
-                            }
-                          </h3>
-
-                          {article.name_ar && (
-                            <p
-                              dir="rtl"
-                              className="mt-1 truncate text-xs text-slate-400"
-                            >
-                              {
-                                article.name_ar
-                              }
-                            </p>
-                          )}
-
-                          {article.slug && (
-                            <p className="mt-1 truncate text-[10px] font-semibold text-blue-400">
-                              /{
-                                article.slug
-                              }
-                            </p>
-                          )}
-
-                        </div>
-
-                      </div>
-
-                      <div className="mb-4 flex flex-wrap gap-2">
+                      <div className="mb-4 mt-4 flex flex-wrap gap-2">
 
                         {article.category_name && (
                           <span className="rounded-lg bg-[#2563EB]/10 px-2.5 py-1.5 text-[10px] font-bold text-[#2563EB]">
@@ -2420,7 +3308,6 @@ export default function ArticlesPage() {
                       <div className="flex items-end justify-between border-t border-slate-100 pt-4">
 
                         <div>
-
                           <p className="text-xl font-black text-[#2563EB]">
                             {formatPrice(
                               price
@@ -2435,7 +3322,6 @@ export default function ArticlesPage() {
                               )}
                             </p>
                           )}
-
                         </div>
 
                         <div className="text-right">
@@ -2454,16 +3340,96 @@ export default function ArticlesPage() {
                                   10
                                 ? "text-amber-500"
                                 : "text-emerald-600",
-                            ].join(" ")}
+                            ].join(
+                              " "
+                            )}
                           >
                             {stock}
                           </p>
 
                         </div>
-
                       </div>
 
-                      <div className="mt-4 flex items-center justify-end text-xs">
+                      {/* STOCK DIRECT DANS CARTE */}
+
+                      <div className="mt-4 rounded-xl bg-slate-50 p-3">
+
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          Modifier le stock
+                        </p>
+
+                        <div className="flex gap-2">
+
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={
+                              stockInputs[
+                                article.id
+                              ] ??
+                              String(
+                                stock
+                              )
+                            }
+                            disabled={
+                              isUpdatingStock
+                            }
+                            onChange={(
+                              event
+                            ) =>
+                              handleStockInputChange(
+                                article.id,
+                                event
+                                  .target
+                                  .value
+                              )
+                            }
+                            onKeyDown={(
+                              event
+                            ) => {
+                              if (
+                                event.key ===
+                                "Enter"
+                              ) {
+                                event.preventDefault();
+
+                                void updateArticleStock(
+                                  article
+                                );
+                              }
+                            }}
+                            className="h-10 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-center text-sm font-black outline-none focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/10"
+                          />
+
+                          <button
+                            type="button"
+                            disabled={
+                              isUpdatingStock
+                            }
+                            onClick={() =>
+                              void updateArticleStock(
+                                article
+                              )
+                            }
+                            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#2563EB] text-white transition hover:bg-[#1D4ED8] disabled:opacity-50"
+                          >
+                            {isUpdatingStock ? (
+                              <RefreshCw
+                                size={16}
+                                className="animate-spin"
+                              />
+                            ) : (
+                              <CheckCircle2
+                                size={16}
+                              />
+                            )}
+                          </button>
+
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex items-center justify-end">
 
                         <button
                           type="button"
@@ -2484,13 +3450,10 @@ export default function ArticlesPage() {
                 );
               }
             )}
-
           </div>
         )}
 
-        {/* =================================================
-            PAGINATION
-        ================================================= */}
+        {/* PAGINATION */}
 
         {!loading &&
           filteredArticles.length >
@@ -2618,7 +3581,6 @@ export default function ArticlesPage() {
               </div>
             </div>
           )}
-
       </div>
 
       {/* =====================================================
@@ -2642,14 +3604,13 @@ export default function ArticlesPage() {
           }}
         >
 
-          <div className="max-h-[94vh] w-full max-w-5xl overflow-y-auto rounded-[30px] bg-white shadow-2xl">
+          <div className="max-h-[94vh] w-full max-w-6xl overflow-y-auto rounded-[30px] bg-white shadow-2xl">
 
-            {/* HEADER */}
+            {/* MODAL HEADER */}
 
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-6 py-5 backdrop-blur sm:px-7">
 
               <div>
-
                 <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#60A5FA]">
                   Catalogue
                 </p>
@@ -2662,10 +3623,9 @@ export default function ArticlesPage() {
 
                 <p className="mt-1 text-xs text-slate-400">
                   {editingArticle
-                    ? "Modifiez les informations du produit."
+                    ? "Modifiez toutes les informations du produit."
                     : "Ajoutez un nouveau produit au catalogue."}
                 </p>
-
               </div>
 
               <button
@@ -2683,7 +3643,6 @@ export default function ArticlesPage() {
               >
                 <X size={19} />
               </button>
-
             </div>
 
             {/* FORM */}
@@ -2692,7 +3651,6 @@ export default function ArticlesPage() {
 
               {formError && (
                 <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs font-bold text-red-600">
-
                   <AlertCircle
                     size={17}
                     className="mt-0.5 shrink-0"
@@ -2703,13 +3661,12 @@ export default function ArticlesPage() {
                       formError
                     }
                   </span>
-
                 </div>
               )}
 
               <div className="grid gap-5 lg:grid-cols-2">
 
-                {/* NAME */}
+                {/* NOM FR */}
 
                 <Field label="Nom français *">
 
@@ -2719,8 +3676,7 @@ export default function ArticlesPage() {
                     }
                     onChange={(event) =>
                       handleNameChange(
-                        event
-                          .target
+                        event.target
                           .value
                       )
                     }
@@ -2730,7 +3686,7 @@ export default function ArticlesPage() {
 
                 </Field>
 
-                {/* ARABIC */}
+                {/* NOM AR */}
 
                 <Field
                   label="الاسم بالعربية"
@@ -2748,6 +3704,7 @@ export default function ArticlesPage() {
                           current
                         ) => ({
                           ...current,
+
                           nameAr:
                             event
                               .target
@@ -2761,6 +3718,133 @@ export default function ArticlesPage() {
 
                 </Field>
 
+                {/* DESCRIPTION FR */}
+
+                <div className="lg:col-span-2">
+
+                  <Field label="Description française">
+
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white focus-within:border-[#2563EB] focus-within:ring-4 focus-within:ring-[#2563EB]/10">
+
+                      <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3 py-2">
+
+                        <div className="flex items-center gap-2">
+
+                          <span className="rounded-lg bg-blue-100 px-2.5 py-1.5 text-[9px] font-black text-[#2563EB]">
+                            FR
+                          </span>
+
+                          <span className="text-[10px] font-bold text-slate-400">
+                            Description du produit
+                          </span>
+
+                        </div>
+
+                        <span className="text-[9px] font-semibold text-slate-400">
+                          {
+                            articleForm.description.length
+                          }{" "}
+                          caractères
+                        </span>
+
+                      </div>
+
+                      <textarea
+                        value={
+                          articleForm.description
+                        }
+                        onChange={(event) =>
+                          setArticleForm(
+                            (
+                              current
+                            ) => ({
+                              ...current,
+
+                              description:
+                                event
+                                  .target
+                                  .value,
+                            })
+                          )
+                        }
+                        rows={8}
+                        placeholder="Décrivez complètement le produit : caractéristiques, utilisation, avantages, contenu, dimensions, informations techniques..."
+                        className="w-full resize-y border-0 bg-white px-4 py-4 text-sm font-medium leading-7 text-slate-800 outline-none"
+                      />
+
+                    </div>
+
+                  </Field>
+
+                </div>
+
+                {/* DESCRIPTION AR */}
+
+                <div className="lg:col-span-2">
+
+                  <Field
+                    label="الوصف بالعربية"
+                    dir="rtl"
+                  >
+
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white focus-within:border-[#2563EB] focus-within:ring-4 focus-within:ring-[#2563EB]/10">
+
+                      <div
+                        dir="rtl"
+                        className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-3 py-2"
+                      >
+
+                        <div className="flex items-center gap-2">
+
+                          <span className="rounded-lg bg-emerald-100 px-2.5 py-1.5 text-[9px] font-black text-emerald-700">
+                            AR
+                          </span>
+
+                          <span className="text-[10px] font-bold text-slate-400">
+                            وصف المنتج
+                          </span>
+
+                        </div>
+
+                        <span className="text-[9px] font-semibold text-slate-400">
+                          {
+                            articleForm.descriptionAr.length
+                          }{" "}
+                          حرف
+                        </span>
+
+                      </div>
+
+                      <textarea
+                        dir="rtl"
+                        value={
+                          articleForm.descriptionAr
+                        }
+                        onChange={(event) =>
+                          setArticleForm(
+                            (
+                              current
+                            ) => ({
+                              ...current,
+
+                              descriptionAr:
+                                event
+                                  .target
+                                  .value,
+                            })
+                          )
+                        }
+                        rows={8}
+                        placeholder="اكتب وصف المنتج بالتفصيل..."
+                        className="w-full resize-y border-0 bg-white px-4 py-4 text-right text-sm font-medium leading-8 text-slate-800 outline-none"
+                      />
+
+                    </div>
+
+                  </Field>
+
+                </div>
+
                 {/* SLUG */}
 
                 <Field label="Slug automatique">
@@ -2772,52 +3856,146 @@ export default function ArticlesPage() {
                     readOnly
                     disabled
                     className="h-12 w-full cursor-not-allowed rounded-2xl border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-500 outline-none"
-                    placeholder="le-slug-sera-genere-automatiquement"
                   />
-
-                  <p className="mt-1.5 text-[10px] font-semibold text-slate-400">
-                    Le slug est généré automatiquement à partir du nom français.
-                  </p>
 
                 </Field>
 
                 {/* IMAGES */}
 
                 <Field label="Images du produit">
+
                   <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
+
                     {articleForm.images.length ? (
                       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        {articleForm.images.map((image, index) => (
-                          <div key={`${image.id ?? "new"}-${image.url}-${index}`} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                            <img src={backendUrl(image.url)} alt={articleForm.name || "Image produit"} className="h-32 w-full object-contain p-2" />
-                            {isTrue(image.is_primary) && (
-                              <span className="absolute left-2 top-2 rounded-full bg-[#2563EB] px-2 py-1 text-[9px] font-black text-white">PRINCIPALE</span>
-                            )}
-                            <div className="absolute inset-x-0 bottom-0 flex gap-1 bg-white/95 p-2 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
-                              {!isTrue(image.is_primary) && (
-                                <button type="button" onClick={() => setFormPrimaryImage(index)} className="flex-1 rounded-lg bg-blue-50 px-2 py-1.5 text-[9px] font-black text-[#2563EB] hover:bg-blue-100">Principale</button>
+
+                        {articleForm.images.map(
+                          (
+                            image,
+                            index
+                          ) => (
+                            <div
+                              key={`${image.id ?? "new"}-${image.url}-${index}`}
+                              className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white"
+                            >
+
+                              <img
+                                src={backendUrl(
+                                  image.url
+                                )}
+                                alt={
+                                  articleForm.name ||
+                                  "Image produit"
+                                }
+                                className="h-32 w-full object-contain p-2"
+                              />
+
+                              {isTrue(
+                                image.is_primary
+                              ) && (
+                                <span className="absolute left-2 top-2 rounded-full bg-[#2563EB] px-2 py-1 text-[9px] font-black text-white">
+                                  PRINCIPALE
+                                </span>
                               )}
-                              <button type="button" onClick={() => removeFormImage(index)} className="rounded-lg bg-red-50 px-2 py-1.5 text-red-600 hover:bg-red-100" title="Supprimer"><Trash2 size={13} /></button>
+
+                              <div className="absolute inset-x-0 bottom-0 flex gap-1 bg-white/95 p-2 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
+
+                                {!isTrue(
+                                  image.is_primary
+                                ) && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setFormPrimaryImage(
+                                        index
+                                      )
+                                    }
+                                    className="flex-1 rounded-lg bg-blue-50 px-2 py-1.5 text-[9px] font-black text-[#2563EB] hover:bg-blue-100"
+                                  >
+                                    Principale
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    removeFormImage(
+                                      index
+                                    )
+                                  }
+                                  className="rounded-lg bg-red-50 px-2 py-1.5 text-red-600 hover:bg-red-100"
+                                >
+                                  <Trash2
+                                    size={13}
+                                  />
+                                </button>
+
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )
+                        )}
+
                       </div>
                     ) : (
                       <div className="mb-3 flex h-40 flex-col items-center justify-center rounded-2xl bg-white text-slate-300">
                         <ImageIcon size={42} />
-                        <p className="mt-2 text-xs font-bold text-slate-400">Aucune image</p>
+
+                        <p className="mt-2 text-xs font-bold text-slate-400">
+                          Aucune image
+                        </p>
                       </div>
                     )}
 
                     <label className="mt-3 flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white text-xs font-black text-[#2563EB] shadow-sm transition hover:bg-blue-50">
-                      {uploadingImage ? <><RefreshCw size={16} className="animate-spin" />Upload en cours...</> : <><ImagePlus size={17} />Ajouter plusieurs images</>}
-                      <input type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingImage} onChange={(event) => { void handleImagesUpload(event.target.files || undefined); event.target.value = ""; }} />
+
+                      {uploadingImage ? (
+                        <>
+                          <RefreshCw
+                            size={16}
+                            className="animate-spin"
+                          />
+
+                          Upload en cours...
+                        </>
+                      ) : (
+                        <>
+                          <ImagePlus
+                            size={17}
+                          />
+
+                          Ajouter plusieurs images
+                        </>
+                      )}
+
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        disabled={
+                          uploadingImage
+                        }
+                        onChange={(event) => {
+                          void handleImagesUpload(
+                            event.target.files ||
+                              undefined
+                          );
+
+                          event.target.value =
+                            "";
+                        }}
+                      />
                     </label>
-                    <p className="mt-2 text-center text-[10px] font-medium text-slate-400">Sélectionnez plusieurs images — JPG, PNG ou WEBP — maximum 5 MB par image.</p>
+
+                    <p className="mt-2 text-center text-[10px] font-medium text-slate-400">
+                      JPG, PNG ou WEBP — maximum 5 MB par image.
+                    </p>
+
                   </div>
+
                 </Field>
 
-                {/* PURCHASE PRICE */}
+                {/* PURCHASE */}
 
                 <Field label="Prix d'achat (DZD)">
 
@@ -2834,6 +4012,7 @@ export default function ArticlesPage() {
                           current
                         ) => ({
                           ...current,
+
                           purchasePrice:
                             event
                               .target
@@ -2847,7 +4026,7 @@ export default function ArticlesPage() {
 
                 </Field>
 
-                {/* SALE PRICE */}
+                {/* SALE */}
 
                 <Field label="Prix de vente (DZD) *">
 
@@ -2864,6 +4043,7 @@ export default function ArticlesPage() {
                           current
                         ) => ({
                           ...current,
+
                           price:
                             event
                               .target
@@ -2894,6 +4074,7 @@ export default function ArticlesPage() {
                           current
                         ) => ({
                           ...current,
+
                           oldPrice:
                             event
                               .target
@@ -2914,25 +4095,41 @@ export default function ArticlesPage() {
                   <input
                     type="number"
                     min="0"
+                    step="1"
+                    inputMode="numeric"
                     value={
                       articleForm.stock
                     }
-                    onChange={(event) =>
-                      setArticleForm(
-                        (
-                          current
-                        ) => ({
-                          ...current,
-                          stock:
-                            event
-                              .target
-                              .value,
-                        })
-                      )
-                    }
+                    onChange={(event) => {
+                      const value =
+                        event.target
+                          .value;
+
+                      if (
+                        value === "" ||
+                        /^\d+$/.test(
+                          value
+                        )
+                      ) {
+                        setArticleForm(
+                          (
+                            current
+                          ) => ({
+                            ...current,
+
+                            stock:
+                              value,
+                          })
+                        );
+                      }
+                    }}
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
                     placeholder="0"
                   />
+
+                  <p className="mt-1.5 text-[10px] font-semibold text-slate-400">
+                    0 = rupture · 1–10 = stock faible · plus de 10 = en stock
+                  </p>
 
                 </Field>
 
@@ -2950,6 +4147,7 @@ export default function ArticlesPage() {
                           current
                         ) => ({
                           ...current,
+
                           categoryId:
                             event
                               .target
@@ -3005,6 +4203,7 @@ export default function ArticlesPage() {
                           current
                         ) => ({
                           ...current,
+
                           marqueId:
                             event
                               .target
@@ -3060,6 +4259,7 @@ export default function ArticlesPage() {
                           current
                         ) => ({
                           ...current,
+
                           fournisseurId:
                             event
                               .target
@@ -3112,6 +4312,7 @@ export default function ArticlesPage() {
                           current
                         ) => ({
                           ...current,
+
                           status:
                             event
                               .target
@@ -3155,6 +4356,7 @@ export default function ArticlesPage() {
                         current
                       ) => ({
                         ...current,
+
                         featured:
                           event
                             .target
@@ -3166,7 +4368,6 @@ export default function ArticlesPage() {
                 />
 
                 <span>
-
                   <b className="block text-xs font-black">
                     Article mis en avant
                   </b>
@@ -3174,7 +4375,6 @@ export default function ArticlesPage() {
                   <small className="text-[10px] text-slate-400">
                     Afficher cet article comme produit recommandé / à la une.
                   </small>
-
                 </span>
 
               </label>
@@ -3217,9 +4417,7 @@ export default function ArticlesPage() {
                       className="animate-spin"
                     />
                   ) : (
-                    <Save
-                      size={14}
-                    />
+                    <Save size={14} />
                   )}
 
                   {savingArticle

@@ -5,34 +5,130 @@ const getPagination = require("../utils/pagination");
 
 async function list(req, res) {
   const { page, limit, offset } = getPagination(req.query, 50, 200);
+
   const where = [];
   const params = [];
+
   const search = String(req.query.search || "").trim();
+
   if (search) {
-    where.push("(a.name LIKE ? OR a.name_ar LIKE ? OR a.code LIKE ? OR a.sku LIKE ?)");
+    where.push(
+      "(a.name LIKE ? OR a.name_ar LIKE ? OR a.code LIKE ? OR a.sku LIKE ?)"
+    );
+
     const q = `%${search}%`;
+
     params.push(q, q, q, q);
   }
-  if (req.query.categoryId) { where.push("a.category_id=?"); params.push(req.query.categoryId); }
-  if (req.query.marqueId) { where.push("a.marque_id=?"); params.push(req.query.marqueId); }
-  if (req.query.status) { where.push("a.status=?"); params.push(req.query.status); }
-  const sqlWhere = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  const [[count]] = await pool.query(`SELECT COUNT(*) total FROM articles a ${sqlWhere}`, params);
-  const [rows] = await pool.query(
-    `SELECT a.*, c.name category_name, c.name_ar category_name_ar,
-            m.name marque_name, m.name_ar marque_name_ar,
-            f.nom fournisseur_name,
-            (SELECT url FROM article_images ai WHERE ai.article_id=a.id ORDER BY ai.is_primary DESC, ai.sort_order, ai.id LIMIT 1) image_url
-     FROM articles a
-     JOIN categories c ON c.id=a.category_id
-     LEFT JOIN marques m ON m.id=a.marque_id
-     LEFT JOIN fournisseurs f ON f.id=a.fournisseur_id
-     ${sqlWhere}
-     ORDER BY a.id DESC LIMIT ? OFFSET ?`,
-    [...params, limit, offset],
+  if (req.query.categoryId) {
+    where.push("a.category_id=?");
+    params.push(req.query.categoryId);
+  }
+
+  if (req.query.marqueId) {
+    where.push("a.marque_id=?");
+    params.push(req.query.marqueId);
+  }
+
+  if (req.query.status) {
+    where.push("a.status=?");
+    params.push(req.query.status);
+  }
+
+  const sqlWhere = where.length
+    ? `WHERE ${where.join(" AND ")}`
+    : "";
+
+  /*
+   * TOTAL GLOBAL
+   * ---------------------------------------------------------
+   * Toujours le nombre réel de tous les articles du magasin.
+   * Il ne dépend PAS de la recherche, catégorie, marque ou statut.
+   */
+  const [[globalCount]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM articles`
   );
-  res.json({ ok: true, data: rows, pagination: { page, limit, total: count.total, pages: Math.ceil(count.total / limit) } });
+
+  /*
+   * TOTAL FILTRÉ
+   * ---------------------------------------------------------
+   * Sert uniquement à la pagination et aux résultats de recherche.
+   */
+  const [[count]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM articles a
+     ${sqlWhere}`,
+    params
+  );
+
+  /*
+   * ARTICLES DE LA PAGE
+   */
+  const [rows] = await pool.query(
+    `SELECT
+        a.*,
+
+        c.name AS category_name,
+        c.name_ar AS category_name_ar,
+
+        m.name AS marque_name,
+        m.name_ar AS marque_name_ar,
+
+        f.nom AS fournisseur_name,
+
+        (
+          SELECT url
+          FROM article_images ai
+          WHERE ai.article_id = a.id
+          ORDER BY
+            ai.is_primary DESC,
+            ai.sort_order,
+            ai.id
+          LIMIT 1
+        ) AS image_url
+
+     FROM articles a
+
+     JOIN categories c
+       ON c.id = a.category_id
+
+     LEFT JOIN marques m
+       ON m.id = a.marque_id
+
+     LEFT JOIN fournisseurs f
+       ON f.id = a.fournisseur_id
+
+     ${sqlWhere}
+
+     ORDER BY a.id DESC
+
+     LIMIT ? OFFSET ?`,
+    [...params, limit, offset]
+  );
+
+  res.json({
+    ok: true,
+
+    data: rows,
+
+    pagination: {
+      page,
+      limit,
+
+      // Total correspondant à la recherche actuelle
+      total: Number(count.total),
+
+      pages: Math.ceil(
+        Number(count.total) / limit
+      ),
+    },
+
+    // IMPORTANT :
+    // nombre réel de TOUS les articles
+    totalAll: Number(globalCount.total),
+  });
 }
 
 async function getOne(req, res) {
@@ -99,16 +195,67 @@ async function create(req, res) {
 }
 
 async function update(req, res) {
-  const [[current]] = await pool.query("SELECT * FROM articles WHERE id=?", [req.params.id]);
-  if (!current) return res.status(404).json({ ok: false, message: "Article introuvable." });
-  const b = req.body;
+  const [[current]] = await pool.query(
+    "SELECT * FROM articles WHERE id=?",
+    [req.params.id],
+  );
+
+  if (!current) {
+    return res.status(404).json({
+      ok: false,
+      message: "Article introuvable.",
+    });
+  }
+
+  const b = req.body || {};
   const connection = await pool.getConnection();
+
   try {
     await connection.beginTransaction();
+
+    let nextStock = current.stock;
+
+    if (b.stock !== undefined && b.stock !== null && b.stock !== "") {
+      nextStock = Number(b.stock);
+
+      if (!Number.isFinite(nextStock) || nextStock < 0) {
+        await connection.rollback();
+        return res.status(400).json({
+          ok: false,
+          message: "Le stock doit être un nombre supérieur ou égal à 0.",
+        });
+      }
+
+      nextStock = Math.floor(nextStock);
+    }
+
+    const nextStatus =
+      b.status !== undefined && b.status !== null && b.status !== ""
+        ? String(b.status).toUpperCase()
+        : current.status;
+
     await connection.query(
       `UPDATE articles SET
-       sku=?,name=?,name_ar=?,short_name=?,short_name_ar=?,slug=?,short_description=?,short_description_ar=?,description=?,description_ar=?,
-       category_id=?,marque_id=?,fournisseur_id=?,purchase_price=?,price=?,old_price=?,stock_enabled=?,featured=?,status=?
+        sku=?,
+        name=?,
+        name_ar=?,
+        short_name=?,
+        short_name_ar=?,
+        slug=?,
+        short_description=?,
+        short_description_ar=?,
+        description=?,
+        description_ar=?,
+        category_id=?,
+        marque_id=?,
+        fournisseur_id=?,
+        purchase_price=?,
+        price=?,
+        old_price=?,
+        stock=?,
+        stock_enabled=?,
+        featured=?,
+        status=?
        WHERE id=?`,
       [
         b.sku ?? current.sku,
@@ -116,39 +263,90 @@ async function update(req, res) {
         b.nameAr ?? current.name_ar,
         b.shortName ?? current.short_name,
         b.shortNameAr ?? current.short_name_ar,
-        b.name ? await uniqueSlug(connection, b.name, { id: req.params.id }) : current.slug,
+        b.name
+          ? await uniqueSlug(connection, b.name, {
+              id: req.params.id,
+            })
+          : current.slug,
         b.shortDescription ?? current.short_description,
         b.shortDescriptionAr ?? current.short_description_ar,
         b.description ?? current.description,
         b.descriptionAr ?? current.description_ar,
         b.categoryId ?? current.category_id,
-        b.marqueId === "" ? null : (b.marqueId ?? current.marque_id),
-        b.fournisseurId === "" ? null : (b.fournisseurId ?? current.fournisseur_id),
+        b.marqueId === ""
+          ? null
+          : (b.marqueId ?? current.marque_id),
+        b.fournisseurId === ""
+          ? null
+          : (b.fournisseurId ?? current.fournisseur_id),
         b.purchasePrice ?? current.purchase_price,
         b.price ?? current.price,
-        b.oldPrice === "" ? null : (b.oldPrice ?? current.old_price),
-        b.stockEnabled === undefined ? current.stock_enabled : b.stockEnabled ? 1 : 0,
-        b.featured === undefined ? current.featured : b.featured ? 1 : 0,
-        b.status ?? current.status,
+        b.oldPrice === ""
+          ? null
+          : (b.oldPrice ?? current.old_price),
+        nextStock,
+        b.stockEnabled === undefined
+          ? current.stock_enabled
+          : b.stockEnabled
+            ? 1
+            : 0,
+        b.featured === undefined
+          ? current.featured
+          : b.featured
+            ? 1
+            : 0,
+        nextStatus,
         req.params.id,
       ],
     );
+
     if (b.imageUrl) {
       const [[primary]] = await connection.query(
-        "SELECT id FROM article_images WHERE article_id=? AND is_primary=1 ORDER BY id LIMIT 1",
+        `SELECT id
+         FROM article_images
+         WHERE article_id=? AND is_primary=1
+         ORDER BY id
+         LIMIT 1`,
         [req.params.id],
       );
+
       if (primary) {
-        await connection.query("UPDATE article_images SET url=?,alt_text=?,alt_text_ar=? WHERE id=?", [b.imageUrl, b.name ?? current.name, b.nameAr ?? current.name_ar, primary.id]);
+        await connection.query(
+          `UPDATE article_images
+           SET url=?, alt_text=?, alt_text_ar=?
+           WHERE id=?`,
+          [
+            b.imageUrl,
+            b.name ?? current.name,
+            b.nameAr ?? current.name_ar,
+            primary.id,
+          ],
+        );
       } else {
         await connection.query(
-          "INSERT INTO article_images(article_id,url,alt_text,alt_text_ar,is_primary,sort_order) VALUES(?,?,?,?,1,0)",
-          [req.params.id, b.imageUrl, b.name ?? current.name, b.nameAr ?? current.name_ar],
+          `INSERT INTO article_images
+            (article_id,url,alt_text,alt_text_ar,is_primary,sort_order)
+           VALUES(?,?,?,?,1,0)`,
+          [
+            req.params.id,
+            b.imageUrl,
+            b.name ?? current.name,
+            b.nameAr ?? current.name_ar,
+          ],
         );
       }
     }
+
     await connection.commit();
-    res.json({ ok: true, message: "Article modifié." });
+
+    res.json({
+      ok: true,
+      message: "Article modifié.",
+      data: {
+        id: Number(req.params.id),
+        stock: nextStock,
+      },
+    });
   } catch (error) {
     await connection.rollback();
     throw error;
