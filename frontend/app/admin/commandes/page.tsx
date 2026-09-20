@@ -9,6 +9,7 @@ import {
   MapPin,
   Phone,
   Truck,
+  Building2,
   Clock3,
   CheckCircle2,
   Package,
@@ -16,6 +17,8 @@ import {
   AlertCircle,
   ChevronDown,
   User,
+  Printer,
+  ExternalLink,
 } from "lucide-react";
 
 import { apiFetch } from "@/lib/api";
@@ -44,6 +47,8 @@ type Order = {
   commune?: string;
   address?: string;
   delivery_type?: string;
+  delivery_fee?: number;
+  delivery_agency_name?: string;
   total?: number;
   status?: string;
   created_at?: string;
@@ -117,6 +122,19 @@ export default function Page() {
     } finally {
       setSyncingDelivery(null);
     }
+  }
+
+  function printBordereau(order: Order) {
+    if (!order.delivery_tracking) {
+      alert("La commande doit d'abord être synchronisée avec Elogistia.");
+      return;
+    }
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+    window.open(
+      `${apiBase}/delivery/orders/${encodeURIComponent(order.delivery_tracking)}/bordereau?format=10x15`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   }
 
   async function openOrder(id: number) {
@@ -390,9 +408,19 @@ export default function Page() {
                         {order.delivery_type === "HOME" && (
                           <div className="mt-1 flex flex-wrap items-center gap-1.5">
                             {order.delivery_tracking ? (
-                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-black text-emerald-600">
-                                {order.delivery_tracking}
-                              </span>
+                              <>
+                                <span className="rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-black text-emerald-600">
+                                  {order.delivery_tracking}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => printBordereau(order)}
+                                  className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2 py-1 text-[8px] font-black text-white"
+                                >
+                                  <Printer size={9} />
+                                  Bon
+                                </button>
+                              </>
                             ) : (
                               <button
                                 type="button"
@@ -607,6 +635,12 @@ export default function Page() {
                     />
 
                     <InfoCard
+                      icon={<Building2 size={15} />}
+                      label="Frais livraison"
+                      value={formatPrice(Number(detail.delivery_fee || 0))}
+                    />
+
+                    <InfoCard
                       icon={<Package size={15} />}
                       label="Tracking Elogistia"
                       value={detail.delivery_tracking || "Non synchronisé"}
@@ -646,6 +680,16 @@ export default function Page() {
                         {detail.delivery_tracking ? `Tracking : ${detail.delivery_tracking}` : "Commande non synchronisée avec le transporteur."}
                       </p>
                     </div>
+                    {detail.delivery_tracking && (
+                      <button
+                        type="button"
+                        onClick={() => printBordereau(detail)}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-[9px] font-black text-white"
+                      >
+                        <Printer size={13} />
+                        Imprimer le bon
+                      </button>
+                    )}
                     {!detail.delivery_tracking && (
                       <button
                         type="button"

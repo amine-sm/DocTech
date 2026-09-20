@@ -9,5 +9,7 @@ ALTER TABLE commandes
   ADD COLUMN delivery_commune_id VARCHAR(30) NULL AFTER commune,
   ADD COLUMN delivery_mode VARCHAR(30) NULL AFTER delivery_commune_id,
   ADD COLUMN delivery_stop_desk VARCHAR(30) NULL AFTER delivery_mode,
+  ADD COLUMN delivery_agency_id VARCHAR(80) NULL AFTER delivery_stop_desk,
+  ADD COLUMN delivery_agency_name VARCHAR(255) NULL AFTER delivery_agency_id,
   ADD INDEX idx_commandes_delivery_tracking (delivery_tracking),
   ADD INDEX idx_commandes_delivery_sync (delivery_sync_status);

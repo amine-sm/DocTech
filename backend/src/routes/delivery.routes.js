@@ -9,6 +9,7 @@ const router = express.Router();
 // Public Elogistia data used by checkout.
 router.get("/wilayas", asyncHandler(controller.wilayas));
 router.get("/municipalities", asyncHandler(controller.municipalities));
+router.get("/agences", asyncHandler(controller.agencies));
 router.get("/shipping-costs", asyncHandler(controller.shippingCosts));
 router.get("/tracking", asyncHandler(controller.tracking));
 

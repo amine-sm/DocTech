@@ -23,7 +23,7 @@ function shippingFeeForWilaya(items, wilayaId, wilayaName) {
 
 async function syncWithElogistia(orderId) {
   const [[order]] = await pool.query("SELECT * FROM commandes WHERE id=?", [orderId]);
-  if (!order || order.delivery_type !== "HOME") return { synced: false, reason: "STORE" };
+  if (!order || order.delivery_type === "STORE") return { synced: false, reason: "STORE" };
 
   const [items] = await pool.query(
     "SELECT product_name, unit_price, quantity FROM commande_items WHERE commande_id=? ORDER BY id",
@@ -48,8 +48,12 @@ async function syncWithElogistia(orderId) {
       address: order.address || "",
       commune: order.commune || "",
       fraisDeLivraison: Number(order.delivery_fee || 0),
-      remarque: order.note || "",
-      stopDesk: order.delivery_stop_desk || process.env.ELOGISTIA_STOP_DESK || "2",
+      remarque: [order.note, order.delivery_agency_name ? `Bureau: ${order.delivery_agency_name}` : ""].filter(Boolean).join(" | "),
+      stopDesk: order.delivery_stop_desk || (
+        order.delivery_type === "DESK"
+          ? process.env.ELOGISTIA_DESK_STOP_DESK || "1"
+          : process.env.ELOGISTIA_HOME_STOP_DESK || "0"
+      ),
       wilaya: order.delivery_wilaya_id || order.wilaya,
       products: products.join("|"),
       prices: prices.join("|"),
@@ -85,22 +89,37 @@ async function createPublic(req, res) {
     return res.status(400).json({ ok: false, message: "Client, téléphone et articles obligatoires." });
   }
 
-  const deliveryType = b.deliveryType === "STORE" ? "STORE" : "HOME";
-  if (deliveryType === "HOME" && !b.wilayaId) {
-    return res.status(400).json({ ok: false, message: "La wilaya est obligatoire pour la livraison à domicile." });
+  const requestedDeliveryType = String(b.deliveryType || "HOME").toUpperCase();
+  const deliveryType = ["HOME", "DESK", "STORE"].includes(requestedDeliveryType)
+    ? requestedDeliveryType
+    : "HOME";
+
+  if (deliveryType !== "STORE" && !b.wilayaId) {
+    return res.status(400).json({ ok: false, message: "La wilaya est obligatoire." });
   }
-  if (deliveryType === "HOME" && !b.commune) {
-    return res.status(400).json({ ok: false, message: "La commune est obligatoire pour la livraison à domicile." });
+
+  if (deliveryType !== "STORE" && !b.commune) {
+    return res.status(400).json({ ok: false, message: "La commune est obligatoire." });
   }
+
   if (deliveryType === "HOME" && !b.address) {
     return res.status(400).json({ ok: false, message: "L'adresse est obligatoire pour la livraison à domicile." });
   }
 
   let deliveryFee = 0;
-  if (deliveryType === "HOME") {
+  if (deliveryType === "HOME" || deliveryType === "DESK") {
     try {
       const shipping = await elogistia.getShippingCosts();
-      deliveryFee = shippingFeeForWilaya(shipping.items, b.wilayaId, b.wilaya);
+      const wantedId = String(b.wilayaId ?? "").toLowerCase();
+      const wantedName = String(b.wilaya ?? "").trim().toLowerCase();
+      const row = shipping.items.find((item) =>
+        String(item.wilayaId ?? "").toLowerCase() === wantedId ||
+        String(item.name ?? "").trim().toLowerCase() === wantedName
+      );
+      const selectedFee = deliveryType === "DESK" ? Number(row?.desk) : Number(row?.home);
+      deliveryFee = Number.isFinite(selectedFee) && selectedFee >= 0
+        ? selectedFee
+        : Number(process.env.HOME_DELIVERY_FEE || 800);
     } catch (error) {
       if (String(process.env.ELOGISTIA_REQUIRED_FOR_HOME || "true").toLowerCase() === "true") {
         throw errorWithStatus(`Impossible de calculer les frais Elogistia : ${error.message}`, 503);
@@ -167,9 +186,9 @@ async function createPublic(req, res) {
     const [r] = await conn.query(
       `INSERT INTO commandes(
         tracking_number,customer_name,phone,wilaya,commune,address,note,delivery_type,
-        delivery_wilaya_id,delivery_commune_id,delivery_mode,delivery_stop_desk,
+        delivery_wilaya_id,delivery_commune_id,delivery_mode,delivery_stop_desk,delivery_agency_id,delivery_agency_name,
         delivery_provider,delivery_sync_status,subtotal,delivery_fee,total
-      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         localTracking,
         b.customerName,
@@ -181,10 +200,18 @@ async function createPublic(req, res) {
         deliveryType,
         b.wilayaId || null,
         b.communeId || null,
-        deliveryType === "HOME" ? (process.env.ELOGISTIA_DELIVERY_MODE || "4") : null,
-        deliveryType === "HOME" ? (process.env.ELOGISTIA_STOP_DESK || "2") : null,
-        deliveryType === "HOME" ? "ELOGISTIA" : null,
-        deliveryType === "HOME" ? "PENDING" : "SYNCED",
+        deliveryType !== "STORE"
+          ? (process.env.ELOGISTIA_DELIVERY_MODE || "4")
+          : null,
+        deliveryType === "DESK"
+          ? (process.env.ELOGISTIA_DESK_STOP_DESK || "1")
+          : deliveryType === "HOME"
+            ? (process.env.ELOGISTIA_HOME_STOP_DESK || "0")
+            : null,
+        b.deliveryAgencyId || null,
+        b.deliveryAgencyName || null,
+        deliveryType !== "STORE" ? "ELOGISTIA" : null,
+        deliveryType !== "STORE" ? "PENDING" : "SYNCED",
         subtotal,
         deliveryFee,
         total,
@@ -236,7 +263,7 @@ async function createPublic(req, res) {
   if (deliveryType === "HOME") provider = await syncWithElogistia(orderId);
 
   const [[created]] = await pool.query(
-    `SELECT id,tracking_number,delivery_tracking,status,subtotal,delivery_fee,total,delivery_sync_status,delivery_sync_error
+    `SELECT id,tracking_number,delivery_tracking,status,delivery_type,wilaya,commune,address,subtotal,delivery_fee,total,delivery_sync_status,delivery_sync_error
      FROM commandes WHERE id=?`,
     [orderId],
   );

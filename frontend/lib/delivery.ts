@@ -2,6 +2,7 @@ import { apiFetch } from "@/lib/api";
 
 export type DeliveryWilaya = { id: string | number; name: string };
 export type DeliveryCommune = { id: string | number; name: string };
+export type DeliveryAgence = { id: string | number; name: string; address?: string; phone?: string; wilayaId?: string | number | null; communeId?: string | number | null };
 export type ShippingCost = { wilayaId: string | number; name?: string; home?: number | null; desk?: number | null };
 
 export async function getDeliveryWilayas() {
@@ -11,6 +12,14 @@ export async function getDeliveryWilayas() {
 
 export async function getDeliveryMunicipalities(wilaya: string | number) {
   const response = await apiFetch<DeliveryCommune[]>(`/delivery/municipalities?wilaya=${encodeURIComponent(String(wilaya))}`);
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getDeliveryAgences(wilaya?: string | number) {
+  const path = wilaya
+    ? `/delivery/agences?wilaya=${encodeURIComponent(String(wilaya))}`
+    : "/delivery/agences";
+  const response = await apiFetch<DeliveryAgence[]>(path);
   return Array.isArray(response.data) ? response.data : [];
 }
 

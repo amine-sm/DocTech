@@ -22,6 +22,11 @@ async function wilayas(_req, res) {
   res.json({ ok: true, data: result.items });
 }
 
+async function agencies(req, res) {
+  const result = await elogistia.getAgences(req.query.wilaya || "");
+  res.json({ ok: true, data: result.items });
+}
+
 async function municipalities(req, res) {
   if (!req.query.wilaya) return res.status(400).json({ ok: false, message: "La wilaya est obligatoire." });
   const result = await elogistia.getMunicipalities(req.query.wilaya);
@@ -88,7 +93,7 @@ async function bordereau(req, res) {
 async function syncOrder(req, res) {
   const [[order]] = await pool.query("SELECT * FROM commandes WHERE id=?", [req.params.id]);
   if (!order) return res.status(404).json({ ok: false, message: "Commande introuvable." });
-  if (order.delivery_type !== "HOME") return res.status(400).json({ ok: false, message: "Cette commande ne nécessite pas de livraison Elogistia." });
+  if (!["HOME", "DESK"].includes(order.delivery_type)) return res.status(400).json({ ok: false, message: "Cette commande ne nécessite pas de livraison Elogistia." });
 
   const [items] = await pool.query(
     "SELECT product_name, unit_price, quantity FROM commande_items WHERE commande_id=? ORDER BY id",
@@ -110,7 +115,11 @@ async function syncOrder(req, res) {
       commune: order.commune || "",
       fraisDeLivraison: Number(order.delivery_fee || 0),
       remarque: order.note || "",
-      stopDesk: process.env.ELOGISTIA_STOP_DESK || "2",
+      stopDesk: order.delivery_stop_desk || (
+        order.delivery_type === "DESK"
+          ? process.env.ELOGISTIA_DESK_STOP_DESK || "1"
+          : process.env.ELOGISTIA_HOME_STOP_DESK || "0"
+      ),
       wilaya: normalizeWilayaId(order.wilaya),
       products,
       prices,
@@ -138,6 +147,7 @@ async function syncOrder(req, res) {
 module.exports = {
   wilayas,
   municipalities,
+  agencies,
   shippingCosts,
   tracking,
   orders,

@@ -125,6 +125,40 @@ function normalizeShippingCosts(payload) {
   return rows;
 }
 
+
+function normalizeAgences(payload) {
+  const source = unwrap(payload);
+  if (!Array.isArray(source)) return [];
+
+  return source.map((row, index) => {
+    if (!row || typeof row !== "object") {
+      return { id: index + 1, name: String(row || index + 1), address: "", phone: "", raw: row };
+    }
+
+    return {
+      id: row.id ?? row.agence_id ?? row.agency_id ?? row.code ?? row.stationCode ?? row.station_code ?? index + 1,
+      name: row.name ?? row.nom ?? row.agence ?? row.agency ?? row.label ?? row.title ?? `Bureau ${index + 1}`,
+      address: row.address ?? row.adresse ?? row.location ?? "",
+      phone: row.phone ?? row.telephone ?? row.tel ?? "",
+      wilayaId: row.wilaya_id ?? row.wilayaId ?? row.wilaya ?? null,
+      communeId: row.commune_id ?? row.communeId ?? row.commune ?? null,
+      raw: row,
+    };
+  });
+}
+
+async function getAgences(wilaya) {
+  const key = `agences:${wilaya || "all"}`;
+  const hit = cached(key);
+  if (hit) return hit;
+
+  const params = { key: getApiKey() };
+  if (wilaya) params.wilaya = wilaya;
+
+  const { data } = await request("getAgences/", { params });
+  return setCached(key, { data, items: normalizeAgences(data) });
+}
+
 function extractTracking(payload) {
   const seen = new Set();
   const visit = (value) => {
@@ -255,6 +289,7 @@ async function printBordereau(tracking, format = "10x10") {
 module.exports = {
   getWilayas,
   getMunicipalities,
+  getAgences,
   getShippingCosts,
   createOrder,
   getTracking,
