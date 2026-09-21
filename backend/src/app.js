@@ -20,7 +20,7 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const publicRoutes = require("./routes/public.routes");
 const uploadRoutes = require("./routes/uploads.routes");
 const stockRoutes = require("./routes/stock.routes");
-const deliveryRoutes = require("./routes/delivery.routes");
+const elogistiaRoutes = require("./routes/elogistia.routes");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
 
 const app = express();
@@ -86,7 +86,7 @@ app.use("/api/commandes", commandeRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/stock", stockRoutes);
-app.use("/api/delivery", deliveryRoutes);
+app.use("/api/elogistia", elogistiaRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

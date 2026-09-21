@@ -1,303 +1,711 @@
-const BASE_URL = (process.env.ELOGISTIA_BASE_URL || "https://api.elogistia.com").replace(/\/$/, "");
+
+const axios = require("axios");
+
+const BASE_URL = (
+  process.env.ELOGISTIA_BASE_URL ||
+  "https://api.elogistia.com"
+).replace(/\/$/, "");
+
 const CACHE_TTL = 5 * 60 * 1000;
 const cache = new Map();
 
+/**
+ * ============================================================
+ * CONFIGURATION
+ * ============================================================
+ */
+
 function getApiKey() {
   const key = process.env.ELOGISTIA_API_KEY;
+
   if (!key) {
-    const error = new Error("ELOGISTIA_API_KEY n'est pas configurée.");
-    error.status = 503;
-    throw error;
-  }
-  return key;
-}
-
-function buildUrl(path, params = {}) {
-  const url = new URL(`${BASE_URL}/${String(path).replace(/^\//, "")}`);
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== "") {
-      url.searchParams.set(key, String(value));
-    }
-  }
-  return url;
-}
-
-async function request(path, { method = "GET", params = {} } = {}) {
-  const url = buildUrl(path, params);
-  const response = await fetch(url, {
-    method,
-    headers: { Accept: "application/json, text/plain, */*" },
-  });
-
-  const contentType = response.headers.get("content-type") || "";
-  const isBinary = /application\/(pdf|octet-stream)|image\//i.test(contentType);
-  const raw = isBinary ? Buffer.from(await response.arrayBuffer()) : await response.text();
-  let data = raw;
-  if (!isBinary) {
-    try {
-      data = raw ? JSON.parse(raw) : null;
-    } catch (_) {
-      // Some Elogistia endpoints return plain text.
-    }
-  }
-
-  if (!response.ok) {
-    const error = new Error(
-      typeof data === "string" ? data || `Elogistia HTTP ${response.status}` : data?.message || `Elogistia HTTP ${response.status}`,
+    throw new Error(
+      "ELOGISTIA_API_KEY manquante dans le fichier .env"
     );
-    error.status = 502;
-    error.providerStatus = response.status;
-    error.providerData = data;
+  }
+
+  return key.trim();
+}
+
+/**
+ * ============================================================
+ * REQUEST ELOGISTIA
+ * ============================================================
+ */
+
+async function request(
+  method,
+  endpoint,
+  {
+    params = {},
+    data = undefined,
+    headers = {},
+    responseType = "json",
+  } = {}
+) {
+  const apiKey = getApiKey();
+
+  const url = `${BASE_URL}/${String(endpoint).replace(/^\/+/, "")}`;
+
+  console.log(
+    `ELOGISTIA → ${method.toUpperCase()} ${url}`
+  );
+
+  const response = await axios({
+    method,
+    url,
+
+    params,
+
+    data,
+
+    timeout: 30000,
+
+    responseType,
+
+    headers: {
+      Accept: "application/json",
+
+      // Authentification Elogistia
+      key: apiKey,
+
+      "User-Agent": "DOCTECH/1.0",
+
+      ...headers,
+    },
+
+    validateStatus: () => true,
+  });
+
+  console.log(
+    `ELOGISTIA ← ${response.status} ${method.toUpperCase()} ${endpoint}`
+  );
+
+  if (response.status >= 400) {
+    const error = new Error(
+      `Elogistia HTTP ${response.status}`
+    );
+
+    error.response = response;
+
     throw error;
   }
 
-  return { data, contentType, status: response.status };
+  return response.data;
 }
 
-function unwrap(value) {
-  if (!value) return value;
-  if (Array.isArray(value)) return value;
-  if (typeof value === "object") {
-    for (const key of ["data", "result", "results", "items", "wilayas", "municipalities", "shippingCost", "shippingCosts"]) {
-      if (value[key] !== undefined) return unwrap(value[key]);
-    }
-  }
-  return value;
-}
+/**
+ * ============================================================
+ * CACHE
+ * ============================================================
+ */
 
-function toNumber(value) {
-  if (value === null || value === undefined || value === "") return null;
-  const n = Number(String(value).replace(/[^0-9.-]/g, ""));
-  return Number.isFinite(n) ? n : null;
-}
+function getCache(key) {
+  const item = cache.get(key);
 
-function normalizeWilayas(payload) {
-  const source = unwrap(payload);
-  if (!Array.isArray(source)) return [];
-  return source.map((row, index) => {
-    if (typeof row !== "object" || row === null) return { id: index + 1, name: String(row) };
-    const id = row.id ?? row.code ?? row.wilaya_id ?? row.wilayaId ?? row.numero ?? row.number;
-    const name = row.wilaya ?? row.name ?? row.nom ?? row.label ?? row.title;
-    return { id: id ?? index + 1, name: name ?? String(id ?? index + 1), raw: row };
-  });
-}
-
-function normalizeMunicipalities(payload) {
-  const source = unwrap(payload);
-  if (!Array.isArray(source)) return [];
-  return source.map((row, index) => {
-    if (typeof row !== "object" || row === null) return { id: index + 1, name: String(row) };
-    const id = row.id ?? row.code ?? row.commune_id ?? row.municipality_id ?? row.municipalityId;
-    const name = row.commune ?? row.municipality ?? row.name ?? row.nom ?? row.label ?? row.title;
-    return { id: id ?? index + 1, name: name ?? String(id ?? index + 1), raw: row };
-  });
-}
-
-function normalizeShippingCosts(payload) {
-  const source = unwrap(payload);
-  const rows = [];
-
-  if (Array.isArray(source)) {
-    for (const row of source) {
-      if (row && typeof row === "object") {
-        const wilayaId = row.wilaya_id ?? row.wilayaId ?? row.id ?? row.code ?? row.wilaya;
-        const name = row.wilaya ?? row.name ?? row.nom ?? row.label;
-        const home = toNumber(row.home ?? row.domicile ?? row.delivery ?? row.fraisDeLivraison ?? row.frais_livraison ?? row.tarif ?? row.price ?? row.cost ?? row.amount);
-        const desk = toNumber(row.stop_desk ?? row.stopDesk ?? row.bureau ?? row.retrait ?? row.stopdesk);
-        if (wilayaId !== undefined || home !== null || desk !== null) rows.push({ wilayaId, name, home, desk, raw: row });
-      }
-    }
-    return rows;
-  }
-
-  if (source && typeof source === "object") {
-    for (const [key, value] of Object.entries(source)) {
-      if (value && typeof value === "object") {
-        const home = toNumber(value.home ?? value.domicile ?? value.delivery ?? value.fraisDeLivraison ?? value.tarif ?? value.price ?? value.cost ?? value.amount);
-        const desk = toNumber(value.stop_desk ?? value.stopDesk ?? value.bureau ?? value.retrait ?? value.stopdesk);
-        rows.push({ wilayaId: value.wilaya_id ?? value.wilayaId ?? value.id ?? key, name: value.wilaya ?? value.name ?? value.nom, home, desk, raw: value });
-      } else {
-        rows.push({ wilayaId: key, name: key, home: toNumber(value), desk: null, raw: value });
-      }
-    }
-  }
-
-  return rows;
-}
-
-
-function normalizeAgences(payload) {
-  const source = unwrap(payload);
-  if (!Array.isArray(source)) return [];
-
-  return source.map((row, index) => {
-    if (!row || typeof row !== "object") {
-      return { id: index + 1, name: String(row || index + 1), address: "", phone: "", raw: row };
-    }
-
-    return {
-      id: row.id ?? row.agence_id ?? row.agency_id ?? row.code ?? row.stationCode ?? row.station_code ?? index + 1,
-      name: row.name ?? row.nom ?? row.agence ?? row.agency ?? row.label ?? row.title ?? `Bureau ${index + 1}`,
-      address: row.address ?? row.adresse ?? row.location ?? "",
-      phone: row.phone ?? row.telephone ?? row.tel ?? "",
-      wilayaId: row.wilaya_id ?? row.wilayaId ?? row.wilaya ?? null,
-      communeId: row.commune_id ?? row.communeId ?? row.commune ?? null,
-      raw: row,
-    };
-  });
-}
-
-async function getAgences(wilaya) {
-  const key = `agences:${wilaya || "all"}`;
-  const hit = cached(key);
-  if (hit) return hit;
-
-  const params = { key: getApiKey() };
-  if (wilaya) params.wilaya = wilaya;
-
-  const { data } = await request("getAgences/", { params });
-  return setCached(key, { data, items: normalizeAgences(data) });
-}
-
-function extractTracking(payload) {
-  const seen = new Set();
-  const visit = (value) => {
-    if (value === null || value === undefined) return null;
-    if (typeof value === "string") {
-      const match = value.match(/\b(?:ELO|SEG|L)-[A-Z0-9-]+\b/i);
-      return match ? match[0] : null;
-    }
-    if (typeof value !== "object") return null;
-    if (seen.has(value)) return null;
-    seen.add(value);
-    for (const key of ["tracking", "Tracking", "trackingNumber", "tracking_number", "code", "success"]) {
-      const found = visit(value[key]);
-      if (found) return found;
-    }
-    for (const child of Object.values(value)) {
-      const found = visit(child);
-      if (found) return found;
-    }
+  if (!item) {
     return null;
-  };
-  return visit(payload);
+  }
+
+  if (Date.now() - item.time > CACHE_TTL) {
+    cache.delete(key);
+    return null;
+  }
+
+  return item.value;
 }
 
-function cached(key) {
-  const entry = cache.get(key);
-  if (!entry || Date.now() - entry.at > CACHE_TTL) return null;
-  return entry.value;
-}
+function setCache(key, value) {
+  cache.set(key, {
+    time: Date.now(),
+    value,
+  });
 
-function setCached(key, value) {
-  cache.set(key, { at: Date.now(), value });
   return value;
 }
+
+/**
+ * ============================================================
+ * WILAYAS
+ *
+ * GET /getWilayas
+ * ============================================================
+ */
 
 async function getWilayas() {
-  const hit = cached("wilayas");
-  if (hit) return hit;
-  const { data } = await request("getWilayas/", { params: { key: getApiKey() } });
-  return setCached("wilayas", { data, items: normalizeWilayas(data) });
+  const cacheKey = "elogistia:wilayas";
+
+  const cached = getCache(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const data = await request(
+    "GET",
+    "/getWilayas"
+  );
+
+  return setCache(cacheKey, data);
 }
+
+/**
+ * ============================================================
+ * COMMUNES
+ *
+ * GET /getMunicipalities
+ *
+ * Exemple :
+ * /api/elogistia/municipalities?wilaya=31
+ * ============================================================
+ */
 
 async function getMunicipalities(wilaya) {
-  const key = `municipalities:${wilaya}`;
-  const hit = cached(key);
-  if (hit) return hit;
-  const { data } = await request("getMunicipalities/", { params: { key: getApiKey(), wilaya } });
-  return setCached(key, { data, items: normalizeMunicipalities(data) });
+  if (
+    wilaya === undefined ||
+    wilaya === null ||
+    wilaya === ""
+  ) {
+    throw new Error("wilaya obligatoire");
+  }
+
+  const cacheKey =
+    `elogistia:municipalities:${wilaya}`;
+
+  const cached = getCache(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const data = await request(
+    "GET",
+    "/getMunicipalities",
+    {
+      params: {
+        wilaya,
+      },
+    }
+  );
+
+  return setCache(cacheKey, data);
 }
 
-async function getShippingCosts() {
-  const hit = cached("shipping-costs");
-  if (hit) return hit;
-  const { data } = await request("getShippingCost/", { params: { key: getApiKey() } });
-  return setCached("shipping-costs", { data, items: normalizeShippingCosts(data) });
+/**
+ * Alias pratique
+ */
+async function getCommunes(wilaya) {
+  return getMunicipalities(wilaya);
 }
 
-async function createOrder({
-  name,
-  firstname = "",
-  mail = "",
-  phone,
-  address,
-  commune,
-  fraisDeLivraison,
-  remarque = "",
-  stopDesk = process.env.ELOGISTIA_STOP_DESK || "2",
-  wilaya,
-  products,
-  prices,
-  modeDeLivraison = process.env.ELOGISTIA_DELIVERY_MODE || "4",
-  exchangeName = "",
-  idCommande,
-  poids = process.env.ELOGISTIA_DEFAULT_WEIGHT || "1",
-}) {
-  const params = {
-    apiKey: getApiKey(),
-    name,
-    firstname,
-    mail,
-    phone,
-    address,
-    commune,
-    fraisDeLivraison,
-    remarque,
-    stop_desk: stopDesk,
-    wilaya,
-    product: products,
-    price: prices,
-    modeDeLivraison,
-    exchangeName,
-    IdCommande: idCommande,
-    poids,
-  };
-  const { data } = await request("insertCommande/", { method: "POST", params });
-  return { data, tracking: extractTracking(data) };
+/**
+ * ============================================================
+ * AGENCES / POINTS RELAIS
+ *
+ * GET /getAgences
+ * ============================================================
+ */
+
+async function getAgences() {
+  const cacheKey = "elogistia:agences";
+
+  const cached = getCache(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const data = await request(
+    "GET",
+    "/getAgences"
+  );
+
+  return setCache(cacheKey, data);
 }
+
+/**
+ * Alias
+ */
+async function getOffices() {
+  return getAgences();
+}
+
+/**
+ * ============================================================
+ * FRAIS DE LIVRAISON
+ *
+ * GET /getShippingCost
+ * ============================================================
+ */
+
+async function getShippingCost() {
+  const cacheKey = "elogistia:shipping-cost";
+
+  const cached = getCache(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const data = await request(
+    "GET",
+    "/getShippingCost"
+  );
+
+  return setCache(cacheKey, data);
+}
+
+/**
+ * Alias
+ */
+async function getRates() {
+  return getShippingCost();
+}
+
+/**
+ * ============================================================
+ * COMMANDES
+ *
+ * GET /getOrders
+ * ============================================================
+ */
+
+async function getOrders(params = {}) {
+  return request(
+    "GET",
+    "/getOrders",
+    {
+      params,
+    }
+  );
+}
+
+/**
+ * ============================================================
+ * COMMANDE PAR TRACKING
+ *
+ * GET /getOrders?tracking=XXXX
+ * ============================================================
+ */
+
+async function getOrderByTracking(tracking) {
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
+
+  return request(
+    "GET",
+    "/getOrders",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
+}
+
+/**
+ * Alias standard
+ */
+async function getOrder(tracking) {
+  return getOrderByTracking(tracking);
+}
+
+/**
+ * ============================================================
+ * TRACKING
+ *
+ * GET /getTracking
+ *
+ * Selon l'API Elogistia, le tracking renvoie
+ * l'historique des événements.
+ * ============================================================
+ */
 
 async function getTracking(tracking) {
-  return request("getTracking/", { params: { apiKey: getApiKey(), tracking } });
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
+
+  return request(
+    "GET",
+    "/getTracking",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
 }
 
-async function getOrder(tracking) {
-  return request("getOrders/", { params: { key: getApiKey(), tracking } });
+/**
+ * Alias
+ */
+async function getTrackingHistory(tracking) {
+  return getTracking(tracking);
 }
 
-async function getOrders() {
-  return request("getOrders/", { params: { key: getApiKey() } });
-}
-
-async function updateOrderStatus(tracking, status) {
-  return request("updateOrdersStatus/", { params: { apiKey: getApiKey(), tracking, status } });
-}
-
-async function deleteOrder(tracking) {
-  return request("deleteOrder/", { params: { apiKey: getApiKey(), tracking } });
-}
+/**
+ * ============================================================
+ * MANY TRACKING
+ *
+ * GET /getTracking
+ *
+ * tracking peut être :
+ *
+ * ?tracking=AAA
+ *
+ * ou :
+ *
+ * ?tracking=AAA,BBB,CCC
+ * ============================================================
+ */
 
 async function getManyTracking(tracking) {
-  return request("getManyTracking/", { params: { apiKey: getApiKey(), tracking } });
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
+
+  return request(
+    "GET",
+    "/getTracking",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
 }
 
-async function printBordereau(tracking, format = "10x10") {
-  const endpoint = format === "10x15" ? "printBordereau_multiple_10x15/" : "printBordereau_10x10/";
-  return request(endpoint, { params: { apiKey: getApiKey(), tracking } });
+/**
+ * ============================================================
+ * AJOUTER COMMANDE
+ *
+ * POST /insertCommande
+ * ============================================================
+ */
+
+async function insertCommande(order = {}) {
+  if (
+    !order ||
+    typeof order !== "object" ||
+    Array.isArray(order)
+  ) {
+    throw new Error(
+      "Les données de la commande sont invalides"
+    );
+  }
+
+  /**
+   * On garde le body envoyé par ton frontend.
+   *
+   * Elogistia utilise notamment :
+   *
+   * modeDeLivraison
+   *
+   * et pour les échanges :
+   *
+   * modeDeLivraison = 4
+   */
+
+  const payload = {
+    ...order,
+  };
+
+  if (
+    process.env.ELOGISTIA_DELIVERY_MODE &&
+    payload.modeDeLivraison === undefined
+  ) {
+    payload.modeDeLivraison =
+      Number(
+        process.env.ELOGISTIA_DELIVERY_MODE
+      );
+  }
+
+  return request(
+    "POST",
+    "/insertCommande",
+    {
+      data: payload,
+    }
+  );
 }
+
+/**
+ * Alias standard
+ */
+async function createOrder(order) {
+  return insertCommande(order);
+}
+
+/**
+ * ============================================================
+ * MODIFIER STATUT
+ *
+ * Attention :
+ * Le endpoint Elogistia utilisé pour les statuts peut
+ * dépendre de la version du compte/API.
+ *
+ * On conserve le endpoint attendu par ton controller.
+ * ============================================================
+ */
+
+async function updateOrderStatus(
+  tracking,
+  status
+) {
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
+
+  if (
+    status === undefined ||
+    status === null ||
+    status === ""
+  ) {
+    throw new Error(
+      "status obligatoire"
+    );
+  }
+
+  return request(
+    "PATCH",
+    `/orders/${encodeURIComponent(
+      tracking
+    )}/status`,
+    {
+      data: {
+        status,
+      },
+    }
+  );
+}
+
+/**
+ * ============================================================
+ * SUPPRIMER COMMANDE
+ *
+ * GET /deleteOrder?tracking=XXXX
+ * ============================================================
+ */
+
+async function deleteOrder(tracking) {
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
+
+  return request(
+    "GET",
+    "/deleteOrder",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
+}
+
+/**
+ * Alias standard
+ */
+async function cancelOrder(tracking) {
+  return deleteOrder(tracking);
+}
+
+/**
+ * ============================================================
+ * BORDEREAU 10x10
+ *
+ * GET /printBordereau_10x10
+ * ============================================================
+ */
+
+async function printBordereau10x10(
+  tracking
+) {
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
+
+  return request(
+    "GET",
+    "/printBordereau_10x10",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
+}
+
+/**
+ * ============================================================
+ * BORDEREAU 10x15
+ *
+ * GET /printBordereau_10x15
+ * ============================================================
+ */
+
+async function printBordereau10x15(
+  tracking
+) {
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
+
+  return request(
+    "GET",
+    "/printBordereau_10x15",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
+}
+
+/**
+ * ============================================================
+ * BORDEREAU 15x20
+ *
+ * GET /printBordereau_15x20
+ * ============================================================
+ */
+
+async function printBordereau15x20(
+  tracking
+) {
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
+
+  return request(
+    "GET",
+    "/printBordereau_15x20",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
+}
+
+/**
+ * ============================================================
+ * BORDEREAU MULTIPLE
+ *
+ * GET /printBordereauMultiple
+ *
+ * tracking peut être :
+ *
+ * AAA,BBB,CCC
+ * ============================================================
+ */
+
+async function printBordereauMultiple(
+  tracking
+) {
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
+
+  return request(
+    "GET",
+    "/printBordereauMultiple",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
+}
+
+/**
+ * ============================================================
+ * TEST CREDENTIALS
+ * ============================================================
+ */
+
+async function testCredentials() {
+  try {
+    await getWilayas();
+
+    return {
+      ok: true,
+      message:
+        "Connexion Elogistia réussie",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        error.response?.data ||
+        error.message,
+    };
+  }
+}
+
+/**
+ * ============================================================
+ * EXPORTS
+ * ============================================================
+ */
 
 module.exports = {
+  // HTTP interne
+  request,
+
+  // Référentiel
   getWilayas,
   getMunicipalities,
+  getCommunes,
   getAgences,
-  getShippingCosts,
-  createOrder,
-  getTracking,
-  getOrder,
+  getOffices,
+  getShippingCost,
+  getRates,
+
+  // Commandes
   getOrders,
+  getOrderByTracking,
+  getOrder,
+  insertCommande,
+  createOrder,
+
+  // Tracking
+  getTracking,
+  getTrackingHistory,
+  getManyTracking,
+
+  // Actions
   updateOrderStatus,
   deleteOrder,
-  getManyTracking,
-  printBordereau,
-  normalizeShippingCosts,
+  cancelOrder,
+
+  // Bordereaux
+  printBordereau10x10,
+  printBordereau10x15,
+  printBordereau15x20,
+  printBordereauMultiple,
+
+  // Test
+  testCredentials,
 };
+
