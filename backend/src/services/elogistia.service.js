@@ -1,4 +1,3 @@
-
 const axios = require("axios");
 
 const BASE_URL = (
@@ -7,13 +6,12 @@ const BASE_URL = (
 ).replace(/\/$/, "");
 
 const CACHE_TTL = 5 * 60 * 1000;
+
 const cache = new Map();
 
-/**
- * ============================================================
- * CONFIGURATION
- * ============================================================
- */
+/* =========================================================
+   API KEY
+========================================================= */
 
 function getApiKey() {
   const key = process.env.ELOGISTIA_API_KEY;
@@ -24,14 +22,34 @@ function getApiKey() {
     );
   }
 
-  return key.trim();
+  return String(key).trim();
 }
 
-/**
- * ============================================================
- * REQUEST ELOGISTIA
- * ============================================================
- */
+/* =========================================================
+   CACHE
+========================================================= */
+
+function getCache(key) {
+  const item = cache.get(key);
+
+  if (!item) return null;
+
+  if (Date.now() - item.time > CACHE_TTL) {
+    cache.delete(key);
+    return null;
+  }
+
+  return item.value;
+}
+
+function setCache(key, value) {
+  cache.set(key, { time: Date.now(), value });
+  return value;
+}
+
+/* =========================================================
+   REQUEST ELOGISTIA
+========================================================= */
 
 async function request(
   method,
@@ -45,351 +63,245 @@ async function request(
 ) {
   const apiKey = getApiKey();
 
-  const url = `${BASE_URL}/${String(endpoint).replace(/^\/+/, "")}`;
+  const cleanEndpoint = String(endpoint).replace(/^\/+/, "");
 
+  const url = `${BASE_URL}/${cleanEndpoint}`;
+
+  const finalParams = { ...params, key: apiKey };
+
+  console.log("==============================================");
+  console.log(`ELOGISTIA → ${method.toUpperCase()}`);
   console.log(
-    `ELOGISTIA → ${method.toUpperCase()} ${url}`
+    `${url}?${new URLSearchParams(
+      Object.entries(finalParams).map(([k, v]) => [k, String(v)])
+    )
+      .toString()
+      .replace(apiKey, "********")}`
   );
+  console.log("==============================================");
 
   const response = await axios({
     method,
     url,
-
-    params,
-
+    params: finalParams,
     data,
-
     timeout: 30000,
-
     responseType,
-
     headers: {
       Accept: "application/json",
-
-      // Authentification Elogistia
-      key: apiKey,
-
       "User-Agent": "DOCTECH/1.0",
-
       ...headers,
     },
-
     validateStatus: () => true,
   });
 
-  console.log(
-    `ELOGISTIA ← ${response.status} ${method.toUpperCase()} ${endpoint}`
-  );
+  console.log(`ELOGISTIA ← ${response.status}`);
 
   if (response.status >= 400) {
-    const error = new Error(
-      `Elogistia HTTP ${response.status}`
-    );
+    console.error("ELOGISTIA ERROR:", response.data);
 
+    const error = new Error(`Elogistia HTTP ${response.status}`);
     error.response = response;
-
     throw error;
   }
 
   return response.data;
 }
 
-/**
- * ============================================================
- * CACHE
- * ============================================================
- */
-
-function getCache(key) {
-  const item = cache.get(key);
-
-  if (!item) {
-    return null;
-  }
-
-  if (Date.now() - item.time > CACHE_TTL) {
-    cache.delete(key);
-    return null;
-  }
-
-  return item.value;
-}
-
-function setCache(key, value) {
-  cache.set(key, {
-    time: Date.now(),
-    value,
-  });
-
-  return value;
-}
+/* =========================================================
+   NORMALISATION
+========================================================= */
 
 /**
- * ============================================================
- * WILAYAS
+ * Elogistia renvoie TRÈS souvent :
  *
- * GET /getWilayas
- * ============================================================
+ *   { body: [ ... ], itemCount: N }
+ *
+ * Donc on teste `body` EN PREMIER.
  */
+function extractArray(data, possibleKeys = []) {
+  if (Array.isArray(data)) return data;
+  if (!data || typeof data !== "object") return [];
+
+  // ⭐ Elogistia standard
+  if (Array.isArray(data.body)) return data.body;
+
+  for (const key of possibleKeys) {
+    if (Array.isArray(data[key])) return data[key];
+  }
+
+  if (Array.isArray(data.data)) return data.data;
+  if (Array.isArray(data.items)) return data.items;
+  if (Array.isArray(data.result)) return data.result;
+  if (Array.isArray(data.results)) return data.results;
+
+  return [];
+}
+
+/* =========================================================
+   WILAYAS
+========================================================= */
 
 async function getWilayas() {
   const cacheKey = "elogistia:wilayas";
 
   const cached = getCache(cacheKey);
+  if (cached) return cached;
 
-  if (cached) {
-    return cached;
-  }
+  const data = await request("GET", "/getWilayas");
 
-  const data = await request(
-    "GET",
-    "/getWilayas"
-  );
+  console.log("ELOGISTIA WILAYAS RAW:");
+  console.dir(data, { depth: null });
 
   return setCache(cacheKey, data);
 }
 
-/**
- * ============================================================
- * COMMUNES
- *
- * GET /getMunicipalities
- *
- * Exemple :
- * /api/elogistia/municipalities?wilaya=31
- * ============================================================
- */
+/* =========================================================
+   COMMUNES
+========================================================= */
 
 async function getMunicipalities(wilaya) {
   if (
     wilaya === undefined ||
     wilaya === null ||
-    wilaya === ""
+    String(wilaya).trim() === ""
   ) {
     throw new Error("wilaya obligatoire");
   }
 
-  const cacheKey =
-    `elogistia:municipalities:${wilaya}`;
+  const wilayaValue = String(wilaya).trim();
+  const cacheKey = `elogistia:municipalities:${wilayaValue}`;
 
   const cached = getCache(cacheKey);
+  if (cached) return cached;
 
-  if (cached) {
-    return cached;
-  }
+  const data = await request("GET", "/getMunicipalities", {
+    params: { wilaya: wilayaValue },
+  });
 
-  const data = await request(
-    "GET",
-    "/getMunicipalities",
-    {
-      params: {
-        wilaya,
-      },
-    }
-  );
+  console.log(`ELOGISTIA COMMUNES ${wilayaValue}:`);
+  console.dir(data, { depth: null });
 
   return setCache(cacheKey, data);
 }
 
-/**
- * Alias pratique
- */
 async function getCommunes(wilaya) {
   return getMunicipalities(wilaya);
 }
 
-/**
- * ============================================================
- * AGENCES / POINTS RELAIS
- *
- * GET /getAgences
- * ============================================================
- */
+/* =========================================================
+   AGENCES
+========================================================= */
 
-async function getAgences() {
-  const cacheKey = "elogistia:agences";
+async function getAgences(wilaya) {
+  const params = {};
 
-  const cached = getCache(cacheKey);
-
-  if (cached) {
-    return cached;
+  if (
+    wilaya !== undefined &&
+    wilaya !== null &&
+    String(wilaya).trim() !== ""
+  ) {
+    params.wilaya = String(wilaya).trim();
   }
 
-  const data = await request(
-    "GET",
-    "/getAgences"
-  );
+  const cacheKey = `elogistia:agences:${params.wilaya || "all"}`;
+
+  const cached = getCache(cacheKey);
+  if (cached) return cached;
+
+  const data = await request("GET", "/getAgences", { params });
+
+  console.log("ELOGISTIA AGENCES:");
+  console.dir(data, { depth: null });
 
   return setCache(cacheKey, data);
 }
 
-/**
- * Alias
- */
-async function getOffices() {
-  return getAgences();
+async function getOffices(wilaya) {
+  return getAgences(wilaya);
 }
 
-/**
- * ============================================================
- * FRAIS DE LIVRAISON
- *
- * GET /getShippingCost
- * ============================================================
- */
+/* =========================================================
+   TARIFS
+========================================================= */
 
-async function getShippingCost() {
-  const cacheKey = "elogistia:shipping-cost";
+async function getShippingCost(wilaya) {
+  const params = {};
 
-  const cached = getCache(cacheKey);
-
-  if (cached) {
-    return cached;
+  if (
+    wilaya !== undefined &&
+    wilaya !== null &&
+    String(wilaya).trim() !== ""
+  ) {
+    params.wilaya = String(wilaya).trim();
   }
 
-  const data = await request(
-    "GET",
-    "/getShippingCost"
-  );
+  const cacheKey = `elogistia:shipping-cost:${
+    params.wilaya || "all"
+  }`;
+
+  const cached = getCache(cacheKey);
+  if (cached) return cached;
+
+  const data = await request("GET", "/getShippingCost", { params });
+
+  console.log("ELOGISTIA SHIPPING COST RAW:");
+  console.dir(data, { depth: null });
 
   return setCache(cacheKey, data);
 }
 
-/**
- * Alias
- */
-async function getRates() {
-  return getShippingCost();
+async function getRates(wilaya) {
+  return getShippingCost(wilaya);
 }
 
-/**
- * ============================================================
- * COMMANDES
- *
- * GET /getOrders
- * ============================================================
- */
+/* =========================================================
+   COMMANDES
+========================================================= */
 
 async function getOrders(params = {}) {
-  return request(
-    "GET",
-    "/getOrders",
-    {
-      params,
-    }
-  );
+  return request("GET", "/getOrders", { params });
 }
-
-/**
- * ============================================================
- * COMMANDE PAR TRACKING
- *
- * GET /getOrders?tracking=XXXX
- * ============================================================
- */
 
 async function getOrderByTracking(tracking) {
-  if (!tracking) {
-    throw new Error(
-      "tracking obligatoire"
-    );
-  }
+  if (!tracking) throw new Error("tracking obligatoire");
 
-  return request(
-    "GET",
-    "/getOrders",
-    {
-      params: {
-        tracking,
-      },
-    }
-  );
+  return request("GET", "/getOrders", {
+    params: { tracking },
+  });
 }
 
-/**
- * Alias standard
- */
 async function getOrder(tracking) {
   return getOrderByTracking(tracking);
 }
 
-/**
- * ============================================================
- * TRACKING
- *
- * GET /getTracking
- *
- * Selon l'API Elogistia, le tracking renvoie
- * l'historique des événements.
- * ============================================================
- */
+/* =========================================================
+   TRACKING
+========================================================= */
 
 async function getTracking(tracking) {
-  if (!tracking) {
-    throw new Error(
-      "tracking obligatoire"
-    );
-  }
+  if (!tracking) throw new Error("tracking obligatoire");
 
-  return request(
-    "GET",
-    "/getTracking",
-    {
-      params: {
-        tracking,
-      },
-    }
-  );
+  return request("GET", "/getTracking", {
+    params: { tracking },
+  });
 }
 
-/**
- * Alias
- */
 async function getTrackingHistory(tracking) {
   return getTracking(tracking);
 }
 
-/**
- * ============================================================
- * MANY TRACKING
- *
- * GET /getTracking
- *
- * tracking peut être :
- *
- * ?tracking=AAA
- *
- * ou :
- *
- * ?tracking=AAA,BBB,CCC
- * ============================================================
- */
-
 async function getManyTracking(tracking) {
-  if (!tracking) {
-    throw new Error(
-      "tracking obligatoire"
-    );
-  }
+  if (!tracking) throw new Error("tracking obligatoire");
 
-  return request(
-    "GET",
-    "/getTracking",
-    {
-      params: {
-        tracking,
-      },
-    }
-  );
+  return request("GET", "/getTracking", {
+    params: { tracking },
+  });
 }
 
-/**
- * ============================================================
- * AJOUTER COMMANDE
- *
- * POST /insertCommande
- * ============================================================
- */
+/* =========================================================
+   INSERT COMMANDE
+========================================================= */
 
 async function insertCommande(order = {}) {
   if (
@@ -397,283 +309,51 @@ async function insertCommande(order = {}) {
     typeof order !== "object" ||
     Array.isArray(order)
   ) {
-    throw new Error(
-      "Les données de la commande sont invalides"
-    );
+    throw new Error("Les données de la commande sont invalides");
   }
 
-  /**
-   * On garde le body envoyé par ton frontend.
-   *
-   * Elogistia utilise notamment :
-   *
-   * modeDeLivraison
-   *
-   * et pour les échanges :
-   *
-   * modeDeLivraison = 4
-   */
-
-  const payload = {
-    ...order,
-  };
+  const payload = { ...order };
 
   if (
     process.env.ELOGISTIA_DELIVERY_MODE &&
     payload.modeDeLivraison === undefined
   ) {
-    payload.modeDeLivraison =
-      Number(
-        process.env.ELOGISTIA_DELIVERY_MODE
-      );
+    payload.modeDeLivraison = Number(
+      process.env.ELOGISTIA_DELIVERY_MODE
+    );
   }
 
-  return request(
-    "POST",
-    "/insertCommande",
-    {
-      data: payload,
-    }
-  );
+  return request("POST", "/insertCommande", { data: payload });
 }
 
-/**
- * Alias standard
- */
 async function createOrder(order) {
   return insertCommande(order);
 }
 
-/**
- * ============================================================
- * MODIFIER STATUT
- *
- * Attention :
- * Le endpoint Elogistia utilisé pour les statuts peut
- * dépendre de la version du compte/API.
- *
- * On conserve le endpoint attendu par ton controller.
- * ============================================================
- */
-
-async function updateOrderStatus(
-  tracking,
-  status
-) {
-  if (!tracking) {
-    throw new Error(
-      "tracking obligatoire"
-    );
-  }
-
-  if (
-    status === undefined ||
-    status === null ||
-    status === ""
-  ) {
-    throw new Error(
-      "status obligatoire"
-    );
-  }
-
-  return request(
-    "PATCH",
-    `/orders/${encodeURIComponent(
-      tracking
-    )}/status`,
-    {
-      data: {
-        status,
-      },
-    }
-  );
-}
-
-/**
- * ============================================================
- * SUPPRIMER COMMANDE
- *
- * GET /deleteOrder?tracking=XXXX
- * ============================================================
- */
+/* =========================================================
+   DELETE
+========================================================= */
 
 async function deleteOrder(tracking) {
-  if (!tracking) {
-    throw new Error(
-      "tracking obligatoire"
-    );
-  }
+  if (!tracking) throw new Error("tracking obligatoire");
 
-  return request(
-    "GET",
-    "/deleteOrder",
-    {
-      params: {
-        tracking,
-      },
-    }
-  );
+  return request("GET", "/deleteOrder", {
+    params: { tracking },
+  });
 }
 
-/**
- * Alias standard
- */
 async function cancelOrder(tracking) {
   return deleteOrder(tracking);
 }
 
-/**
- * ============================================================
- * BORDEREAU 10x10
- *
- * GET /printBordereau_10x10
- * ============================================================
- */
-
-async function printBordereau10x10(
-  tracking
-) {
-  if (!tracking) {
-    throw new Error(
-      "tracking obligatoire"
-    );
-  }
-
-  return request(
-    "GET",
-    "/printBordereau_10x10",
-    {
-      params: {
-        tracking,
-      },
-    }
-  );
-}
-
-/**
- * ============================================================
- * BORDEREAU 10x15
- *
- * GET /printBordereau_10x15
- * ============================================================
- */
-
-async function printBordereau10x15(
-  tracking
-) {
-  if (!tracking) {
-    throw new Error(
-      "tracking obligatoire"
-    );
-  }
-
-  return request(
-    "GET",
-    "/printBordereau_10x15",
-    {
-      params: {
-        tracking,
-      },
-    }
-  );
-}
-
-/**
- * ============================================================
- * BORDEREAU 15x20
- *
- * GET /printBordereau_15x20
- * ============================================================
- */
-
-async function printBordereau15x20(
-  tracking
-) {
-  if (!tracking) {
-    throw new Error(
-      "tracking obligatoire"
-    );
-  }
-
-  return request(
-    "GET",
-    "/printBordereau_15x20",
-    {
-      params: {
-        tracking,
-      },
-    }
-  );
-}
-
-/**
- * ============================================================
- * BORDEREAU MULTIPLE
- *
- * GET /printBordereauMultiple
- *
- * tracking peut être :
- *
- * AAA,BBB,CCC
- * ============================================================
- */
-
-async function printBordereauMultiple(
-  tracking
-) {
-  if (!tracking) {
-    throw new Error(
-      "tracking obligatoire"
-    );
-  }
-
-  return request(
-    "GET",
-    "/printBordereauMultiple",
-    {
-      params: {
-        tracking,
-      },
-    }
-  );
-}
-
-/**
- * ============================================================
- * TEST CREDENTIALS
- * ============================================================
- */
-
-async function testCredentials() {
-  try {
-    await getWilayas();
-
-    return {
-      ok: true,
-      message:
-        "Connexion Elogistia réussie",
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      message:
-        error.response?.data ||
-        error.message,
-    };
-  }
-}
-
-/**
- * ============================================================
- * EXPORTS
- * ============================================================
- */
+/* =========================================================
+   EXPORT
+========================================================= */
 
 module.exports = {
-  // HTTP interne
   request,
+  extractArray,
 
-  // Référentiel
   getWilayas,
   getMunicipalities,
   getCommunes,
@@ -682,30 +362,15 @@ module.exports = {
   getShippingCost,
   getRates,
 
-  // Commandes
   getOrders,
   getOrderByTracking,
   getOrder,
-  insertCommande,
-  createOrder,
-
-  // Tracking
   getTracking,
   getTrackingHistory,
   getManyTracking,
 
-  // Actions
-  updateOrderStatus,
+  insertCommande,
+  createOrder,
   deleteOrder,
   cancelOrder,
-
-  // Bordereaux
-  printBordereau10x10,
-  printBordereau10x15,
-  printBordereau15x20,
-  printBordereauMultiple,
-
-  // Test
-  testCredentials,
 };
-

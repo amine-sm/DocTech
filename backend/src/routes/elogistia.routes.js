@@ -1,142 +1,90 @@
 const express = require("express");
 
-const router = express.Router();
+const router =
+  express.Router();
 
-const elogistiaController = require("../controllers/elogistia.controller");
+const controller =
+  require("../controllers/elogistia.controller");
 
-// ========================================
-// WILAYAS
-// GET /api/elogistia/wilayas
-// ========================================
+/* =========================================================
+   WILAYAS
+========================================================= */
+
 router.get(
   "/wilayas",
-  elogistiaController.getWilayas
+  controller.getWilayas
 );
 
-// ========================================
-// COMMUNES
-// GET /api/elogistia/municipalities?wilaya=31
-// ========================================
+/* =========================================================
+   COMMUNES
+========================================================= */
+
 router.get(
   "/municipalities",
-  elogistiaController.getMunicipalities
+  controller.getMunicipalities
 );
 
-// ========================================
-// AGENCES
-// GET /api/elogistia/agences
-// ========================================
+/* =========================================================
+   AGENCES
+========================================================= */
+
 router.get(
   "/agences",
-  elogistiaController.getAgences
+  controller.getAgences
 );
 
-// ========================================
-// FRAIS DE LIVRAISON
-// GET /api/elogistia/shipping-costs
-// ========================================
+/* =========================================================
+   SHIPPING COST
+========================================================= */
+
 router.get(
   "/shipping-costs",
-  elogistiaController.getShippingCost
+  controller.getShippingCost
 );
 
-// ========================================
-// COMMANDES
-// GET /api/elogistia/orders
-// ========================================
+/* =========================================================
+   ORDERS
+========================================================= */
+
 router.get(
   "/orders",
-  elogistiaController.getOrders
+  controller.getOrders
 );
 
-// ========================================
-// COMMANDE PAR TRACKING
-// GET /api/elogistia/orders/:tracking
-// ========================================
+/* =========================================================
+   ORDER TRACKING
+========================================================= */
+
 router.get(
   "/orders/:tracking",
-  elogistiaController.getOrderByTracking
+  controller.getOrderByTracking
 );
 
-// ========================================
-// AJOUTER COMMANDE
-// POST /api/elogistia/orders
-// ========================================
-router.post(
-  "/orders",
-  elogistiaController.insertCommande
-);
+/* =========================================================
+   TRACKING
+========================================================= */
 
-// ========================================
-// TRACKING
-// GET /api/elogistia/tracking/:tracking
-// ========================================
 router.get(
   "/tracking/:tracking",
-  elogistiaController.getTracking
+  controller.getTracking
 );
 
-// ========================================
-// MANY TRACKING
-// GET /api/elogistia/tracking?tracking=XXX
-// ========================================
-router.get(
-  "/tracking",
-  elogistiaController.getManyTracking
-);
+/* =========================================================
+   DELETE ORDER
+========================================================= */
 
-// ========================================
-// MODIFIER STATUT
-// PATCH /api/elogistia/orders/:tracking/status
-// ========================================
-router.patch(
-  "/orders/:tracking/status",
-  elogistiaController.updateOrderStatus
-);
-
-// ========================================
-// SUPPRIMER COMMANDE
-// DELETE /api/elogistia/orders/:tracking
-// ========================================
 router.delete(
   "/orders/:tracking",
-  elogistiaController.deleteOrder
+  controller.deleteOrder
 );
 
-// ========================================
-// BORDEREAU 10x10
-// GET /api/elogistia/print/10x10/:tracking
-// ========================================
-router.get(
-  "/print/10x10/:tracking",
-  elogistiaController.printBordereau10x10
-);
+/* =========================================================
+   INSERT COMMANDE
+========================================================= */
 
-// ========================================
-// BORDEREAU 10x15
-// GET /api/elogistia/print/10x15/:tracking
-// ========================================
-router.get(
-  "/print/10x15/:tracking",
-  elogistiaController.printBordereau10x15
-);
-
-// ========================================
-// BORDEREAU 15x20
-// GET /api/elogistia/print/15x20/:tracking
-// ========================================
-router.get(
-  "/print/15x20/:tracking",
-  elogistiaController.printBordereau15x20
-);
-
-// ========================================
-// BORDEREAU MULTIPLE
-// GET /api/elogistia/print/multiple?tracking=XXX
-// ========================================
-router.get(
-  "/print/multiple",
-  elogistiaController.printBordereauMultiple
+router.post(
+  "/orders",
+  controller.insertCommande
 );
 
 module.exports = router;

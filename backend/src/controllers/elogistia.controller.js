@@ -1,320 +1,246 @@
 const elogistiaService = require("../services/elogistia.service");
 
-function errorResponse(res, error) {
-  console.error(
-    "ELOGISTIA ERROR:",
-    error.response?.data || error.message
-  );
+/* =========================================================
+   ERROR
+========================================================= */
 
-  return res.status(
-    error.response?.status || 500
-  ).json({
+function errorResponse(res, error) {
+  const status = error?.response?.status || 500;
+  const responseData = error?.response?.data;
+
+  console.error("==============================================");
+  console.error("ELOGISTIA ERROR");
+  console.error("STATUS:", status);
+  console.error("DATA:", responseData);
+  console.error("MESSAGE:", error?.message);
+  console.error("==============================================");
+
+  return res.status(status).json({
     ok: false,
-    message: "Erreur Elogistia",
-    error:
-      error.response?.data ||
-      error.message,
+    message:
+      responseData?.message ||
+      responseData?.error ||
+      error?.message ||
+      "Erreur Elogistia",
+    error: responseData || error?.message || "Erreur inconnue",
   });
 }
 
-// ========================================
-// WILAYAS
-// ========================================
+/**
+ * ⭐ Elogistia renvoie { body: [...] }.
+ * On normalise ici pour renvoyer un tableau direct dans `data`.
+ */
+function pickRows(result, possibleKeys = []) {
+  if (Array.isArray(result?.body)) return result.body;
+  return elogistiaService.extractArray(result, possibleKeys);
+}
+
+/* =========================================================
+   WILAYAS
+========================================================= */
 
 exports.getWilayas = async (req, res) => {
   try {
-    const data =
-      await elogistiaService.getWilayas();
+    const result = await elogistiaService.getWilayas();
+
+    const rows = pickRows(result, [
+      "wilayas",
+      "wilaya",
+      "body",
+      "data",
+      "items",
+      "results",
+    ]);
 
     return res.json({
       ok: true,
-      data,
+      data: rows,       // ✅ tableau direct
+      raw: result,
     });
   } catch (error) {
     return errorResponse(res, error);
   }
 };
 
-// ========================================
-// COMMUNES
-// ========================================
+/* =========================================================
+   COMMUNES
+========================================================= */
 
 exports.getMunicipalities = async (req, res) => {
   try {
-    const wilaya = req.query.wilaya;
+    const wilaya = String(req.query.wilaya || "").trim();
 
     if (!wilaya) {
       return res.status(400).json({
         ok: false,
         message: "wilaya obligatoire",
+        data: [],
       });
     }
 
-    const data =
-      await elogistiaService.getMunicipalities(
-        wilaya
-      );
+    const result =
+      await elogistiaService.getMunicipalities(wilaya);
+
+    const rows = pickRows(result, [
+      "municipalities",
+      "municipality",
+      "communes",
+      "commune",
+      "body",
+      "data",
+      "items",
+      "results",
+    ]);
 
     return res.json({
       ok: true,
-      data,
+      wilaya,
+      data: rows,       // ✅ tableau direct
+      raw: result,
     });
   } catch (error) {
     return errorResponse(res, error);
   }
 };
 
-// ========================================
-// AGENCES
-// ========================================
+/* =========================================================
+   AGENCES
+========================================================= */
 
 exports.getAgences = async (req, res) => {
   try {
-    const data =
-      await elogistiaService.getAgences();
+    const wilaya = req.query.wilaya;
+
+    const result =
+      await elogistiaService.getAgences(wilaya);
+
+    const rows = pickRows(result, [
+      "agences",
+      "agence",
+      "offices",
+      "body",
+      "data",
+      "items",
+      "results",
+    ]);
 
     return res.json({
       ok: true,
-      data,
+      data: rows,
+      raw: result,
     });
   } catch (error) {
     return errorResponse(res, error);
   }
 };
 
-// ========================================
-// FRAIS LIVRAISON
-// ========================================
+/* =========================================================
+   FRAIS LIVRAISON
+========================================================= */
 
 exports.getShippingCost = async (req, res) => {
   try {
-    const data =
-      await elogistiaService.getShippingCost();
+    const wilaya = req.query.wilaya;
+
+    const result =
+      await elogistiaService.getShippingCost(wilaya);
+
+    console.log("SHIPPING COST RESULT:");
+    console.dir(result, { depth: null });
+
+    const rows = pickRows(result, [
+      "shippingCosts",
+      "shipping",
+      "body",
+      "data",
+      "items",
+      "results",
+    ]);
 
     return res.json({
       ok: true,
-      data,
+      data: rows,       // ✅ tableau direct
+      raw: result,
     });
   } catch (error) {
     return errorResponse(res, error);
   }
 };
 
-// ========================================
-// COMMANDES
-// ========================================
+/* =========================================================
+   ORDERS
+========================================================= */
 
 exports.getOrders = async (req, res) => {
   try {
-    const data =
-      await elogistiaService.getOrders();
+    const result = await elogistiaService.getOrders(req.query);
 
-    return res.json({
-      ok: true,
-      data,
-    });
+    return res.json({ ok: true, data: result });
   } catch (error) {
     return errorResponse(res, error);
   }
 };
 
-// ========================================
-// COMMANDE PAR TRACKING
-// ========================================
+/* =========================================================
+   ORDER BY TRACKING
+========================================================= */
 
 exports.getOrderByTracking = async (req, res) => {
   try {
-    const data =
+    const result =
       await elogistiaService.getOrderByTracking(
         req.params.tracking
       );
 
-    return res.json({
-      ok: true,
-      data,
-    });
+    return res.json({ ok: true, data: result });
   } catch (error) {
     return errorResponse(res, error);
   }
 };
 
-// ========================================
-// TRACKING
-// ========================================
+/* =========================================================
+   TRACKING
+========================================================= */
 
 exports.getTracking = async (req, res) => {
   try {
-    const data =
-      await elogistiaService.getTracking(
-        req.params.tracking
-      );
+    const result = await elogistiaService.getTracking(
+      req.params.tracking
+    );
 
-    return res.json({
-      ok: true,
-      data,
-    });
+    return res.json({ ok: true, data: result });
   } catch (error) {
     return errorResponse(res, error);
   }
 };
 
-// ========================================
-// MANY TRACKING
-// ========================================
-
-exports.getManyTracking = async (req, res) => {
-  try {
-    const data =
-      await elogistiaService.getManyTracking(
-        req.query.tracking
-      );
-
-    return res.json({
-      ok: true,
-      data,
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-// ========================================
-// STATUT
-// ========================================
-
-exports.updateOrderStatus = async (req, res) => {
-  try {
-    const data =
-      await elogistiaService.updateOrderStatus(
-        req.params.tracking,
-        req.body.status
-      );
-
-    return res.json({
-      ok: true,
-      data,
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-// ========================================
-// SUPPRIMER
-// ========================================
-
-exports.deleteOrder = async (req, res) => {
-  try {
-    const data =
-      await elogistiaService.deleteOrder(
-        req.params.tracking
-      );
-
-    return res.json({
-      ok: true,
-      data,
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-// ========================================
-// AJOUTER COMMANDE
-// ========================================
+/* =========================================================
+   INSERT COMMANDE
+========================================================= */
 
 exports.insertCommande = async (req, res) => {
   try {
-    const data =
-      await elogistiaService.insertCommande(
-        req.body
-      );
+    const result = await elogistiaService.insertCommande(
+      req.body
+    );
 
-    return res.status(201).json({
-      ok: true,
-      message: "Commande ajoutée à Elogistia",
-      data,
-    });
+    return res.json({ ok: true, data: result });
   } catch (error) {
     return errorResponse(res, error);
   }
 };
 
-// ========================================
-// BORDEREAU 10x10
-// ========================================
+/* =========================================================
+   DELETE
+========================================================= */
 
-exports.printBordereau10x10 = async (req, res) => {
+exports.deleteOrder = async (req, res) => {
   try {
-    const data =
-      await elogistiaService.printBordereau10x10(
-        req.params.tracking
-      );
+    const result = await elogistiaService.deleteOrder(
+      req.params.tracking
+    );
 
-    return res.json({
-      ok: true,
-      data,
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-// ========================================
-// BORDEREAU 10x15
-// ========================================
-
-exports.printBordereau10x15 = async (req, res) => {
-  try {
-    const data =
-      await elogistiaService.printBordereau10x15(
-        req.params.tracking
-      );
-
-    return res.json({
-      ok: true,
-      data,
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-// ========================================
-// BORDEREAU 15x20
-// ========================================
-
-exports.printBordereau15x20 = async (req, res) => {
-  try {
-    const data =
-      await elogistiaService.printBordereau15x20(
-        req.params.tracking
-      );
-
-    return res.json({
-      ok: true,
-      data,
-    });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-};
-
-// ========================================
-// BORDEREAU MULTIPLE
-// ========================================
-
-exports.printBordereauMultiple = async (req, res) => {
-  try {
-    const data =
-      await elogistiaService.printBordereauMultiple(
-        req.query.tracking
-      );
-
-    return res.json({
-      ok: true,
-      data,
-    });
+    return res.json({ ok: true, data: result });
   } catch (error) {
     return errorResponse(res, error);
   }

@@ -1,5 +1,9 @@
 import { apiFetch } from "@/lib/api";
 
+/* =========================================================
+   TYPES
+========================================================= */
+
 export type DeliveryWilaya = {
   id: string | number;
   name: string;
@@ -18,8 +22,8 @@ export type DeliveryAgence = {
 export type ShippingCost = {
   wilayaId: string | number;
   name?: string;
-  home?: number | null;
-  desk?: number | null;
+  home: number | null;
+  desk: number | null;
 };
 
 export type ShippingCostsResponse = {
@@ -27,173 +31,385 @@ export type ShippingCostsResponse = {
   fee: number | null;
 };
 
-type ApiListResponse<T> = {
-  ok?: boolean;
-  data?: T[];
-  message?: string;
-};
-
-type ApiResponse<T> = {
-  ok?: boolean;
-  data?: T;
-  message?: string;
-};
-
 /* =========================================================
-   WILAYAS ELOGISTIA
+   EXTRAIRE BODY ELOGISTIA
 ========================================================= */
 
-export async function getDeliveryWilayas(): Promise<DeliveryWilaya[]> {
+function getElogistiaBody(
+  response: any
+): any[] {
+  /*
+   * Réponse backend :
+   *
+   * {
+   *   ok: true,
+   *   data: {
+   *     body: [...]
+   *   }
+   * }
+   */
+
+  if (Array.isArray(response?.data?.body)) {
+    return response.data.body;
+  }
+
+  if (Array.isArray(response?.body)) {
+    return response.body;
+  }
+
+  if (Array.isArray(response?.data)) {
+    return response.data;
+  }
+
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  return [];
+}
+
+/* =========================================================
+   WILAYAS
+========================================================= */
+
+export async function getDeliveryWilayas(): Promise<
+  DeliveryWilaya[]
+> {
   try {
-    const response = await apiFetch<ApiListResponse<DeliveryWilaya>>(
-      "/elogistia/wilayas",
+    const response = await apiFetch<any>(
+      "/elogistia/wilayas"
     );
 
-    if (!Array.isArray(response?.data)) {
-      return [];
-    }
+    console.log(
+      "🚚 ELOGISTIA WILAYAS RESPONSE:",
+      response
+    );
 
-    return response.data
-      .filter(
-        (item) =>
-          item?.id !== undefined &&
-          item?.id !== null &&
-          String(item?.name ?? "").trim() !== "",
+    const rows =
+      getElogistiaBody(response);
+
+    console.log(
+      "🚚 ELOGISTIA WILAYAS BODY:",
+      rows
+    );
+
+    return rows
+      .map(
+        (item: any): DeliveryWilaya | null => {
+          /*
+           * Elogistia retourne :
+           *
+           * {
+           *   Id: "31",
+           *   wilaya: "Oran"
+           * }
+           */
+
+          const id =
+            item?.Id ??
+            item?.id ??
+            item?.ID ??
+            item?.code;
+
+          const name =
+            item?.wilaya ??
+            item?.Wilaya ??
+            item?.name ??
+            item?.nom;
+
+          if (
+            id === undefined ||
+            id === null ||
+            !name
+          ) {
+            return null;
+          }
+
+          return {
+            id: String(id),
+            name: String(name).trim(),
+          };
+        }
       )
-      .map((item) => ({
-        id: item.id,
-        name: String(item.name).trim(),
-      }));
+      .filter(
+        (
+          item
+        ): item is DeliveryWilaya =>
+          item !== null
+      );
+
   } catch (error) {
-    console.error("❌ Elogistia wilayas :", error);
+    console.error(
+      "❌ Elogistia wilayas :",
+      error
+    );
+
     return [];
   }
 }
 
 /* =========================================================
-   COMMUNES ELOGISTIA
+   COMMUNES
 ========================================================= */
 
 export async function getDeliveryMunicipalities(
-  wilaya: string | number,
+  wilaya: string | number
 ): Promise<DeliveryCommune[]> {
-  if (!wilaya) {
+  if (
+    wilaya === undefined ||
+    wilaya === null ||
+    String(wilaya).trim() === ""
+  ) {
     return [];
   }
 
   try {
-    const response = await apiFetch<ApiListResponse<DeliveryCommune>>(
-      `/elogistia/municipalities?wilaya=${encodeURIComponent(
-        String(wilaya),
-      )}`,
+    const response =
+      await apiFetch<any>(
+        `/elogistia/municipalities?wilaya=${encodeURIComponent(
+          String(wilaya)
+        )}`
+      );
+
+    console.log(
+      "🏙️ ELOGISTIA COMMUNES RESPONSE:",
+      response
     );
 
-    if (!Array.isArray(response?.data)) {
-      return [];
-    }
+    const rows =
+      getElogistiaBody(response);
 
-    return response.data
-      .filter(
-        (item) =>
-          item?.id !== undefined &&
-          item?.id !== null &&
-          String(item?.name ?? "").trim() !== "",
+    console.log(
+      "🏙️ ELOGISTIA COMMUNES BODY:",
+      rows
+    );
+
+    return rows
+      .map(
+        (item: any): DeliveryCommune | null => {
+          const id =
+            item?.Id ??
+            item?.id ??
+            item?.ID ??
+            item?.code ??
+            item?.communeID ??
+            item?.communeId;
+
+          const name =
+            item?.commune ??
+            item?.Commune ??
+            item?.communeLabel ??
+            item?.name ??
+            item?.nom;
+
+          if (
+            id === undefined ||
+            id === null ||
+            !name
+          ) {
+            return null;
+          }
+
+          return {
+            id: String(id),
+            name: String(name).trim(),
+          };
+        }
       )
-      .map((item) => ({
-        id: item.id,
-        name: String(item.name).trim(),
-      }));
+      .filter(
+        (
+          item
+        ): item is DeliveryCommune =>
+          item !== null
+      );
+
   } catch (error) {
-    console.error("❌ Elogistia communes :", error);
+    console.error(
+      "❌ Elogistia communes :",
+      error
+    );
+
     return [];
   }
 }
 
 /* =========================================================
-   AGENCES ELOGISTIA
+   AGENCES
 ========================================================= */
 
 export async function getDeliveryAgences(
-  wilaya?: string | number,
+  wilaya?: string | number
 ): Promise<DeliveryAgence[]> {
   try {
-    let url = "/elogistia/agences";
+    let url =
+      "/elogistia/agences";
 
-    if (wilaya !== undefined && wilaya !== null && wilaya !== "") {
-      url += `?wilaya=${encodeURIComponent(String(wilaya))}`;
+    if (
+      wilaya !== undefined &&
+      wilaya !== null &&
+      String(wilaya).trim() !== ""
+    ) {
+      url +=
+        `?wilaya=${encodeURIComponent(
+          String(wilaya)
+        )}`;
     }
 
-    const response = await apiFetch<ApiListResponse<DeliveryAgence>>(url);
+    const response =
+      await apiFetch<any>(url);
 
-    if (!Array.isArray(response?.data)) {
-      return [];
-    }
+    const rows =
+      getElogistiaBody(response);
 
-    return response.data
-      .filter(
-        (item) =>
-          item?.id !== undefined &&
-          item?.id !== null &&
-          String(item?.name ?? "").trim() !== "",
+    return rows
+      .map(
+        (item: any): DeliveryAgence | null => {
+          const id =
+            item?.Id ??
+            item?.id ??
+            item?.ID ??
+            item?.code;
+
+          const name =
+            item?.agence ??
+            item?.agenceLabel ??
+            item?.name ??
+            item?.nom;
+
+          if (
+            id === undefined ||
+            id === null ||
+            !name
+          ) {
+            return null;
+          }
+
+          return {
+            id: String(id),
+            name: String(name).trim(),
+          };
+        }
       )
-      .map((item) => ({
-        id: item.id,
-        name: String(item.name).trim(),
-      }));
+      .filter(
+        (
+          item
+        ): item is DeliveryAgence =>
+          item !== null
+      );
+
   } catch (error) {
-    console.error("❌ Elogistia agences :", error);
+    console.error(
+      "❌ Elogistia agences :",
+      error
+    );
+
     return [];
   }
 }
 
 /* =========================================================
-   FRAIS ELOGISTIA
+   TARIFS
 ========================================================= */
 
 export async function getShippingCosts(
-  wilaya?: string | number,
+  wilaya?: string | number
 ): Promise<ShippingCostsResponse> {
   try {
-    let url = "/elogistia/shipping-costs";
+    let url =
+      "/elogistia/shipping-costs";
 
-    if (wilaya !== undefined && wilaya !== null && wilaya !== "") {
-      url += `?wilaya=${encodeURIComponent(String(wilaya))}`;
+    if (
+      wilaya !== undefined &&
+      wilaya !== null &&
+      String(wilaya).trim() !== ""
+    ) {
+      url +=
+        `?wilaya=${encodeURIComponent(
+          String(wilaya)
+        )}`;
     }
 
-    const response = await apiFetch<
-      ApiResponse<ShippingCostsResponse>
-    >(url);
+    const response =
+      await apiFetch<any>(url);
 
-    if (!response?.data) {
-      return {
-        items: [],
-        fee: null,
-      };
-    }
+    console.log(
+      "💰 ELOGISTIA SHIPPING RESPONSE:",
+      response
+    );
 
-    return {
-      items: Array.isArray(response.data.items)
-        ? response.data.items.map((item) => ({
-            wilayaId: item.wilayaId,
-            name: item.name,
+    const rows =
+      getElogistiaBody(response);
+
+    console.log(
+      "💰 ELOGISTIA SHIPPING BODY:",
+      rows
+    );
+
+    const items: ShippingCost[] =
+      rows.map(
+        (item: any) => {
+          const wilayaId =
+            item?.wilayaID ??
+            item?.wilayaId ??
+            item?.wilaya_id ??
+            item?.Id ??
+            "";
+
+          const name =
+            item?.wilayaLabel ??
+            item?.wilaya ??
+            item?.name ??
+            "";
+
+          const home =
+            item?.home !== undefined &&
+            item?.home !== null
+              ? Number(item.home)
+              : null;
+
+          const desk =
+            item?.stopdesk !== undefined &&
+            item?.stopdesk !== null
+              ? Number(item.stopdesk)
+              : item?.desk !== undefined &&
+                item?.desk !== null
+              ? Number(item.desk)
+              : null;
+
+          return {
+            wilayaId: String(
+              wilayaId
+            ),
+            name: String(name).trim(),
             home:
-              item.home !== null && item.home !== undefined
-                ? Number(item.home)
+              home !== null &&
+              Number.isFinite(home)
+                ? home
                 : null,
             desk:
-              item.desk !== null && item.desk !== undefined
-                ? Number(item.desk)
+              desk !== null &&
+              Number.isFinite(desk)
+                ? desk
                 : null,
-          }))
-        : [],
-      fee:
-        response.data.fee !== null &&
-        response.data.fee !== undefined
-          ? Number(response.data.fee)
-          : null,
+          };
+        }
+      );
+
+    console.log(
+      "💰 TARIFS NORMALISÉS:",
+      items
+    );
+
+    return {
+      items,
+      fee: null,
     };
+
   } catch (error) {
-    console.error("❌ Elogistia frais livraison :", error);
+    console.error(
+      "❌ Elogistia frais livraison :",
+      error
+    );
 
     return {
       items: [],
