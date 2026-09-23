@@ -196,7 +196,7 @@ function stockState(stock: number) {
     };
   }
 
-  if (stock <= 10) {
+  if (stock <= 3) {
     return {
       label: "Stock faible",
       className: "bg-amber-50 text-amber-700",
@@ -643,7 +643,7 @@ export default function StockPage() {
 
     const lowStock = articles.filter((article) => {
       const stock = numberValue(article.stock);
-      return stock > 0 && stock <= 10;
+      return stock > 0 && stock <= 3;
     }).length;
 
     const outOfStock = articles.filter(
@@ -861,7 +861,7 @@ export default function StockPage() {
             icon={<AlertTriangle size={19} />}
             label="Stock faible"
             value={stats.lowStock}
-            description="10 unités ou moins"
+            description="3 unités ou moins"
             tone="orange"
           />
 
@@ -992,29 +992,27 @@ export default function StockPage() {
             </div>
 
             {/* TABLE */}
-            <div className="overflow-x-auto">
-              <table className="min-w-[1250px] w-full">
+            <div className="w-full overflow-hidden">
+              <table className="w-full table-fixed">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70">
-                    <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[32%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Produit
                     </th>
-                    <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[20%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Catégorie / marque
                     </th>
-                    <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
-                      Fournisseur
-                    </th>
-                    <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+
+                    <th className="w-[12%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Stock
                     </th>
-                    <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[12%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Achat
                     </th>
-                    <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[12%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Vente
                     </th>
-                    <th className="px-5 py-4 text-right text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[22%] px-3 py-4 text-right text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Actions
                     </th>
                   </tr>
@@ -1031,7 +1029,7 @@ export default function StockPage() {
                         className="group transition hover:bg-slate-50/60"
                       >
                         {/* PRODUIT */}
-                        <td className="px-5 py-4">
+                        <td className="px-2.5 py-4">
                           <div className="flex items-center gap-3">
                             <ProductImage
                               article={article}
@@ -1086,7 +1084,7 @@ export default function StockPage() {
                         </td>
 
                         {/* CATEGORY / MARQUE */}
-                        <td className="px-5 py-4">
+                        <td className="px-2.5 py-4">
                           <div className="space-y-1.5">
                             <p className="max-w-[170px] truncate text-[10px] font-black text-slate-700">
                               {article.category_name ||
@@ -1099,22 +1097,8 @@ export default function StockPage() {
                           </div>
                         </td>
 
-                        {/* FOURNISSEUR */}
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500">
-                            <Truck
-                              size={13}
-                              className="text-slate-300"
-                            />
-                            <span className="max-w-[150px] truncate">
-                              {article.fournisseur_name ||
-                                "Aucun fournisseur"}
-                            </span>
-                          </div>
-                        </td>
-
                         {/* STOCK */}
-                        <td className="px-5 py-4">
+                        <td className="px-2.5 py-4">
                           <div className="flex flex-col items-start gap-1.5">
                             <span
                               className={`inline-flex rounded-xl px-3 py-2 text-[10px] font-black ${state.className}`}
@@ -1129,14 +1113,14 @@ export default function StockPage() {
                         </td>
 
                         {/* ACHAT */}
-                        <td className="px-5 py-4">
+                        <td className="px-2.5 py-4">
                           <span className="text-xs font-bold text-slate-600">
                             {price(article.purchase_price)}
                           </span>
                         </td>
 
                         {/* VENTE */}
-                        <td className="px-5 py-4">
+                        <td className="px-2.5 py-4">
                           <div>
                             <span className="text-xs font-black text-[#2563EB]">
                               {price(article.price)}
@@ -1152,7 +1136,7 @@ export default function StockPage() {
                         </td>
 
                         {/* ACTIONS */}
-                        <td className="px-5 py-4">
+                        <td className="px-2.5 py-4">
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
