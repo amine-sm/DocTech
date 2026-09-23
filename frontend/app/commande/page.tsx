@@ -2249,8 +2249,8 @@ function SearchableSelect({
           {selected && (
             <span className="mt-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-slate-400">
               {text(
-                `Code ${selected.id}`,
-                `الرمز ${selected.id}`
+                ` ${selected.id}`,
+                ` ${selected.id}`
               )}
             </span>
           )}
@@ -2366,7 +2366,7 @@ function SearchableSelect({
                         ) ===
                         String(value);
 
-                      const highlighted =
+                      const isHighlighted =
                         index ===
                         highlighted;
 
@@ -2388,7 +2388,7 @@ function SearchableSelect({
                           }
                           className={[
                             "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-start transition",
-                            highlighted
+                            isHighlighted
                               ? "bg-blue-50"
                               : "hover:bg-slate-50",
                           ].join(
@@ -2425,8 +2425,8 @@ function SearchableSelect({
 
                             <span className="mt-0.5 block text-[8px] text-slate-400">
                               {text(
-                                `Code ${option.id}`,
-                                `الرمز ${option.id}`
+                                ` ${option.id}`,
+                                ` ${option.id}`
                               )}
                             </span>
                           </span>
