@@ -1,0 +1,161 @@
+# =========================
+# ENV / SECRETS
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# DEPENDENCIES
+# =========================
+node_modules/
+vendor/
+
+# =========================
+# BUILD / DIST
+# =========================
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+.turbo/
+coverage/
+
+# =========================
+# LOGS
+# =========================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# ARCHIVES
+# =========================
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+*.tgz
+*.bz2
+*.xz
+*.tar.gz
+
+# =========================
+# MACOS
+# =========================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# =========================
+# WINDOWS
+# =========================
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+# =========================
+# IDE / EDITORS
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*.tmp
+*.temp
+
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# DATABASE
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+
+# =========================
+# TYPESCRIPT
+# =========================
+*.tsbuildinfo
+
+# =========================
+# TESTING
+# =========================
+coverage/
+.nyc_output/
+
+# =========================
+# GENERATED FILES
+# =========================
+*.min.js
+*.min.css
+
+# =========================
+# TEMPORARY FILES
+# =========================
+*.temp
+*.tmp
+*.cache
+*.swp
+*.swo
+
+# =========================
+# CERTIFICATES / KEYS
+# =========================
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# =========================
+# LOCK / PID FILES
+# =========================
+*.pid
+*.seed
+
+# =========================
+# VERCEL
+# =========================
+.vercel/
+
+# =========================
+# NETLIFY
+# =========================
+.netlify/
+
+# =========================
+# SENTRY
+# =========================
+.sentryclirc
+
+# =========================
+# LOCAL CONFIG
+# =========================
+*.local
