@@ -43,12 +43,16 @@ function getCache(key) {
 }
 
 function setCache(key, value) {
-  cache.set(key, { time: Date.now(), value });
+  cache.set(key, {
+    time: Date.now(),
+    value,
+  });
+
   return value;
 }
 
 /* =========================================================
-   REQUEST ELOGISTIA (GET standard)
+   REQUEST ELOGISTIA
 ========================================================= */
 
 async function request(
@@ -67,17 +71,25 @@ async function request(
 
   const url = `${BASE_URL}/${cleanEndpoint}`;
 
-  const finalParams = { ...params, key: apiKey };
+  const finalParams = {
+    ...params,
+    key: apiKey,
+  };
 
   console.log("==============================================");
   console.log(`ELOGISTIA → ${method.toUpperCase()}`);
+
   console.log(
     `${url}?${new URLSearchParams(
-      Object.entries(finalParams).map(([k, v]) => [k, String(v)])
+      Object.entries(finalParams).map(([k, v]) => [
+        k,
+        String(v),
+      ])
     )
       .toString()
       .replace(apiKey, "********")}`
   );
+
   console.log("==============================================");
 
   const response = await axios({
@@ -87,21 +99,30 @@ async function request(
     data,
     timeout: 30000,
     responseType,
+
     headers: {
       Accept: "application/json",
       "User-Agent": "DOCTECH/1.0",
       ...headers,
     },
+
     validateStatus: () => true,
   });
 
   console.log(`ELOGISTIA ← ${response.status}`);
 
   if (response.status >= 400) {
-    console.error("ELOGISTIA ERROR:", response.data);
+    console.error(
+      "❌ ELOGISTIA ERROR:",
+      response.data
+    );
 
-    const error = new Error(`Elogistia HTTP ${response.status}`);
+    const error = new Error(
+      `Elogistia HTTP ${response.status}`
+    );
+
     error.response = response;
+
     throw error;
   }
 
@@ -112,25 +133,40 @@ async function request(
    NORMALISATION
 ========================================================= */
 
-/**
- * Elogistia renvoie souvent : { body: [...] }
- * On teste `body` EN PREMIER.
- */
 function extractArray(data, possibleKeys = []) {
-  if (Array.isArray(data)) return data;
-  if (!data || typeof data !== "object") return [];
-
-  // ⭐ Elogistia standard
-  if (Array.isArray(data.body)) return data.body;
-
-  for (const key of possibleKeys) {
-    if (Array.isArray(data[key])) return data[key];
+  if (Array.isArray(data)) {
+    return data;
   }
 
-  if (Array.isArray(data.data)) return data.data;
-  if (Array.isArray(data.items)) return data.items;
-  if (Array.isArray(data.result)) return data.result;
-  if (Array.isArray(data.results)) return data.results;
+  if (!data || typeof data !== "object") {
+    return [];
+  }
+
+  if (Array.isArray(data.body)) {
+    return data.body;
+  }
+
+  for (const key of possibleKeys) {
+    if (Array.isArray(data[key])) {
+      return data[key];
+    }
+  }
+
+  if (Array.isArray(data.data)) {
+    return data.data;
+  }
+
+  if (Array.isArray(data.items)) {
+    return data.items;
+  }
+
+  if (Array.isArray(data.result)) {
+    return data.result;
+  }
+
+  if (Array.isArray(data.results)) {
+    return data.results;
+  }
 
   return [];
 }
@@ -143,12 +179,20 @@ async function getWilayas() {
   const cacheKey = "elogistia:wilayas";
 
   const cached = getCache(cacheKey);
-  if (cached) return cached;
 
-  const data = await request("GET", "/getWilayas");
+  if (cached) {
+    return cached;
+  }
+
+  const data = await request(
+    "GET",
+    "/getWilayas"
+  );
 
   console.log("ELOGISTIA WILAYAS RAW:");
-  console.dir(data, { depth: null });
+  console.dir(data, {
+    depth: null,
+  });
 
   return setCache(cacheKey, data);
 }
@@ -167,17 +211,33 @@ async function getMunicipalities(wilaya) {
   }
 
   const wilayaValue = String(wilaya).trim();
-  const cacheKey = `elogistia:municipalities:${wilayaValue}`;
+
+  const cacheKey =
+    `elogistia:municipalities:${wilayaValue}`;
 
   const cached = getCache(cacheKey);
-  if (cached) return cached;
 
-  const data = await request("GET", "/getMunicipalities", {
-    params: { wilaya: wilayaValue },
+  if (cached) {
+    return cached;
+  }
+
+  const data = await request(
+    "GET",
+    "/getMunicipalities",
+    {
+      params: {
+        wilaya: wilayaValue,
+      },
+    }
+  );
+
+  console.log(
+    `ELOGISTIA COMMUNES ${wilayaValue}:`
+  );
+
+  console.dir(data, {
+    depth: null,
   });
-
-  console.log(`ELOGISTIA COMMUNES ${wilayaValue}:`);
-  console.dir(data, { depth: null });
 
   return setCache(cacheKey, data);
 }
@@ -201,15 +261,28 @@ async function getAgences(wilaya) {
     params.wilaya = String(wilaya).trim();
   }
 
-  const cacheKey = `elogistia:agences:${params.wilaya || "all"}`;
+  const cacheKey =
+    `elogistia:agences:${params.wilaya || "all"}`;
 
   const cached = getCache(cacheKey);
-  if (cached) return cached;
 
-  const data = await request("GET", "/getAgences", { params });
+  if (cached) {
+    return cached;
+  }
+
+  const data = await request(
+    "GET",
+    "/getAgences",
+    {
+      params,
+    }
+  );
 
   console.log("ELOGISTIA AGENCES:");
-  console.dir(data, { depth: null });
+
+  console.dir(data, {
+    depth: null,
+  });
 
   return setCache(cacheKey, data);
 }
@@ -233,22 +306,33 @@ async function getShippingCost(wilaya) {
     params.wilaya = String(wilaya).trim();
   }
 
-  const cacheKey = `elogistia:shipping-cost:${
-    params.wilaya || "all"
-  }`;
+  const cacheKey =
+    `elogistia:shipping-cost:${params.wilaya || "all"}`;
 
   const cached = getCache(cacheKey);
-  if (cached) return cached;
 
-  const data = await request("GET", "/getShippingCost", { params });
+  if (cached) {
+    return cached;
+  }
 
-  console.log("ELOGISTIA SHIPPING COST RAW:");
-  console.dir(data, { depth: null });
+  const data = await request(
+    "GET",
+    "/getShippingCost",
+    {
+      params,
+    }
+  );
+
+  console.log(
+    "ELOGISTIA SHIPPING COST RAW:"
+  );
+
+  console.dir(data, {
+    depth: null,
+  });
 
   return setCache(cacheKey, data);
 }
-
-/* ⭐ ALIAS (compatibilité avec commandes.controller.js) */
 
 async function getShippingCosts(wilaya) {
   return getShippingCost(wilaya);
@@ -259,19 +343,35 @@ async function getRates(wilaya) {
 }
 
 /* =========================================================
-   COMMANDES (lecture)
+   COMMANDES
 ========================================================= */
 
 async function getOrders(params = {}) {
-  return request("GET", "/getOrders", { params });
+  return request(
+    "GET",
+    "/getOrders",
+    {
+      params,
+    }
+  );
 }
 
 async function getOrderByTracking(tracking) {
-  if (!tracking) throw new Error("tracking obligatoire");
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
 
-  return request("GET", "/getOrders", {
-    params: { tracking },
-  });
+  return request(
+    "GET",
+    "/getOrders",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
 }
 
 async function getOrder(tracking) {
@@ -279,15 +379,25 @@ async function getOrder(tracking) {
 }
 
 /* =========================================================
-   TRACKING 
+   TRACKING
 ========================================================= */
 
 async function getTracking(tracking) {
-  if (!tracking) throw new Error("tracking obligatoire");
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
 
-  return request("GET", "/getTracking", {
-    params: { tracking },
-  });
+  return request(
+    "GET",
+    "/getTracking",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
 }
 
 async function getTrackingHistory(tracking) {
@@ -295,20 +405,25 @@ async function getTrackingHistory(tracking) {
 }
 
 async function getManyTracking(tracking) {
-  if (!tracking) throw new Error("tracking obligatoire");
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
 
-  return request("GET", "/getTracking", {
-    params: { tracking },
-  });
+  return request(
+    "GET",
+    "/getTracking",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
 }
 
 /* =========================================================
    INSERT COMMANDE
-   ⚠️ IMPORTANT : cet endpoint utilise :
-   - apiKey (pas key)
-   - product / price (singuliers, pipe-separated)
-   - stop_desk (underscore)
-   - Content-Type: application/x-www-form-urlencoded
 ========================================================= */
 
 async function insertCommande(order = {}) {
@@ -317,41 +432,78 @@ async function insertCommande(order = {}) {
     typeof order !== "object" ||
     Array.isArray(order)
   ) {
-    throw new Error("Les données de la commande sont invalides");
+    throw new Error(
+      "Les données de la commande sont invalides"
+    );
   }
 
   const apiKey = getApiKey();
 
   const payload = new URLSearchParams();
 
-  // ⭐ apiKey (pas key)
-  payload.append("apiKey", apiKey);
+  /* =====================================================
+     AUTHENTIFICATION
+  ===================================================== */
 
-  payload.append("name", String(order.name || ""));
+  payload.append(
+    "apiKey",
+    apiKey
+  );
+
+  /* =====================================================
+     CLIENT
+  ===================================================== */
+
+  payload.append(
+    "name",
+    String(order.name || "")
+  );
+
   payload.append(
     "firstname",
     String(order.firstname || "")
   );
-  payload.append("mail", String(order.mail || ""));
-  payload.append("phone", String(order.phone || ""));
+
+  payload.append(
+    "mail",
+    String(order.mail || "")
+  );
+
+  payload.append(
+    "phone",
+    String(order.phone || "")
+  );
+
+  /* =====================================================
+     ADRESSE
+  ===================================================== */
+
   payload.append(
     "address",
     String(order.address || "")
   );
+
   payload.append(
     "commune",
     String(order.commune || "")
   );
+
+  /* =====================================================
+     LIVRAISON
+  ===================================================== */
+
   payload.append(
     "fraisDeLivraison",
-    String(order.fraisDeLivraison ?? 0)
+    String(
+      order.fraisDeLivraison ?? 0
+    )
   );
+
   payload.append(
     "remarque",
     String(order.remarque || "")
   );
 
-  // ⭐ stop_desk (underscore)
   payload.append(
     "stop_desk",
     String(
@@ -367,17 +519,31 @@ async function insertCommande(order = {}) {
     String(order.wilaya || "")
   );
 
-  // ⭐ product (singulier, pipe-separated)
+  /* =====================================================
+     PRODUITS
+  ===================================================== */
+
   payload.append(
     "product",
-    String(order.product ?? order.products ?? "")
+    String(
+      order.product ??
+        order.products ??
+        ""
+    )
   );
 
-  // ⭐ price (singulier, pipe-separated)
   payload.append(
     "price",
-    String(order.price ?? order.prices ?? "")
+    String(
+      order.price ??
+        order.prices ??
+        ""
+    )
   );
+
+  /* =====================================================
+     AUTRES PARAMETRES
+  ===================================================== */
 
   payload.append(
     "modeDeLivraison",
@@ -390,12 +556,16 @@ async function insertCommande(order = {}) {
 
   payload.append(
     "exchangeName",
-    String(order.exchangeName || "")
+    String(
+      order.exchangeName || ""
+    )
   );
 
   payload.append(
     "idCommande",
-    String(order.idCommande || "")
+    String(
+      order.idCommande || ""
+    )
   );
 
   payload.append(
@@ -407,56 +577,103 @@ async function insertCommande(order = {}) {
     )
   );
 
-  const url = `${BASE_URL}/insertCommande/`;
+  /* =====================================================
+     REQUEST
+  ===================================================== */
 
-  console.log("==============================================");
-  console.log("ELOGISTIA → POST (insertCommande)");
+  const url =
+    `${BASE_URL}/insertCommande/`;
+
   console.log(
-    `${url}?${payload
-      .toString()
-      .replace(encodeURIComponent(apiKey), "********")}`
+    "=============================================="
   );
-  console.log("==============================================");
+
+  console.log(
+    "🚚 ELOGISTIA → POST insertCommande"
+  );
+
+  console.log(
+    "URL:",
+    url
+  );
+
+  /* Ne jamais afficher la clé */
+  console.log(
+    "CLIENT ELOGISTIA:",
+    {
+      name: order.name || "",
+      firstname: order.firstname || "",
+      phone: order.phone || "",
+      commune: order.commune || "",
+      wilaya: order.wilaya || "",
+    }
+  );
+
+  console.log(
+    "=============================================="
+  );
 
   const response = await axios({
     method: "POST",
+
     url,
+
     data: payload.toString(),
+
     timeout: 30000,
+
     headers: {
       "Content-Type":
         "application/x-www-form-urlencoded",
-      Accept: "application/json",
-      "User-Agent": "DOCTECH/1.0",
+
+      Accept:
+        "application/json",
+
+      "User-Agent":
+        "DOCTECH/1.0",
     },
+
     validateStatus: () => true,
   });
 
-  console.log(`ELOGISTIA ← ${response.status}`);
+  console.log(
+    `🚚 ELOGISTIA ← ${response.status}`
+  );
+
+  console.log(
+    "📦 ELOGISTIA RESPONSE:"
+  );
+
+  console.log(
+    JSON.stringify(
+      response.data,
+      null,
+      2
+    )
+  );
 
   if (response.status >= 400) {
-    console.error(
-      "ELOGISTIA ERROR:",
-      response.data
-    );
-
     const error = new Error(
       `Elogistia HTTP ${response.status}`
     );
+
     error.response = response;
+
     throw error;
   }
 
   const data = response.data;
 
-  /*
-   * Elogistia renvoie souvent :
-   * { body: [ { Tracking: "...", logID: "..." } ], itemCount: 1 }
-   * On extrait le tracking.
-   */
+  /* =====================================================
+     TRACKING
+  ===================================================== */
+
   let tracking = null;
 
-  if (Array.isArray(data?.body) && data.body[0]) {
+  if (
+    Array.isArray(data?.body) &&
+    data.body[0]
+  ) {
     tracking =
       data.body[0].Tracking ??
       data.body[0].tracking ??
@@ -466,6 +683,11 @@ async function insertCommande(order = {}) {
   } else if (data?.tracking) {
     tracking = data.tracking;
   }
+
+  console.log(
+    "🎯 ELOGISTIA TRACKING:",
+    tracking
+  );
 
   return {
     ...data,
@@ -482,11 +704,21 @@ async function createOrder(order) {
 ========================================================= */
 
 async function deleteOrder(tracking) {
-  if (!tracking) throw new Error("tracking obligatoire");
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
 
-  return request("GET", "/deleteOrder", {
-    params: { tracking },
-  });
+  return request(
+    "GET",
+    "/deleteOrder",
+    {
+      params: {
+        tracking,
+      },
+    }
+  );
 }
 
 async function cancelOrder(tracking) {
@@ -497,15 +729,26 @@ async function cancelOrder(tracking) {
    UPDATE STATUS
 ========================================================= */
 
-async function updateOrdersStatus(tracking, status) {
-  if (!tracking) throw new Error("tracking obligatoire");
+async function updateOrdersStatus(
+  tracking,
+  status
+) {
+  if (!tracking) {
+    throw new Error(
+      "tracking obligatoire"
+    );
+  }
 
-  return request("GET", "/updateOrdersStatus", {
-    params: {
-      tracking,
-      status: String(status),
-    },
-  });
+  return request(
+    "GET",
+    "/updateOrdersStatus",
+    {
+      params: {
+        tracking,
+        status: String(status),
+      },
+    }
+  );
 }
 
 /* =========================================================
@@ -529,13 +772,16 @@ module.exports = {
   getOrders,
   getOrderByTracking,
   getOrder,
+
   getTracking,
   getTrackingHistory,
   getManyTracking,
 
   insertCommande,
   createOrder,
+
   deleteOrder,
   cancelOrder,
+
   updateOrdersStatus,
 };
