@@ -825,6 +825,7 @@ export default function ArticlesPage() {
         setServerStats({
           total: globalTotal,
           active: Number(backendStats.active ?? 0),
+          available: Number(backendStats.available ?? 0),
           featured: Number(backendStats.featured ?? 0),
           outOfStock: Number(backendStats.outOfStock ?? 0),
           lowStock: Number(backendStats.lowStock ?? 0),
@@ -834,6 +835,7 @@ export default function ArticlesPage() {
         setServerStats({
           total: globalTotal,
           active: 0,
+          available: 0,
           featured: 0,
           outOfStock: 0,
           lowStock: 0,

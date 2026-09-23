@@ -494,10 +494,10 @@ async function loadPromotions() {
     setForm({
       name: promotion.name || "",
       nameAr: promotion.name_ar || "",
-      type:
-        promotion.type === "MONTANT"
-          ? text("MONTANT", "مبلغ")
-          : text("POURCENTAGE", "نسبة مئوية"),
+     type:
+  promotion.type === "MONTANT"
+    ? "MONTANT"
+    : "POURCENTAGE",
       value:
         promotion.value !== null &&
         promotion.value !== undefined
@@ -1423,11 +1423,10 @@ async function loadPromotions() {
                         onChange={(e) =>
                           setForm((current) => ({
                             ...current,
-                            type:
-                              e.target.value ===
-                              text("MONTANT", "مبلغ")
-                                ? text("MONTANT", "مبلغ")
-                                : text("POURCENTAGE", "نسبة مئوية"),
+                           type:
+  e.target.value === "MONTANT"
+    ? "MONTANT"
+    : "POURCENTAGE",
                           }))
                         }
                         className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"

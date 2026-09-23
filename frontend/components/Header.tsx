@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+
 import {
   Cable,
   ChevronDown,
@@ -17,6 +18,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+
 import {
   FormEvent,
   type ReactNode,
@@ -26,31 +28,49 @@ import {
   useState,
 } from "react";
 
-import { CART_EVENT, getCartCount } from "@/lib/cart";
-import { FAVORITES_EVENT, getFavoritesCount } from "@/lib/favorites";
+import {
+  CART_EVENT,
+  getCartCount,
+} from "@/lib/cart";
+
+import {
+  FAVORITES_EVENT,
+  getFavoritesCount,
+} from "@/lib/favorites";
+
 import {
   fetchBrands,
   fetchCategories,
   fetchCatalog,
-  products as fallbackProducts,
   type CatalogBrand,
   type CatalogCategory,
+  type Product,
 } from "@/lib/catalog";
+
 import { useLocale } from "@/components/LocaleProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import CartDrawer from "@/components/CartDrawer";
 
-function getCategoryIcon(slug: string) {
-  const value = slug.toLowerCase();
+/* =========================================================
+   ICON CATEGORIE
+========================================================= */
 
-  if (value.includes("ordinateur") || value.includes("pc")) {
+function getCategoryIcon(slug: string) {
+  const value = String(slug || "").toLowerCase();
+
+  if (
+    value.includes("ordinateur") ||
+    value.includes("pc") ||
+    value.includes("laptop")
+  ) {
     return Laptop;
   }
 
   if (
     value.includes("composant") ||
     value.includes("processeur") ||
-    value.includes("ram")
+    value.includes("ram") ||
+    value.includes("carte")
   ) {
     return Cpu;
   }
@@ -58,7 +78,8 @@ function getCategoryIcon(slug: string) {
   if (
     value.includes("peripher") ||
     value.includes("casque") ||
-    value.includes("audio")
+    value.includes("audio") ||
+    value.includes("son")
   ) {
     return Headphones;
   }
@@ -66,79 +87,187 @@ function getCategoryIcon(slug: string) {
   return Cable;
 }
 
+/* =========================================================
+   HEADER
+========================================================= */
+
 export default function Header() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const currentCategory = searchParams.get("categorie");
-  const currentBrand = searchParams.get("marque");
+  const currentCategory =
+    searchParams.get("categorie");
 
-  const { locale, isArabic, text } = useLocale();
+  const currentBrand =
+    searchParams.get("marque");
 
-  const [categories, setCategories] = useState<CatalogCategory[]>([]);
-  const [brands, setBrands] = useState<CatalogBrand[]>([]);
+  const {
+    locale,
+    isArabic,
+    text,
+  } = useLocale();
 
-  const [products, setProducts] = useState<any[]>([]);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  /* =======================================================
+     DATA
+  ======================================================= */
 
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const [brandsOpen, setBrandsOpen] = useState(false);
-  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const [
+    categories,
+    setCategories,
+  ] = useState<CatalogCategory[]>([]);
 
-  const [search, setSearch] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
+  const [
+    brands,
+    setBrands,
+  ] = useState<CatalogBrand[]>([]);
 
-  const [cartCount, setCartCount] = useState(0);
-  const [favoritesCount, setFavoritesCount] = useState(0);
+  const [
+    products,
+    setProducts,
+  ] = useState<Product[]>([]);
 
-  const desktopNavRef = useRef<HTMLDivElement | null>(null);
-  const searchDesktopRef = useRef<HTMLDivElement | null>(null);
-  const searchMobileRef = useRef<HTMLDivElement | null>(null);
+  const [
+    suggestions,
+    setSuggestions,
+  ] = useState<Product[]>([]);
 
-  /*
-   * ============================================================
-   * CHARGEMENT CATALOGUE
-   * ============================================================
-   */
+  /* =======================================================
+     UI
+  ======================================================= */
+
+  const [
+    mobileMenuOpen,
+    setMobileMenuOpen,
+  ] = useState(false);
+
+  const [
+    categoriesOpen,
+    setCategoriesOpen,
+  ] = useState(false);
+
+  const [
+    brandsOpen,
+    setBrandsOpen,
+  ] = useState(false);
+
+  const [
+    cartDrawerOpen,
+    setCartDrawerOpen,
+  ] = useState(false);
+
+  /* =======================================================
+     SEARCH
+  ======================================================= */
+
+  const [
+    search,
+    setSearch,
+  ] = useState("");
+
+  const [
+    searchFocused,
+    setSearchFocused,
+  ] = useState(false);
+
+  /* =======================================================
+     COUNTS
+  ======================================================= */
+
+  const [
+    cartCount,
+    setCartCount,
+  ] = useState(0);
+
+  const [
+    favoritesCount,
+    setFavoritesCount,
+  ] = useState(0);
+
+  /* =======================================================
+     REFS
+  ======================================================= */
+
+  const desktopNavRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const searchDesktopRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const searchMobileRef =
+    useRef<HTMLDivElement | null>(null);
+
+  /* =========================================================
+     CHARGEMENT CATALOGUE
+  ========================================================= */
+
   useEffect(() => {
     let active = true;
 
     async function loadCatalog() {
       try {
-        const [categoryItems, brandItems, catalogResult] =
-          await Promise.all([
-            fetchCategories(locale),
-            fetchBrands(locale),
-            fetchCatalog({}, locale),
-          ]);
+        const [
+          categoryItems,
+          brandItems,
+          catalogResult,
+        ] = await Promise.all([
+          fetchCategories(locale),
+          fetchBrands(locale),
+
+          fetchCatalog(
+            {
+              limit: 100,
+            },
+            locale
+          ),
+        ]);
 
         if (!active) return;
 
-        const safeCategories = Array.isArray(categoryItems)
-          ? categoryItems
-          : [];
+        const safeCategories =
+          Array.isArray(categoryItems)
+            ? categoryItems
+            : [];
 
-        const safeBrands = Array.isArray(brandItems)
-          ? brandItems
-          : [];
+        const safeBrands =
+          Array.isArray(brandItems)
+            ? brandItems
+            : [];
 
         const safeProducts =
-          catalogResult && Array.isArray(catalogResult.products)
+          catalogResult &&
+          Array.isArray(
+            catalogResult.products
+          )
             ? catalogResult.products
             : [];
 
-        const roots = safeCategories.filter(
-          (item) => item.parentId == null
-        );
+        /*
+         * On affiche uniquement les catégories
+         * principales dans le menu.
+         */
+        const roots =
+          safeCategories.filter(
+            (item) =>
+              item.parentId == null
+          );
 
         setCategories(
-          roots.length ? roots : safeCategories
+          roots.length
+            ? roots
+            : safeCategories
         );
+
         setBrands(safeBrands);
-        setProducts(
-          safeProducts.length ? safeProducts : fallbackProducts
-        );
+
+        /*
+         * IMPORTANT :
+         * Aucun fallbackProducts ici.
+         *
+         * Le Header utilise directement
+         * les produits retournés par
+         * /public/articles.
+         */
+        setProducts(safeProducts);
       } catch (error) {
         console.error(
           "[Header] Impossible de charger le catalogue :",
@@ -147,10 +276,14 @@ export default function Header() {
 
         if (!active) return;
 
-        // Le Header reste fonctionnel même si l'API est indisponible.
+        /*
+         * Pas de faux produits.
+         * Si l'API est indisponible,
+         * on laisse les listes vides.
+         */
         setCategories([]);
         setBrands([]);
-        setProducts(fallbackProducts);
+        setProducts([]);
       }
     }
 
@@ -161,18 +294,21 @@ export default function Header() {
     };
   }, [locale]);
 
-  /*
-   * ============================================================
-   * PANIER / FAVORIS
-   * ============================================================
-   */
+  /* =========================================================
+     PANIER / FAVORIS
+  ========================================================= */
+
   useEffect(() => {
     const syncCart = () => {
-      setCartCount(getCartCount());
+      setCartCount(
+        getCartCount()
+      );
     };
 
     const syncFavorites = () => {
-      setFavoritesCount(getFavoritesCount());
+      setFavoritesCount(
+        getFavoritesCount()
+      );
     };
 
     syncCart();
@@ -211,29 +347,28 @@ export default function Header() {
     };
   }, []);
 
-  /*
-   * ============================================================
-   * FERMETURE MENUS
-   * ============================================================
-   */
+  /* =========================================================
+     FERMETURE MENUS SUR CHANGEMENT PAGE
+  ========================================================= */
+
   useEffect(() => {
     setMobileMenuOpen(false);
     setCategoriesOpen(false);
     setBrandsOpen(false);
   }, [pathname, searchParams]);
 
-  /*
-   * ============================================================
-   * BLOQUER SCROLL MOBILE
-   * ============================================================
-   */
+  /* =========================================================
+     BLOQUER SCROLL MOBILE
+  ========================================================= */
+
   useEffect(() => {
     if (!mobileMenuOpen) return;
 
     const previous =
       document.body.style.overflow;
 
-    document.body.style.overflow = "hidden";
+    document.body.style.overflow =
+      "hidden";
 
     return () => {
       document.body.style.overflow =
@@ -241,11 +376,10 @@ export default function Header() {
     };
   }, [mobileMenuOpen]);
 
-  /*
-   * ============================================================
-   * FERMER MENUS DESKTOP AU CLIC EXTERNE
-   * ============================================================
-   */
+  /* =========================================================
+     FERMER MENUS AU CLIC EXTERNE
+  ========================================================= */
+
   useEffect(() => {
     const onPointerDown = (
       event: MouseEvent
@@ -255,7 +389,9 @@ export default function Header() {
 
       if (
         desktopNavRef.current &&
-        !desktopNavRef.current.contains(target)
+        !desktopNavRef.current.contains(
+          target
+        )
       ) {
         setCategoriesOpen(false);
         setBrandsOpen(false);
@@ -287,69 +423,89 @@ export default function Header() {
     };
   }, []);
 
-  /*
-   * ============================================================
-   * RECHERCHE / RECOMMANDATIONS
-   * ============================================================
-   */
-  useEffect(() => {
-    const value = search
-      .trim()
-      .toLowerCase();
+  /* =========================================================
+     RECHERCHE / SUGGESTIONS
+  ========================================================= */
 
-    // Afficher les suggestions dès la première lettre.
-    if (!value || !searchFocused) {
+  useEffect(() => {
+    const value =
+      search
+        .trim()
+        .toLowerCase();
+
+    if (
+      !value ||
+      !searchFocused
+    ) {
       setSuggestions([]);
       return;
     }
 
-    const result = products
-      .filter((product) => {
-        const name = String(
-          product?.name ??
-            product?.title ??
-            product?.label ??
-            ""
-        ).toLowerCase();
-
-        const shortName = String(
-          product?.shortName ?? ""
-        ).toLowerCase();
-
-        const slug = String(
-          product?.slug ?? ""
-        ).toLowerCase();
-
-        const brand = String(
-          typeof product?.brand === "string"
-            ? product.brand
-            : product?.brand?.name ??
-                product?.brandName ??
+    const result =
+      products
+        .filter((product) => {
+          const name =
+            String(
+              product?.name ??
                 ""
-        ).toLowerCase();
+            ).toLowerCase();
 
-        const category = String(
-          typeof product?.category === "string"
-            ? product.category
-            : product?.category?.name ??
-                product?.categoryName ??
+          const shortName =
+            String(
+              (product as any)
+                ?.shortName ??
                 ""
-        ).toLowerCase();
+            ).toLowerCase();
 
-        const categoryLabel = String(
-          product?.categoryLabel ?? ""
-        ).toLowerCase();
+          const slug =
+            String(
+              product?.slug ??
+                ""
+            ).toLowerCase();
 
-        return (
-          name.includes(value) ||
-          shortName.includes(value) ||
-          slug.includes(value) ||
-          brand.includes(value) ||
-          category.includes(value) ||
-          categoryLabel.includes(value)
-        );
-      })
-      .slice(0, 6);
+          const brand =
+            String(
+              typeof product?.brand ===
+                "string"
+                ? product.brand
+                : (product as any)
+                    ?.brand?.name ??
+                    (product as any)
+                      ?.brandName ??
+                    ""
+            ).toLowerCase();
+
+          const category =
+            String(
+              typeof (product as any)
+                ?.category ===
+                "string"
+                ? (product as any)
+                    .category
+                : (product as any)
+                    ?.category?.name ??
+                    (product as any)
+                      ?.categoryName ??
+                    ""
+            ).toLowerCase();
+
+          const categoryLabel =
+            String(
+              (product as any)
+                ?.categoryLabel ??
+                ""
+            ).toLowerCase();
+
+          return (
+            name.includes(value) ||
+            shortName.includes(value) ||
+            slug.includes(value) ||
+            brand.includes(value) ||
+            category.includes(value) ||
+            categoryLabel.includes(value)
+          );
+        })
+        .slice(0, 6);
 
     setSuggestions(result);
   }, [
@@ -358,32 +514,58 @@ export default function Header() {
     products,
   ]);
 
+  /* =========================================================
+     ETAT NAVIGATION
+  ========================================================= */
+
   const catalogActive =
-    pathname.startsWith("/articles") ||
-    pathname.startsWith("/article");
+    pathname.startsWith(
+      "/articles"
+    ) ||
+    pathname.startsWith(
+      "/article"
+    );
 
   const promoActive =
-    pathname.startsWith("/promotions");
+    pathname.startsWith(
+      "/promotions"
+    );
 
   const favoriteActive =
-    pathname.startsWith("/favoris");
+    pathname.startsWith(
+      "/favoris"
+    );
 
   const cartActive =
     cartDrawerOpen ||
-    pathname.startsWith("/panier") ||
-    pathname.startsWith("/commande");
+    pathname.startsWith(
+      "/panier"
+    ) ||
+    pathname.startsWith(
+      "/commande"
+    );
 
-  const visibleBrands = useMemo(
-    () => brands.slice(0, 12),
-    [brands]
-  );
+  /* =========================================================
+     MARQUES VISIBLES
+  ========================================================= */
 
-  /*
-   * ============================================================
-   * URL ARTICLE
-   * ============================================================
-   */
-  function getProductHref(product: any) {
+  const visibleBrands =
+    useMemo(
+      () =>
+        brands.slice(
+          0,
+          12
+        ),
+      [brands]
+    );
+
+  /* =========================================================
+     URL PRODUIT
+  ========================================================= */
+
+  function getProductHref(
+    product: Product
+  ) {
     const slug =
       product.slug ??
       product.id;
@@ -391,50 +573,78 @@ export default function Header() {
     return `/article/${slug}`;
   }
 
-  /*
-   * ============================================================
-   * IMAGE ARTICLE
-   * ============================================================
-   */
-  function getProductImage(product: any) {
-    return (
+  /* =========================================================
+     IMAGE PRODUIT
+  ========================================================= */
+
+  function getProductImage(
+    product: Product
+  ) {
+    const value =
       product.image ??
-      product.imageUrl ??
-      product.image_url ??
-      product.images?.[0] ??
+      (product as any)
+        ?.imageUrl ??
+      (product as any)
+        ?.image_url ??
+      (product as any)
+        ?.images?.[0];
+
+    return (
+      value ||
       "/images/placeholder-product.webp"
     );
   }
 
-  /*
-   * ============================================================
-   * NOM ARTICLE
-   * ============================================================
-   */
-  function getProductName(product: any) {
+  /* =========================================================
+     NOM PRODUIT
+  ========================================================= */
+
+  function getProductName(
+    product: Product
+  ) {
     return (
-      product.name ??
-      product.title ??
-      product.label ??
+      product.name ||
       "Article"
     );
   }
 
-  /*
-   * ============================================================
-   * RECHERCHE
-   * ============================================================
-   */
+  /* =========================================================
+     PRIX
+  ========================================================= */
+
+  function formatPrice(
+    value: unknown
+  ) {
+    const number =
+      Number(value);
+
+    if (
+      !Number.isFinite(number)
+    ) {
+      return "";
+    }
+
+    return `${number.toLocaleString(
+      "fr-DZ"
+    )} DA`;
+  }
+
+  /* =========================================================
+     RECHERCHE
+  ========================================================= */
+
   function handleSearch(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
 
-    const value = search.trim();
+    const value =
+      search.trim();
 
     if (!value) return;
 
     setSearchFocused(false);
+    setSuggestions([]);
 
     window.location.href =
       `/articles?recherche=${encodeURIComponent(
@@ -442,11 +652,10 @@ export default function Header() {
       )}`;
   }
 
-  /*
-   * ============================================================
-   * CLIQUER SUR UNE RECOMMANDATION
-   * ============================================================
-   */
+  /* =========================================================
+     CLIC SUGGESTION
+  ========================================================= */
+
   function handleSuggestionClick() {
     setSearchFocused(false);
     setSuggestions([]);
@@ -454,11 +663,16 @@ export default function Header() {
 
   return (
     <>
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
       <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
 
-        {/* =====================================================
+        {/* ===================================================
             TOP BAR
-        ===================================================== */}
+        =================================================== */}
+
         <div className="hidden bg-[#06152b] text-white sm:block">
           <div className="mx-auto flex h-9 max-w-[1450px] items-center justify-between gap-4 px-4 text-[10px] font-bold text-slate-300 lg:px-8">
 
@@ -479,12 +693,14 @@ export default function Header() {
           </div>
         </div>
 
-        {/* =====================================================
+        {/* ===================================================
             HEADER PRINCIPAL
-        ===================================================== */}
+        =================================================== */}
+
         <div className="mx-auto flex min-h-[64px] max-w-[1450px] items-center gap-2 px-3 sm:min-h-[72px] sm:gap-3 sm:px-4 lg:px-8">
 
           {/* LOGO */}
+
           <Link
             href="/"
             aria-label={text(
@@ -503,15 +719,18 @@ export default function Header() {
             />
           </Link>
 
-          {/* ===================================================
+          {/* =================================================
               RECHERCHE DESKTOP
-          =================================================== */}
+          ================================================= */}
+
           <div
             ref={searchDesktopRef}
             className="relative mx-auto hidden min-w-0 max-w-[680px] flex-1 md:block"
           >
-            <form onSubmit={handleSearch}>
 
+            <form
+              onSubmit={handleSearch}
+            >
               <div className="flex h-12 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 transition focus-within:border-blue-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/10">
 
                 <Search
@@ -523,7 +742,9 @@ export default function Header() {
                   type="search"
                   value={search}
                   onFocus={() =>
-                    setSearchFocused(true)
+                    setSearchFocused(
+                      true
+                    )
                   }
                   onChange={(event) =>
                     setSearch(
@@ -555,12 +776,12 @@ export default function Header() {
                 )}
 
               </div>
-
             </form>
 
             {/* =================================================
-                RECOMMANDATIONS DESKTOP
+                SUGGESTIONS DESKTOP
             ================================================= */}
+
             {searchFocused &&
               search.trim() &&
               suggestions.length > 0 && (
@@ -593,8 +814,7 @@ export default function Header() {
                           className="group flex items-center gap-3 rounded-2xl p-2.5 transition hover:bg-blue-50"
                         >
 
-                          {/* IMAGE */}
-                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
+                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white">
 
                             <Image
                               src={getProductImage(
@@ -605,12 +825,12 @@ export default function Header() {
                               )}
                               fill
                               sizes="56px"
+                              unoptimized
                               className="object-contain p-1.5"
                             />
 
                           </div>
 
-                          {/* TEXTE */}
                           <div className="min-w-0 flex-1">
 
                             <p className="truncate text-[12px] font-black text-slate-800 group-hover:text-blue-700">
@@ -619,26 +839,31 @@ export default function Header() {
                               )}
                             </p>
 
-                            {product.brand ? (
+                            {(product as any)
+                              .brand && (
                               <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-400">
-                                {typeof product.brand === "string"
-                                  ? product.brand
-                                  : product.brand?.name ?? product.brandName}
+                                {typeof (
+                                  product as any
+                                ).brand ===
+                                "string"
+                                  ? (
+                                      product as any
+                                    ).brand
+                                  : (
+                                      product as any
+                                    ).brand?.name ??
+                                    (
+                                      product as any
+                                    ).brandName}
                               </p>
-                            ) : product.brandName ? (
-                              <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-400">
-                                {product.brandName}
-                              </p>
-                            ) : null}
+                            )}
 
-                            {product.price != null && (
+                            {product.price !=
+                              null && (
                               <p className="mt-1 text-[11px] font-black text-blue-600">
-                                {Number(
+                                {formatPrice(
                                   product.price
-                                ).toLocaleString(
-                                  "fr-DZ"
-                                )}{" "}
-                                DA
+                                )}
                               </p>
                             )}
 
@@ -654,7 +879,6 @@ export default function Header() {
 
                   </div>
 
-                  {/* VOIR TOUS */}
                   <button
                     type="button"
                     onClick={() => {
@@ -663,7 +887,9 @@ export default function Header() {
 
                       if (!value) return;
 
-                      setSearchFocused(false);
+                      setSearchFocused(
+                        false
+                      );
 
                       window.location.href =
                         `/articles?recherche=${encodeURIComponent(
@@ -682,6 +908,7 @@ export default function Header() {
               )}
 
             {/* AUCUN RESULTAT */}
+
             {searchFocused &&
               search.trim() &&
               suggestions.length === 0 &&
@@ -706,7 +933,10 @@ export default function Header() {
 
           </div>
 
-          {/* ACTIONS */}
+          {/* =================================================
+              ACTIONS
+          ================================================= */}
+
           <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
 
             <div className="hidden xl:block">
@@ -714,6 +944,7 @@ export default function Header() {
             </div>
 
             {/* FAVORIS */}
+
             <Link
               href="/favoris"
               aria-label={text(
@@ -747,10 +978,13 @@ export default function Header() {
             </Link>
 
             {/* PANIER */}
+
             <button
               type="button"
               onClick={() =>
-                setCartDrawerOpen(true)
+                setCartDrawerOpen(
+                  true
+                )
               }
               aria-label={text(
                 "Ouvrir le panier",
@@ -776,11 +1010,13 @@ export default function Header() {
             </button>
 
             {/* MENU MOBILE */}
+
             <button
               type="button"
               onClick={() =>
                 setMobileMenuOpen(
-                  (value) => !value
+                  (value) =>
+                    !value
                 )
               }
               aria-expanded={
@@ -817,6 +1053,7 @@ export default function Header() {
         {/* =====================================================
             RECHERCHE MOBILE
         ===================================================== */}
+
         <div
           ref={searchMobileRef}
           className="relative border-t border-slate-100 px-3 pb-2.5 pt-2 md:hidden"
@@ -836,7 +1073,9 @@ export default function Header() {
               type="search"
               value={search}
               onFocus={() =>
-                setSearchFocused(true)
+                setSearchFocused(
+                  true
+                )
               }
               onChange={(event) =>
                 setSearch(
@@ -869,9 +1108,8 @@ export default function Header() {
 
           </form>
 
-          {/* =================================================
-              RECOMMANDATIONS MOBILE
-          ================================================= */}
+          {/* SUGGESTIONS MOBILE */}
+
           {searchFocused &&
             search.trim() &&
             suggestions.length > 0 && (
@@ -904,7 +1142,7 @@ export default function Header() {
                         className="flex items-center gap-3 rounded-xl p-2 transition active:bg-blue-50"
                       >
 
-                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-slate-50">
+                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white">
 
                           <Image
                             src={getProductImage(
@@ -915,6 +1153,7 @@ export default function Header() {
                             )}
                             fill
                             sizes="48px"
+                            unoptimized
                             className="object-contain p-1"
                           />
 
@@ -928,14 +1167,12 @@ export default function Header() {
                             )}
                           </p>
 
-                          {product.price != null && (
+                          {product.price !=
+                            null && (
                             <p className="mt-1 text-[10px] font-black text-blue-600">
-                              {Number(
+                              {formatPrice(
                                 product.price
-                              ).toLocaleString(
-                                "fr-DZ"
-                              )}{" "}
-                              DA
+                              )}
                             </p>
                           )}
 
@@ -955,7 +1192,9 @@ export default function Header() {
 
                     if (!value) return;
 
-                    setSearchFocused(false);
+                    setSearchFocused(
+                      false
+                    );
 
                     window.location.href =
                       `/articles?recherche=${encodeURIComponent(
@@ -978,6 +1217,7 @@ export default function Header() {
         {/* =====================================================
             NAVIGATION DESKTOP
         ===================================================== */}
+
         <div
           ref={desktopNavRef}
           className="hidden border-t border-slate-100 bg-white lg:block"
@@ -987,8 +1227,12 @@ export default function Header() {
 
             <NavLink
               href="/"
-              active={pathname === "/"}
-              icon={<Home size={14} />}
+              active={
+                pathname === "/"
+              }
+              icon={
+                <Home size={14} />
+              }
               label={text(
                 "Accueil",
                 "الرئيسية"
@@ -1002,7 +1246,9 @@ export default function Header() {
                 !currentCategory &&
                 !currentBrand
               }
-              icon={<Laptop size={14} />}
+              icon={
+                <Laptop size={14} />
+              }
               label={text(
                 "Catalogue",
                 "الكتالوج"
@@ -1010,6 +1256,7 @@ export default function Header() {
             />
 
             {/* CATEGORIES */}
+
             <div className="relative">
 
               <button
@@ -1069,10 +1316,18 @@ export default function Header() {
 
                         return (
                           <Link
-                            key={category.id}
+                            key={
+                              category.id ??
+                              category.slug
+                            }
                             href={`/articles?categorie=${encodeURIComponent(
                               category.slug
                             )}`}
+                            onClick={() =>
+                              setCategoriesOpen(
+                                false
+                              )
+                            }
                             className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-[11px] ${
                               currentCategory ===
                               category.slug
@@ -1084,7 +1339,9 @@ export default function Header() {
                             <Icon size={14} />
 
                             <span className="truncate">
-                              {category.label}
+                              {
+                                category.label
+                              }
                             </span>
 
                           </Link>
@@ -1100,6 +1357,7 @@ export default function Header() {
             </div>
 
             {/* MARQUES */}
+
             <div className="relative">
 
               <button
@@ -1108,7 +1366,9 @@ export default function Header() {
                   setBrandsOpen(
                     (v) => !v
                   );
-                  setCategoriesOpen(false);
+                  setCategoriesOpen(
+                    false
+                  );
                 }}
                 className={`flex h-9 items-center gap-2 rounded-xl px-3 transition ${
                   currentBrand
@@ -1153,10 +1413,18 @@ export default function Header() {
                     {visibleBrands.map(
                       (brand) => (
                         <Link
-                          key={brand.id}
+                          key={
+                            brand.id ??
+                            brand.slug
+                          }
                           href={`/articles?marque=${encodeURIComponent(
                             brand.slug
                           )}`}
+                          onClick={() =>
+                            setBrandsOpen(
+                              false
+                            )
+                          }
                           className={`truncate rounded-xl px-3 py-2.5 text-[11px] ${
                             currentBrand ===
                             brand.slug
@@ -1198,6 +1466,7 @@ export default function Header() {
       {/* =======================================================
           MOBILE MENU
       ======================================================= */}
+
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-[70] lg:hidden">
 
@@ -1208,7 +1477,9 @@ export default function Header() {
               "إغلاق القائمة"
             )}
             onClick={() =>
-              setMobileMenuOpen(false)
+              setMobileMenuOpen(
+                false
+              )
             }
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
           />
@@ -1224,6 +1495,7 @@ export default function Header() {
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
 
               <div className="relative h-11 w-[125px]">
+
                 <Image
                   src="/images/logo-doctech.webp"
                   alt="DOCTECH"
@@ -1231,12 +1503,15 @@ export default function Header() {
                   sizes="125px"
                   className="object-contain object-start rtl:object-end"
                 />
+
               </div>
 
               <button
                 type="button"
                 onClick={() =>
-                  setMobileMenuOpen(false)
+                  setMobileMenuOpen(
+                    false
+                  )
                 }
                 className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700"
               >
@@ -1283,7 +1558,9 @@ export default function Header() {
 
               <MobileLink
                 href="/promotions"
-                active={promoActive}
+                active={
+                  promoActive
+                }
                 icon={
                   <Sparkles size={18} />
                 }
@@ -1314,7 +1591,9 @@ export default function Header() {
             </div>
 
             {/* CATEGORIES */}
-            {categories.length > 0 && (
+
+            {categories.length >
+              0 && (
               <div className="mt-6">
 
                 <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">
@@ -1335,10 +1614,18 @@ export default function Header() {
 
                       return (
                         <Link
-                          key={category.id}
+                          key={
+                            category.id ??
+                            category.slug
+                          }
                           href={`/articles?categorie=${encodeURIComponent(
                             category.slug
                           )}`}
+                          onClick={() =>
+                            setMobileMenuOpen(
+                              false
+                            )
+                          }
                           className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-[11px] font-bold text-slate-700"
                         >
 
@@ -1348,7 +1635,9 @@ export default function Header() {
                           />
 
                           <span className="truncate">
-                            {category.label}
+                            {
+                              category.label
+                            }
                           </span>
 
                         </Link>
@@ -1362,7 +1651,9 @@ export default function Header() {
             )}
 
             {/* MARQUES */}
-            {visibleBrands.length > 0 && (
+
+            {visibleBrands.length >
+              0 && (
               <div className="mt-6 pb-6">
 
                 <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">
@@ -1377,10 +1668,18 @@ export default function Header() {
                   {visibleBrands.map(
                     (brand) => (
                       <Link
-                        key={brand.id}
+                        key={
+                          brand.id ??
+                          brand.slug
+                        }
                         href={`/articles?marque=${encodeURIComponent(
                           brand.slug
                         )}`}
+                        onClick={() =>
+                          setMobileMenuOpen(
+                            false
+                          )
+                        }
                         className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-slate-700"
                       >
                         {brand.name}
@@ -1401,6 +1700,7 @@ export default function Header() {
       {/* =======================================================
           BOTTOM NAV MOBILE
       ======================================================= */}
+
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 pb-[max(7px,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl md:hidden">
 
         <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
@@ -1421,7 +1721,9 @@ export default function Header() {
 
           <BottomLink
             href="/articles"
-            active={catalogActive}
+            active={
+              catalogActive
+            }
             icon={
               <Laptop size={18} />
             }
@@ -1433,7 +1735,9 @@ export default function Header() {
 
           <BottomLink
             href="/favoris"
-            active={favoriteActive}
+            active={
+              favoriteActive
+            }
             icon={
               <Heart size={18} />
             }
@@ -1441,13 +1745,17 @@ export default function Header() {
               "Favoris",
               "المفضلة"
             )}
-            badge={favoritesCount}
+            badge={
+              favoritesCount
+            }
           />
 
           <button
             type="button"
             onClick={() =>
-              setCartDrawerOpen(true)
+              setCartDrawerOpen(
+                true
+              )
             }
             className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-[9px] font-black transition ${
               cartActive
@@ -1483,12 +1791,21 @@ export default function Header() {
 
       </nav>
 
+      {/* =======================================================
+          CART DRAWER
+      ======================================================= */}
+
       <CartDrawer
-        open={cartDrawerOpen}
+        open={
+          cartDrawerOpen
+        }
         onClose={() =>
-          setCartDrawerOpen(false)
+          setCartDrawerOpen(
+            false
+          )
         }
       />
+
     </>
   );
 }
@@ -1519,8 +1836,8 @@ function NavLink({
             ? "bg-red-50 text-red-600"
             : "bg-blue-50 text-blue-700"
           : danger
-            ? "text-red-500 hover:bg-red-50"
-            : "hover:bg-slate-50"
+          ? "text-red-500 hover:bg-red-50"
+          : "hover:bg-slate-50"
       }`}
     >
       {icon}

@@ -57,24 +57,30 @@ export default function ArticleAdminClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  async function addImage() {
-    if (!id || !file) return;
+ async function addImage() {
+  if (!id || !file) return;
 
-    try {
-      const uploaded = await uploadImage(file);
-      await apiFetch(`/articles/${id}/images`, {
-        method: "POST",
-        bodyJson: {
-          url: uploaded?.url,
-          isPrimary: !article?.images?.length,
-        },
-      });
-      setFile(null);
-      await load();
-    } catch (err: any) {
-      alert(err.message || "Impossible d'ajouter l'image.");
+  try {
+    const uploaded = await uploadImage(file);
+
+    if (!uploaded) {
+      throw new Error("URL de l'image manquante.");
     }
+
+    await apiFetch(`/articles/${id}/images`, {
+      method: "POST",
+      bodyJson: {
+        url: uploaded,
+        isPrimary: !article?.images?.length,
+      },
+    });
+
+    setFile(null);
+    await load();
+  } catch (err: any) {
+    alert(err.message || "Impossible d'ajouter l'image.");
   }
+}
 
 
   async function setPrimaryImage(imageId: number) {

@@ -255,13 +255,13 @@ export default function CrudManager({
     try {
       const uploaded = await uploadImage(file);
 
-      if (!uploaded?.url) {
+      if (!uploaded) {
         throw new Error("URL de l'image manquante.");
       }
 
       setForm((current) => ({
         ...current,
-        [fieldName]: uploaded.url,
+        [fieldName]: uploaded,
       }));
     } catch (e: any) {
       setError(
