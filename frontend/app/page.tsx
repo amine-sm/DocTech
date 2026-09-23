@@ -10,7 +10,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 import {
   ArrowRight,
@@ -27,7 +27,6 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import BrandCarousel from "@/components/BrandCarousel";
-import LuxuryInfiniteCarousel from "@/components/LuxuryInfiniteCarousel";
 import ProductCard from "@/components/ProductCard";
 import { useLocale } from "@/components/LocaleProvider";
 
@@ -65,6 +64,261 @@ const stagger = {
 };
 
 /* =========================================================
+   AUTO PRODUCT SLIDER
+   - Changement toutes les 5 secondes
+   - Animation gauche / droite
+   - Fade
+   - Léger zoom
+   - Blur
+   - Responsive
+========================================================= */
+
+function AutoProductSlider({
+  products,
+}: {
+  products: Product[];
+}) {
+  const [page, setPage] = useState(0);
+  const [direction, setDirection] = useState(1);
+
+  /*
+   * Nombre de produits affichés simultanément.
+   *
+   * Desktop : 4
+   * Mobile : le CSS adapte les cartes,
+   * mais on garde 4 produits par page pour
+   * conserver une animation propre.
+   */
+  const PRODUCTS_PER_PAGE = 4;
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(products.length / PRODUCTS_PER_PAGE)
+  );
+
+  /* =========================================================
+     CHANGEMENT AUTOMATIQUE
+     Toutes les 5 secondes
+  ========================================================= */
+
+  useEffect(() => {
+    if (totalPages <= 1) return;
+
+    const timer = window.setInterval(() => {
+      setDirection(1);
+
+      setPage((current) => {
+        if (current >= totalPages - 1) {
+          return 0;
+        }
+
+        return current + 1;
+      });
+    }, 5000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [totalPages]);
+
+  /* =========================================================
+     SÉCURITÉ
+  ========================================================= */
+
+  useEffect(() => {
+    if (page >= totalPages) {
+      setPage(0);
+    }
+  }, [page, totalPages]);
+
+  /* =========================================================
+     PRODUITS VISIBLES
+  ========================================================= */
+
+  const start = page * PRODUCTS_PER_PAGE;
+
+  const visibleProducts = products.slice(
+    start,
+    start + PRODUCTS_PER_PAGE
+  );
+
+  /*
+   * Si la dernière page contient moins de 4 produits,
+   * on complète avec les premiers produits.
+   */
+  const displayProducts = [
+    ...visibleProducts,
+    ...products.slice(
+      0,
+      Math.max(
+        0,
+        PRODUCTS_PER_PAGE - visibleProducts.length
+      )
+    ),
+  ].slice(0, PRODUCTS_PER_PAGE);
+
+  /* =========================================================
+     ANIMATION
+  ========================================================= */
+
+  const variants = {
+    enter: (direction: number) => ({
+      opacity: 0,
+      x: direction > 0 ? 100 : -100,
+      scale: 0.96,
+      filter: "blur(6px)",
+    }),
+
+    center: {
+      opacity: 1,
+      x: 0,
+      scale: 1,
+      filter: "blur(0px)",
+    },
+
+    exit: (direction: number) => ({
+      opacity: 0,
+      x: direction > 0 ? -100 : 100,
+      scale: 0.96,
+      filter: "blur(6px)",
+    }),
+  };
+
+  /* =========================================================
+     LOADING
+  ========================================================= */
+
+  if (!products.length) {
+    return (
+      <div
+        className="
+          grid
+          grid-cols-2
+          gap-3
+          sm:grid-cols-3
+          lg:grid-cols-4
+        "
+      >
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={`product-loading-${index}`}
+            className="
+              h-[390px]
+              animate-pulse
+              rounded-[26px]
+              bg-slate-100
+              sm:h-[430px]
+            "
+          />
+        ))}
+      </div>
+    );
+  }
+
+  /* =========================================================
+     RENDER
+  ========================================================= */
+
+  return (
+    <div className="relative">
+
+      <AnimatePresence
+        mode="wait"
+        custom={direction}
+      >
+        <motion.div
+          key={page}
+          custom={direction}
+          variants={variants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={{
+            duration: 0.75,
+            ease: [0.22, 1, 0.36, 1],
+          }}
+          className="
+            grid
+            grid-cols-2
+            gap-3
+            sm:grid-cols-3
+            sm:gap-4
+            lg:grid-cols-4
+          "
+        >
+          {displayProducts.map((product, index) => (
+            <motion.div
+              key={`${page}-${product.id}-${index}`}
+              initial={{
+                opacity: 0,
+                y: 28,
+              }}
+              animate={{
+                opacity: 1,
+                y: 0,
+              }}
+              transition={{
+                duration: 0.6,
+                delay: index * 0.08,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <ProductCard
+                product={product}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* =====================================================
+          INDICATEURS
+      ====================================================== */}
+
+      {totalPages > 1 && (
+        <div
+          className="
+            mt-7
+            flex
+            items-center
+            justify-center
+            gap-2
+          "
+        >
+          {Array.from({
+            length: totalPages,
+          }).map((_, index) => (
+            <button
+              key={`product-page-${index}`}
+              type="button"
+              onClick={() => {
+                setDirection(
+                  index > page ? 1 : -1
+                );
+
+                setPage(index);
+              }}
+              aria-label={`Afficher les produits ${index + 1}`}
+              className={`
+                h-2
+                rounded-full
+                transition-all
+                duration-500
+                ${
+                  index === page
+                    ? "w-8 bg-blue-600"
+                    : "w-2 bg-slate-300 hover:bg-blue-300"
+                }
+              `}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
    PAGE WRAPPER
    Protection Suspense pour les composants utilisant
    useSearchParams()
@@ -95,13 +349,15 @@ function HomePageContent() {
     CatalogCategory[]
   >([]);
 
-  const [homeProducts, setHomeProducts] = useState<Product[]>([]);
-
-  const [promotionProducts, setPromotionProducts] = useState<Product[]>(
+  const [homeProducts, setHomeProducts] = useState<Product[]>(
     []
   );
 
-  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [promotionProducts, setPromotionProducts] =
+    useState<Product[]>([]);
+
+  const [catalogLoading, setCatalogLoading] =
+    useState(true);
 
   /* =========================================================
      LOAD CATALOG
@@ -112,11 +368,23 @@ function HomePageContent() {
 
     Promise.all([
       fetchCategories(locale),
-      // Derniers produits ajoutés dans la base de données
-      fetchCatalog({ limit: 12, sort: "latest" }, locale),
 
-      // Uniquement les articles liés à une promotion active
-      fetchCatalog({ promotion: 1, limit: 12, sort: "latest" }, locale),
+      fetchCatalog(
+        {
+          limit: 12,
+          sort: "latest",
+        },
+        locale
+      ),
+
+      fetchCatalog(
+        {
+          promotion: 1,
+          limit: 12,
+          sort: "latest",
+        },
+        locale
+      ),
     ])
       .then(
         ([
@@ -126,9 +394,11 @@ function HomePageContent() {
         ]) => {
           if (!mounted) return;
 
-          const rootCategories = categoryItems.filter(
-            (category) => category.parentId == null
-          );
+          const rootCategories =
+            categoryItems.filter(
+              (category) =>
+                category.parentId == null
+            );
 
           setHomeCategories(
             rootCategories.length > 0
@@ -136,7 +406,9 @@ function HomePageContent() {
               : categoryItems
           );
 
-          setHomeProducts(catalogResult.products);
+          setHomeProducts(
+            catalogResult.products
+          );
 
           setPromotionProducts(
             promotionResult.products
@@ -165,7 +437,15 @@ function HomePageContent() {
   ========================================================= */
 
   return (
-    <div className="min-h-screen bg-white pb-[76px] text-slate-950 md:pb-0">
+    <div
+      className="
+        min-h-screen
+        bg-white
+        pb-[76px]
+        text-slate-950
+        md:pb-0
+      "
+    >
 
       {/* =====================================================
           HEADER
@@ -863,8 +1143,14 @@ function HomePageContent() {
 
               <Service
                 icon={<WalletCards size={22} />}
-                title="Paiement sécurisé"
-                text="Paiement fiable"
+                title={text(
+                  "Paiement sécurisé",
+                  "دفع آمن"
+                )}
+                text={text(
+                  "Paiement fiable",
+                  "دفع موثوق"
+                )}
               />
 
               <Service
@@ -873,13 +1159,22 @@ function HomePageContent() {
                   "Garantie 12 mois",
                   "ضمان 12 شهرا"
                 )}
-                text="Sur nos produits"
+                text={text(
+                  "Sur nos produits",
+                  "على منتجاتنا"
+                )}
               />
 
               <Service
                 icon={<RefreshCcw size={22} />}
-                title="Retour facile"
-                text="Sous 7 jours"
+                title={text(
+                  "Retour facile",
+                  "إرجاع سهل"
+                )}
+                text={text(
+                  "Sous 7 jours",
+                  "خلال 7 أيام"
+                )}
               />
 
             </div>
@@ -1206,7 +1501,7 @@ function HomePageContent() {
         <BrandCarousel />
 
         {/* =====================================================
-            PRODUITS POPULAIRES
+            PRODUITS POPULAIRES / NOUVEAUTÉS
         ====================================================== */}
 
         <section
@@ -1224,6 +1519,7 @@ function HomePageContent() {
 
           <div
             className="
+              pointer-events-none
               absolute
               inset-0
               opacity-30
@@ -1244,7 +1540,10 @@ function HomePageContent() {
           >
 
             <SectionHeading
-              badge={text("Nouveautés", "وصل حديثا")}
+              badge={text(
+                "Nouveautés",
+                "وصل حديثا"
+              )}
               title={text(
                 "Derniers produits ajoutés",
                 "أحدث المنتجات المضافة"
@@ -1260,32 +1559,22 @@ function HomePageContent() {
               )}
             />
 
-            <div className="mt-7 sm:mt-8">
+            {/* =================================================
+                CAROUSEL AUTOMATIQUE
+                CHANGEMENT TOUTES LES 5 SECONDES
+            ================================================== */}
 
-              <LuxuryInfiniteCarousel
-                duration={36}
-                gap={16}
-                ariaLabel="Derniers produits DOCTECH"
-                viewportClassName="py-3"
-                itemClassName="
-                  w-[min(82vw,310px)]
-                  shrink-0
-                  min-[520px]:w-[calc((100vw-72px)/2)]
-                  md:w-[calc((100vw-104px)/3)]
-                  xl:w-[330px]
-                "
-              >
-                {homeProducts.map(
-                  (product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                    />
-                  )
-                )}
-              </LuxuryInfiniteCarousel>
-
+            <div
+              className="
+                mt-7
+                sm:mt-8
+              "
+            >
+              <AutoProductSlider
+                products={homeProducts}
+              />
             </div>
+
           </div>
         </section>
 
@@ -1316,40 +1605,65 @@ function HomePageContent() {
             >
 
               <SectionHeading
-                badge="Offres du moment"
+                badge={text(
+                  "Offres du moment",
+                  "عروض اليوم"
+                )}
                 title={text(
                   "Promotions actives",
                   "العروض النشطة"
                 )}
-                description="Les promotions créées depuis l'administration sont affichées automatiquement ici."
+                description={text(
+                  "Les promotions créées depuis l'administration sont affichées automatiquement ici.",
+                  "يتم عرض العروض التي تم إنشاؤها من لوحة الإدارة هنا تلقائيا."
+                )}
                 href="/promotions"
-                link="Voir toutes les promotions"
+                link={text(
+                  "Voir toutes les promotions",
+                  "عرض كل العروض"
+                )}
               />
 
               <div className="mt-7 sm:mt-8">
 
-                <LuxuryInfiniteCarousel
-                  duration={38}
-                  gap={16}
-                  ariaLabel="Promotions DOCTECH"
-                  viewportClassName="py-3"
-                  itemClassName="
-                    w-[min(82vw,310px)]
-                    shrink-0
-                    min-[520px]:w-[calc((100vw-72px)/2)]
-                    md:w-[calc((100vw-104px)/3)]
-                    xl:w-[330px]
+                <div
+                  className="
+                    grid
+                    grid-cols-2
+                    gap-3
+                    sm:grid-cols-3
+                    sm:gap-4
+                    lg:grid-cols-4
                   "
                 >
-                  {promotionProducts.map(
-                    (product) => (
-                      <ProductCard
+                  {promotionProducts
+                    .slice(0, 4)
+                    .map((product, index) => (
+                      <motion.div
                         key={`promotion-${product.id}`}
-                        product={product}
-                      />
-                    )
-                  )}
-                </LuxuryInfiniteCarousel>
+                        initial={{
+                          opacity: 0,
+                          y: 30,
+                        }}
+                        whileInView={{
+                          opacity: 1,
+                          y: 0,
+                        }}
+                        viewport={{
+                          once: true,
+                          amount: 0.15,
+                        }}
+                        transition={{
+                          duration: 0.6,
+                          delay: index * 0.08,
+                        }}
+                      >
+                        <ProductCard
+                          product={product}
+                        />
+                      </motion.div>
+                    ))}
+                </div>
 
               </div>
             </div>
@@ -1393,7 +1707,10 @@ function HomePageContent() {
                 text-blue-600
               "
             >
-              Pourquoi DOCTECH ?
+              {text(
+                "Pourquoi DOCTECH ?",
+                "لماذا DOCTECH؟"
+              )}
             </span>
 
             <h2
@@ -1406,7 +1723,10 @@ function HomePageContent() {
                 sm:text-4xl
               "
             >
-              Une expérience pensée pour vous
+              {text(
+                "Une expérience pensée pour vous",
+                "تجربة مصممة من أجلك"
+              )}
             </h2>
 
             <p
@@ -1417,13 +1737,10 @@ function HomePageContent() {
                 text-slate-500
               "
             >
-              Acheter votre matériel{" "}
               {text(
-                "informatique",
-                "الإعلام الآلي"
-              )}{" "}
-              doit être simple, rapide,
-              moderne et sécurisé.
+                "Acheter votre matériel informatique doit être simple, rapide, moderne et sécurisé.",
+                "شراء معدات الإعلام الآلي يجب أن يكون بسيطا وسريعا وعصريا وآمنا."
+              )}
             </p>
 
           </div>
@@ -1447,8 +1764,14 @@ function HomePageContent() {
             <motion.div variants={fadeUp}>
               <FeatureCard
                 icon={<PackageCheck size={28} />}
-                title="Produits sélectionnés"
-                description="Des références choisies pour leur qualité et leurs performances."
+                title={text(
+                  "Produits sélectionnés",
+                  "منتجات مختارة"
+                )}
+                description={text(
+                  "Des références choisies pour leur qualité et leurs performances.",
+                  "منتجات مختارة بعناية لجودتها وأدائها."
+                )}
               />
             </motion.div>
 
@@ -1459,15 +1782,24 @@ function HomePageContent() {
                   "Livraison nationale",
                   "توصيل إلى جميع الولايات"
                 )}
-                description="Recevez facilement vos produits partout en Algérie."
+                description={text(
+                  "Recevez facilement vos produits partout en Algérie.",
+                  "استلم منتجاتك بسهولة في جميع أنحاء الجزائر."
+                )}
               />
             </motion.div>
 
             <motion.div variants={fadeUp}>
               <FeatureCard
                 icon={<Headphones size={28} />}
-                title="Support dédié"
-                description="Notre équipe vous accompagne avant et après votre achat."
+                title={text(
+                  "Support dédié",
+                  "دعم مخصص"
+                )}
+                description={text(
+                  "Notre équipe vous accompagne avant et après votre achat.",
+                  "فريقنا يرافقك قبل وبعد عملية الشراء."
+                )}
               />
             </motion.div>
 

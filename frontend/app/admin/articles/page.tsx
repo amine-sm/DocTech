@@ -374,9 +374,11 @@ export default function ArticlesPage() {
   const [serverStats, setServerStats] = useState({
     total: 0,
     active: 0,
+    available: 0,
     featured: 0,
     outOfStock: 0,
     lowStock: 0,
+    totalStock: 0,
   });
 
   /* FILTERS */
@@ -743,28 +745,67 @@ export default function ArticlesPage() {
         rows = payload.articles.map(normalizeArticle);
       }
 
-      const pagination = payload?.pagination || payload?.meta || {};
-      const backendTotal = Number(
-        pagination?.total ?? payload?.total ?? result?.data?.total ?? rows.length
-      );
+      const pagination =
+        payload?.pagination ??
+        payload?.meta ??
+        result?.pagination ??
+        result?.meta ??
+        result?.data?.pagination ??
+        result?.data?.meta ??
+        {};
+
+      const rawTotal =
+        pagination?.total ??
+        pagination?.totalItems ??
+        pagination?.count ??
+        payload?.total ??
+        payload?.totalItems ??
+        result?.total ??
+        result?.data?.total ??
+        rows.length;
+
+      const backendTotal = Number(rawTotal);
+      const safeTotal =
+        Number.isFinite(backendTotal) && backendTotal >= 0
+          ? backendTotal
+          : rows.length;
 
       const globalTotalRaw =
-        result?.totalAll ?? payload?.totalAll ?? result?.data?.totalAll;
+        pagination?.totalAll ??
+        payload?.totalAll ??
+        result?.totalAll ??
+        result?.data?.totalAll;
 
-      const globalTotal = Number.isFinite(Number(globalTotalRaw))
-        ? Number(globalTotalRaw)
-        : backendTotal;
+      const parsedGlobalTotal = Number(globalTotalRaw);
+      const globalTotal =
+        Number.isFinite(parsedGlobalTotal) && parsedGlobalTotal >= 0
+          ? parsedGlobalTotal
+          : safeTotal;
 
-      const backendPages = Number(
+      const rawPages =
         pagination?.totalPages ??
-          pagination?.pages ??
-          payload?.totalPages ??
-          Math.max(1, Math.ceil(backendTotal / nextLimit))
-      );
+        pagination?.pages ??
+        pagination?.pageCount ??
+        payload?.totalPages ??
+        payload?.pages ??
+        result?.totalPages ??
+        result?.data?.totalPages;
+
+      const parsedPages = Number(rawPages);
+      const backendPages =
+        Number.isFinite(parsedPages) && parsedPages > 0
+          ? Math.ceil(parsedPages)
+          : Math.max(1, Math.ceil(safeTotal / nextLimit));
 
       setArticles(rows);
-      setTotal(backendTotal);
+      setTotal(safeTotal);
       setTotalPages(Math.max(1, backendPages));
+
+      /* Si une suppression/recherche réduit le nombre de pages,
+         on revient automatiquement sur la dernière page valide. */
+      if (nextPage > backendPages) {
+        setPage(Math.max(1, backendPages));
+      }
 
       setStockInputs((current) => {
         const next = { ...current };
@@ -787,6 +828,7 @@ export default function ArticlesPage() {
           featured: Number(backendStats.featured ?? 0),
           outOfStock: Number(backendStats.outOfStock ?? 0),
           lowStock: Number(backendStats.lowStock ?? 0),
+          totalStock: Number(backendStats.totalStock ?? 0),
         });
       } else {
         setServerStats({
@@ -795,6 +837,7 @@ export default function ArticlesPage() {
           featured: 0,
           outOfStock: 0,
           lowStock: 0,
+          totalStock: 0,
         });
       }
     } catch (err: any) {
@@ -807,13 +850,170 @@ export default function ArticlesPage() {
   }
 
   /* =======================================================
+     GLOBAL STOCK STATISTICS
+     - Uses the existing /articles endpoint
+     - Loads all pages (max 200/page) without search/filter
+     - Computes the real global stock
+  ======================================================= */
+
+  async function loadGlobalStats() {
+    try {
+      const firstResult = await apiFetch<any>(
+        "/articles?page=1&limit=200"
+      );
+
+      const firstPayload = firstResult?.data ?? firstResult;
+
+      const extractRows = (payload: any): Article[] => {
+        if (Array.isArray(payload)) return payload.map(normalizeArticle);
+        if (Array.isArray(payload?.rows)) {
+          return payload.rows.map(normalizeArticle);
+        }
+        if (Array.isArray(payload?.data)) {
+          return payload.data.map(normalizeArticle);
+        }
+        if (Array.isArray(payload?.articles)) {
+          return payload.articles.map(normalizeArticle);
+        }
+        if (Array.isArray(payload?.data?.rows)) {
+          return payload.data.rows.map(normalizeArticle);
+        }
+        if (Array.isArray(payload?.data?.articles)) {
+          return payload.data.articles.map(normalizeArticle);
+        }
+        return [];
+      };
+
+      const allRows: Article[] = extractRows(firstPayload);
+
+      const pagination =
+        firstPayload?.pagination ??
+        firstPayload?.meta ??
+        firstResult?.pagination ??
+        firstResult?.meta ??
+        firstResult?.data?.pagination ??
+        firstResult?.data?.meta ??
+        {};
+
+      const totalRaw =
+        pagination?.totalAll ??
+        pagination?.total ??
+        pagination?.totalItems ??
+        firstPayload?.totalAll ??
+        firstPayload?.total ??
+        firstPayload?.totalItems ??
+        firstResult?.totalAll ??
+        firstResult?.total ??
+        firstResult?.data?.totalAll ??
+        firstResult?.data?.total ??
+        allRows.length;
+
+      const totalAll = Math.max(
+        allRows.length,
+        Number.isFinite(Number(totalRaw))
+          ? Number(totalRaw)
+          : allRows.length
+      );
+
+      const pagesRaw =
+        pagination?.pages ??
+        pagination?.totalPages ??
+        pagination?.pageCount ??
+        firstPayload?.pages ??
+        firstPayload?.totalPages ??
+        firstResult?.pages ??
+        firstResult?.totalPages ??
+        Math.ceil(totalAll / 200);
+
+      const totalPages = Math.max(
+        1,
+        Math.ceil(Number(pagesRaw) || Math.ceil(totalAll / 200))
+      );
+
+      // Récupère réellement toutes les pages pour que les compteurs
+      // Disponible / Rupture / Faible soient globaux.
+      if (totalPages > 1) {
+        for (let currentPage = 2; currentPage <= totalPages; currentPage++) {
+          const result = await apiFetch<any>(
+            `/articles?page=${currentPage}&limit=200`
+          );
+          const payload = result?.data ?? result;
+          allRows.push(...extractRows(payload));
+        }
+      }
+
+      let active = 0;
+      let available = 0;
+      let lowStock = 0;
+      let outOfStock = 0;
+      let totalStock = 0;
+      let featured = 0;
+
+      for (const article of allRows) {
+        const stock = toNumber(article.stock);
+        const status = normalizeStatus(article.status);
+
+        totalStock += stock;
+
+        if (status === "active") {
+          active++;
+        }
+
+        // PRODUITS DISPONIBLES = stock strictement supérieur à 0
+        if (stock > 0) {
+          available++;
+        }
+
+        // STOCK FAIBLE = 1 à 10 unités
+        if (stock > 0 && stock <= 10) {
+          lowStock++;
+        }
+
+        // RUPTURE = exactement 0 unité
+        if (stock <= 0) {
+          outOfStock++;
+        }
+
+        if (isTrue(article.featured)) {
+          featured++;
+        }
+      }
+
+      setServerStats({
+        total: totalAll || allRows.length,
+        active,
+        available,
+        featured,
+        outOfStock,
+        lowStock,
+        totalStock,
+      });
+    } catch (err) {
+      console.error("Erreur calcul statistiques globales:", err);
+    }
+  }
+
+  /* =======================================================
      INITIAL LOAD / PAGINATION
   ======================================================= */
 
   useEffect(() => {
-    loadArticles();
+    const timer = setTimeout(() => {
+      void loadArticles({
+        page,
+        limit,
+        search,
+      });
+    }, search ? 250 : 0);
+
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, limit, search]);
+
+  useEffect(() => {
+    void loadGlobalStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* =======================================================
      SEARCH INSTANTANÉE
@@ -890,6 +1090,8 @@ export default function ArticlesPage() {
         limit,
         refresh: true,
       });
+
+      await loadGlobalStats();
     } catch (err: any) {
       console.error("Erreur modification stock:", err);
       setError(err?.message || "Impossible de modifier le stock.");
@@ -1077,6 +1279,8 @@ export default function ArticlesPage() {
         refresh: true,
       });
 
+      await loadGlobalStats();
+
       if (!editingArticle) {
         setPage(1);
       }
@@ -1107,7 +1311,13 @@ export default function ArticlesPage() {
         method: "DELETE",
       });
 
-      await loadArticles({ refresh: true });
+      await loadArticles({
+        page,
+        search,
+        limit,
+        refresh: true,
+      });
+      await loadGlobalStats();
     } catch (err: any) {
       console.error("Erreur suppression article:", err);
       setError(err?.message || "Impossible de supprimer cet article.");
@@ -1137,11 +1347,16 @@ export default function ArticlesPage() {
     });
   }, [articles, selectedStatus, selectedStock]);
 
-  /* ⭐ Vue Cartes : uniquement les articles avec stock <= 3 */
+  /* =======================================================
+     VUE CARTES
+     IMPORTANT :
+     Les cartes doivent utiliser exactement les mêmes articles
+     que le tableau sur la page courante.
+     On ne limite plus les cartes au stock <= 3, sinon la
+     pagination donne l'impression de ne pas fonctionner.
+  ======================================================= */
   const cardArticles = useMemo(() => {
-    return filteredArticles.filter(
-      (article) => toNumber(article.stock) <= 3
-    );
+    return filteredArticles;
   }, [filteredArticles]);
 
   const stats = serverStats;
@@ -1196,114 +1411,6 @@ export default function ArticlesPage() {
             </button>
           </div>
         )}
-
-        {/* STATS */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus("all");
-              setSelectedStock("all");
-            }}
-            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  {text("Total articles", "إجمالي المنتجات")}
-                </p>
-                <p className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                  {stats.total}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
-                <Boxes size={23} />
-              </div>
-            </div>
-            <div className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-slate-400">
-              <TrendingUp size={14} />
-              {text("Catalogue global", "الكتالوج الكامل")}
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStatus("active");
-              setSelectedStock("all");
-            }}
-            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  {text("Articles actifs", "منتجات نشطة")}
-                </p>
-                <p className="mt-2 text-3xl font-black text-slate-900">
-                  {stats.active}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <CheckCircle2 size={23} />
-              </div>
-            </div>
-            <p className="mt-4 text-xs font-semibold text-emerald-600">
-              {text("Disponibles dans le catalogue", "متوفرة في الكتالوج")}
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStock("low");
-              setSelectedStatus("all");
-            }}
-            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  {text("Stock faible", "مخزون منخفض")}
-                </p>
-                <p className="mt-2 text-3xl font-black text-slate-900">
-                  {stats.lowStock}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-                <AlertCircle size={23} />
-              </div>
-            </div>
-            <p className="mt-4 text-xs font-semibold text-amber-600">
-              {text("10 unités ou moins", "10 وحدات أو أقل")}
-            </p>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStock("out");
-              setSelectedStatus("all");
-            }}
-            className="group rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-          >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  {text("Rupture", "نفد المخزون")}
-                </p>
-                <p className="mt-2 text-3xl font-black text-slate-900">
-                  {stats.outOfStock}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-600">
-                <XCircle size={23} />
-              </div>
-            </div>
-            <p className="mt-4 text-xs font-semibold text-red-600">
-              {text("Stock épuisé", "المخزون فارغ")}
-            </p>
-          </button>
-        </div>
 
         {/* SEARCH + FILTERS */}
         <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
@@ -1486,6 +1593,131 @@ export default function ArticlesPage() {
               </div>
             </div>
 
+            {/* =====================================================
+                STATISTIQUES GLOBALES
+                Les valeurs viennent de tout le catalogue, pas seulement
+                des articles visibles sur la page courante.
+            ===================================================== */}
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+
+              {/* TOTAL ARTICLES */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatus("all");
+                  setSelectedStock("all");
+                  setPage(1);
+                }}
+                className="group rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-blue-50/40 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                      {text("Total articles", "إجمالي المنتجات")}
+                    </p>
+                    <p className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+                      {stats.total}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold text-[#2563EB]">
+                      {text("Catalogue global", "الكتالوج الكامل")}
+                    </p>
+                  </div>
+
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-[#2563EB]">
+                    <Boxes size={21} />
+                  </div>
+                </div>
+              </button>
+
+              {/* STOCK TOTAL */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatus("all");
+                  setSelectedStock("available");
+                  setPage(1);
+                }}
+                className="group rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/40 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                      {text("Disponibles", "المتوفرة")}
+                    </p>
+                    <p className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+                      {stats.available}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold text-emerald-600">
+                      {text("Produits avec stock > 0", "منتجات بمخزون أكبر من 0")}
+                    </p>
+                  </div>
+
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                    <Package size={21} />
+                  </div>
+                </div>
+              </button>
+
+              {/* STOCK FAIBLE */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatus("all");
+                  setSelectedStock("low");
+                  setPage(1);
+                }}
+                className="group rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                      {text("Stock faible", "مخزون منخفض")}
+                    </p>
+                    <p className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+                      {stats.lowStock}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold text-amber-600">
+                      {text("Produits de 1 à 10 unités", "منتجات من 1 إلى 10 وحدات")}
+                    </p>
+                  </div>
+
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                    <AlertCircle size={21} />
+                  </div>
+                </div>
+              </button>
+
+              {/* RUPTURE */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatus("all");
+                  setSelectedStock("out");
+                  setPage(1);
+                }}
+                className="group rounded-2xl border border-red-100 bg-gradient-to-br from-red-50 via-white to-red-50/40 p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                      {text("Rupture", "نفد المخزون")}
+                    </p>
+                    <p className="mt-1 text-2xl font-black tracking-tight text-slate-900">
+                      {stats.outOfStock}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold text-red-600">
+                      {text("Produits avec 0 unité", "منتجات بدون مخزون")}
+                    </p>
+                  </div>
+
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+                    <XCircle size={21} />
+                  </div>
+                </div>
+              </button>
+
+            </div>
+
             <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-slate-50 p-3 sm:flex-row sm:flex-wrap sm:items-center">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">
@@ -1585,7 +1817,10 @@ export default function ArticlesPage() {
 
                 <button
                   type="button"
-                  onClick={() => loadArticles({ refresh: true })}
+                  onClick={async () => {
+                    await loadArticles({ refresh: true });
+                    await loadGlobalStats();
+                  }}
                   disabled={refreshing}
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -1643,7 +1878,7 @@ export default function ArticlesPage() {
           /* =================================================
              TABLE — FULL WIDTH
           ================================================= */
-          <div className="w-full min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="w-full min-w-0 overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <h2 className="text-base font-black text-slate-900">
@@ -1670,8 +1905,11 @@ export default function ArticlesPage() {
                     <th className="w-[22%] px-2 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       {text("Catégorie", "التصنيف")}
                     </th>
-                    <th className="w-[18%] px-2 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
+                    <th className="w-[16%] px-2 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       {text("Marque", "العلامة")}
+                    </th>
+                    <th className="w-[10%] px-2 py-4 text-center text-xs font-black uppercase tracking-wider text-slate-400">
+                      {text("Stock", "المخزون")}
                     </th>
                     <th className="w-[12%] px-2 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       {text("Prix", "السعر")}
@@ -1755,6 +1993,50 @@ export default function ArticlesPage() {
                               {article.marque_name ||
                                 text("Sans marque", "بدون علامة")}
                             </span>
+                          </div>
+                        </td>
+
+                        <td className="min-w-0 px-2.5 py-4">
+                          <div className="flex justify-center">
+                            <div
+                              className={[
+                                "min-w-[72px] rounded-xl px-2.5 py-2 text-center",
+                                stock <= 0
+                                  ? "bg-red-50"
+                                  : stock <= 10
+                                  ? "bg-amber-50"
+                                  : "bg-emerald-50",
+                              ].join(" ")}
+                            >
+                              <p
+                                className={[
+                                  "text-base font-black",
+                                  stock <= 0
+                                    ? "text-red-600"
+                                    : stock <= 10
+                                    ? "text-amber-600"
+                                    : "text-emerald-600",
+                                ].join(" ")}
+                              >
+                                {stock}
+                              </p>
+                              <p
+                                className={[
+                                  "text-[8px] font-black uppercase tracking-wide",
+                                  stock <= 0
+                                    ? "text-red-500"
+                                    : stock <= 10
+                                    ? "text-amber-500"
+                                    : "text-emerald-500",
+                                ].join(" ")}
+                              >
+                                {stock <= 0
+                                  ? text("Rupture", "نفد")
+                                  : stock <= 10
+                                  ? text("Faible", "منخفض")
+                                  : text("OK", "متوفر")}
+                              </p>
+                            </div>
                           </div>
                         </td>
 

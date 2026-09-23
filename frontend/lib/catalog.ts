@@ -1,3 +1,4 @@
+
 import { apiFetch, backendUrl } from "@/lib/api";
 import type { Locale } from "@/components/LocaleProvider";
 
@@ -8,10 +9,13 @@ import type { Locale } from "@/components/LocaleProvider";
 export type Product = {
   id: number;
   slug: string;
+
   name: string;
   shortName: string;
+
   category: string;
   categoryLabel: string;
+
   brand: string;
 
   price: number;
@@ -26,7 +30,6 @@ export type Product = {
   description: string;
   features: string[];
 
-  // STOCK
   stock: number;
   stockEnabled: boolean;
 
@@ -47,7 +50,6 @@ export type Product = {
   isNew?: boolean;
   isFeatured?: boolean;
 
-  // PROMOTION
   promotionName?: string;
   promotionBadge?: string;
   promotionEndAt?: string;
@@ -80,43 +82,52 @@ export type CatalogBrand = {
   articleCount: number;
 };
 
+type BackendArticle = Record<string, any>;
+
 /* =========================================================
-   HELPERS
+   SAFE NUMBER
 ========================================================= */
 
-/**
- * =========================================================
- * FORMAT PRIX DZD
- * =========================================================
- *
- * FR :
- * 19 000 DZD
- *
- * AR :
- * 19 000 دج
- *
- * IMPORTANT :
- * Les chiffres restent toujours normaux :
- *
- * 0 1 2 3 4 5 6 7 8 9
- *
- * On n'utilise PAS "ar-DZ" pour le NumberFormat,
- * sinon JavaScript transforme les chiffres en :
- *
- * ١٩٬٠٠٠
- *
- * =========================================================
- */
+function toNumber(
+  value: unknown,
+  fallback = 0,
+): number {
+  const n = Number(value);
+
+  return Number.isFinite(n)
+    ? n
+    : fallback;
+}
+
+/* =========================================================
+   PRICE
+========================================================= */
 
 export function formatPrice(
   price: number | string,
   locale: Locale = "fr",
-) {
-  const amount = Number(price || 0);
+): string {
+  const amount = Math.max(
+    0,
+    toNumber(price),
+  );
+
+  /*
+   * IMPORTANT
+   *
+   * On utilise fr-DZ afin de garder les chiffres normaux :
+   *
+   * 19 000
+   *
+   * et NON :
+   *
+   * ١٩٬٠٠٠
+   */
 
   const formatted =
     new Intl.NumberFormat("fr-DZ", {
-      maximumFractionDigits:  0,
+      maximumFractionDigits: 0,
+      useGrouping: true,
     }).format(amount);
 
   if (locale === "ar") {
@@ -134,28 +145,51 @@ function localized(
   valueFr: unknown,
   valueAr: unknown,
   locale: Locale,
-) {
-  if (
-    locale === "ar" &&
-    String(valueAr || "").trim()
-  ) {
-    return String(valueAr);
+): string {
+  const fr = String(valueFr ?? "").trim();
+  const ar = String(valueAr ?? "").trim();
+
+  if (locale === "ar" && ar) {
+    return ar;
   }
 
-  return String(valueFr || "");
+  return fr;
 }
 
 /* =========================================================
    BOOLEAN
 ========================================================= */
 
-function isTruthy(value: unknown) {
+function isTruthy(
+  value: unknown,
+): boolean {
   return (
     value === true ||
     value === 1 ||
     value === "1" ||
-    value === "true"
+    value === "true" ||
+    value === "TRUE" ||
+    value === "yes" ||
+    value === "YES"
   );
+}
+
+/* =========================================================
+   URL IMAGE
+========================================================= */
+
+function safeBackendUrl(
+  value: unknown,
+): string {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    return backendUrl(String(value));
+  } catch {
+    return String(value);
+  }
 }
 
 /* =========================================================
@@ -229,13 +263,8 @@ function getStockInfo(
 ) {
   const stock = Math.max(
     0,
-    Number(stockValue || 0),
+    toNumber(stockValue),
   );
-
-  /*
-   * Si le backend ne renvoie pas stock_enabled,
-   * on considère la gestion du stock active.
-   */
 
   const hasStockEnabledField =
     stockEnabledValue !==
@@ -249,9 +278,9 @@ function getStockInfo(
         )
       : true;
 
-  /* =====================================================
+  /* -------------------------------------------------------
      STOCK NON GÉRÉ
-  ====================================================== */
+  ------------------------------------------------------- */
 
   if (!stockEnabled) {
     return {
@@ -272,9 +301,9 @@ function getStockInfo(
     };
   }
 
-  /* =====================================================
+  /* -------------------------------------------------------
      RUPTURE
-  ====================================================== */
+  ------------------------------------------------------- */
 
   if (stock <= 0) {
     return {
@@ -295,9 +324,9 @@ function getStockInfo(
     };
   }
 
-  /* =====================================================
+  /* -------------------------------------------------------
      STOCK FAIBLE
-  ====================================================== */
+  ------------------------------------------------------- */
 
   if (stock <= 10) {
     return {
@@ -320,9 +349,9 @@ function getStockInfo(
     };
   }
 
-  /* =====================================================
+  /* -------------------------------------------------------
      STOCK DISPONIBLE
-  ====================================================== */
+  ------------------------------------------------------- */
 
   return {
     stock,
@@ -343,201 +372,201 @@ function getStockInfo(
 }
 
 /* =========================================================
-   MAPPING API
+   MAP PRODUCT
 ========================================================= */
-
-type BackendArticle =
-  Record<string, any>;
 
 export function mapApiProduct(
   article: BackendArticle,
   locale: Locale = "fr",
 ): Product {
-  /* =====================================================
+  /* -------------------------------------------------------
      IMAGES
-  ====================================================== */
+  ------------------------------------------------------- */
 
-  const images =
-    Array.isArray(article.images)
-      ? article.images
-          .map((image: any) =>
-            backendUrl(
-              image?.url ||
-                image?.image_url ||
-                "",
-            ),
-          )
-          .filter(Boolean)
-      : [];
+  const images = Array.isArray(
+    article.images,
+  )
+    ? article.images
+        .map((image: any) =>
+          safeBackendUrl(
+            image?.url ??
+              image?.image_url ??
+              image?.path ??
+              "",
+          ),
+        )
+        .filter(Boolean)
+    : [];
 
-  /* =====================================================
+  /* -------------------------------------------------------
      IMAGE PRINCIPALE
-  ====================================================== */
+  ------------------------------------------------------- */
 
   const mainImage =
-    backendUrl(
-      article.image ||
-        article.image_url ||
-        images[0] ||
+    safeBackendUrl(
+      article.image ??
+        article.image_url ??
+        article.main_image ??
+        article.main_image_url ??
         "",
     );
 
-  /* =====================================================
+  const fallbackImage =
+    mainImage ||
+    images[0] ||
+    "/images/placeholder-product.webp";
+
+  /* -------------------------------------------------------
      PROMOTION
-  ====================================================== */
+  ------------------------------------------------------- */
 
   const promo =
-    extractPromotion(
-      article,
-    );
+    extractPromotion(article);
 
   const promotionValue =
-    Number(
-      promo?.value || 0,
+    toNumber(
+      promo?.value,
     );
 
-  /* =====================================================
+  /* -------------------------------------------------------
      PRIX
-  ====================================================== */
+  ------------------------------------------------------- */
 
   const basePrice =
-    Number(
-      article.price || 0,
+    Math.max(
+      0,
+      toNumber(
+        article.price ??
+          article.prix ??
+          article.sale_price,
+      ),
     );
 
   let salePrice =
     basePrice;
 
+  const promotionType =
+    String(
+      promo?.type ?? "",
+    ).toUpperCase();
+
   if (promotionValue > 0) {
     if (
-      String(
-        promo?.type,
-      ).toUpperCase() ===
-      "MONTANT"
+      promotionType ===
+        "MONTANT" ||
+      promotionType ===
+        "FIXE" ||
+      promotionType ===
+        "FIXED"
     ) {
-      salePrice =
-        Math.max(
-          0,
-          basePrice -
-            promotionValue,
-        );
+      salePrice = Math.max(
+        0,
+        basePrice -
+          promotionValue,
+      );
     } else {
-      salePrice =
-        Math.max(
-          0,
-          basePrice -
-            (basePrice *
-              promotionValue) /
-              100,
-        );
+      salePrice = Math.max(
+        0,
+        basePrice -
+          (basePrice *
+            promotionValue) /
+            100,
+      );
     }
   }
 
-  /* =====================================================
-     IMAGE FALLBACK
-  ====================================================== */
-
-  const fallbackImage =
-    mainImage ||
-    "/images/placeholder-product.webp";
-
-  /* =====================================================
+  /* -------------------------------------------------------
      STOCK
-  ====================================================== */
+  ------------------------------------------------------- */
 
   const stockInfo =
     getStockInfo(
-      article.stock,
+      article.stock ??
+        article.quantity ??
+        article.stock_quantity ??
+        0,
+
       article.stock_enabled ??
         article.stockEnabled,
+
       locale,
     );
 
-  /* =====================================================
+  /* -------------------------------------------------------
      PRODUCT
-  ====================================================== */
+  ------------------------------------------------------- */
 
   return {
-    id:
-      Number(
-        article.id || 0,
-      ),
+    id: toNumber(
+      article.id,
+    ),
 
-    slug:
-      String(
-        article.slug || "",
-      ),
-
-    /* ===================================================
-       NOM
-    ==================================================== */
+    slug: String(
+      article.slug ??
+        article.code ??
+        article.id ??
+        "",
+    ),
 
     name:
       localized(
-        article.name,
-        article.name_ar,
+        article.name ??
+          article.nom,
+
+        article.name_ar ??
+          article.nom_ar,
+
         locale,
       ),
-
-    /* ===================================================
-       NOM COURT
-    ==================================================== */
 
     shortName:
       localized(
-        article.short_name ||
-          article.shortName ||
-          article.name,
+        article.short_name ??
+          article.shortName ??
+          article.name ??
+          article.nom,
 
-        article.short_name_ar ||
-          article.shortName_ar ||
-          article.name_ar,
+        article.short_name_ar ??
+          article.shortName_ar ??
+          article.name_ar ??
+          article.nom_ar,
 
         locale,
       ),
 
-    /* ===================================================
-       CATÉGORIE
-    ==================================================== */
-
     category:
       String(
-        article.category_slug ||
-          article.category ||
+        article.category_slug ??
+          article.category ??
+          article.category_code ??
           "",
       ),
 
     categoryLabel:
       localized(
-        article.category_label ||
-          article.category_name ||
+        article.category_label ??
+          article.category_name ??
           "Catalogue",
 
-        article.category_label_ar ||
+        article.category_label_ar ??
           article.category_name_ar,
 
         locale,
       ),
 
-    /* ===================================================
-       MARQUE
-    ==================================================== */
-
     brand:
       localized(
-        article.brand ||
-          article.marque_name ||
+        article.brand ??
+          article.marque_name ??
+          article.marque ??
           "DOCTECH",
 
-        article.brand_ar ||
-          article.marque_name_ar,
+        article.brand_ar ??
+          article.marque_name_ar ??
+          article.marque_ar,
 
         locale,
       ),
-
-    /* ===================================================
-       PRIX
-    ==================================================== */
 
     price:
       Number(
@@ -549,30 +578,23 @@ export function mapApiProduct(
         ? basePrice
         : article.old_price !=
             null
-        ? Number(
+        ? toNumber(
             article.old_price,
           )
         : undefined,
 
-    /* ===================================================
-       RATING
-    ==================================================== */
-
     rating:
-      Number(
-        article.rating || 4.8,
+      toNumber(
+        article.rating ??
+          4.8,
       ),
 
     reviews:
-      Number(
-        article.reviews ||
-          article.review_count ||
+      toNumber(
+        article.reviews ??
+          article.review_count ??
           0,
       ),
-
-    /* ===================================================
-       IMAGES
-    ==================================================== */
 
     image:
       fallbackImage,
@@ -582,25 +604,17 @@ export function mapApiProduct(
         ? images
         : [fallbackImage],
 
-    /* ===================================================
-       DESCRIPTION
-    ==================================================== */
-
     description:
       localized(
-        article.description ||
-          article.short_description ||
+        article.description ??
+          article.short_description ??
           "",
 
-        article.description_ar ||
+        article.description_ar ??
           article.short_description_ar,
 
         locale,
       ),
-
-    /* ===================================================
-       FEATURES
-    ==================================================== */
 
     features:
       Array.isArray(
@@ -608,10 +622,6 @@ export function mapApiProduct(
       )
         ? article.features
         : [],
-
-    /* ===================================================
-       STOCK
-    ==================================================== */
 
     stock:
       stockInfo.stock,
@@ -628,19 +638,11 @@ export function mapApiProduct(
     stockIcon:
       stockInfo.icon,
 
-    /* ===================================================
-       NEW
-    ==================================================== */
-
     isNew:
       isTruthy(
         article.is_new ??
           article.isNew,
       ),
-
-    /* ===================================================
-       FEATURED
-    ==================================================== */
 
     isFeatured:
       isTruthy(
@@ -648,10 +650,6 @@ export function mapApiProduct(
           article.is_featured ??
           article.isFeatured,
       ),
-
-    /* ===================================================
-       PROMOTION NAME
-    ==================================================== */
 
     promotionName:
       promo
@@ -662,10 +660,6 @@ export function mapApiProduct(
           ) || undefined
         : undefined,
 
-    /* ===================================================
-       PROMOTION BADGE
-    ==================================================== */
-
     promotionBadge:
       promo
         ? localized(
@@ -675,25 +669,13 @@ export function mapApiProduct(
           ) || undefined
         : undefined,
 
-    /* ===================================================
-       PROMOTION END
-    ==================================================== */
-
     promotionEndAt:
       promo?.end_at ||
       undefined,
 
-    /* ===================================================
-       PROMOTION TYPE
-    ==================================================== */
-
     promotionType:
       promo?.type ||
       undefined,
-
-    /* ===================================================
-       PROMOTION VALUE
-    ==================================================== */
 
     promotionValue:
       promotionValue > 0
@@ -703,68 +685,222 @@ export function mapApiProduct(
 }
 
 /* =========================================================
+   GENERIC DATA EXTRACTION
+========================================================= */
+
+function extractArray(
+  response: any,
+): any[] {
+  if (
+    Array.isArray(response)
+  ) {
+    return response;
+  }
+
+  if (
+    Array.isArray(response?.data)
+  ) {
+    return response.data;
+  }
+
+  if (
+    Array.isArray(response?.rows)
+  ) {
+    return response.rows;
+  }
+
+  if (
+    Array.isArray(
+      response?.articles,
+    )
+  ) {
+    return response.articles;
+  }
+
+  if (
+    Array.isArray(
+      response?.products,
+    )
+  ) {
+    return response.products;
+  }
+
+  if (
+    Array.isArray(
+      response?.data?.rows,
+    )
+  ) {
+    return response.data.rows;
+  }
+
+  if (
+    Array.isArray(
+      response?.data?.articles,
+    )
+  ) {
+    return response.data.articles;
+  }
+
+  return [];
+}
+
+/* =========================================================
    CATALOGUE
 ========================================================= */
+
+export type CatalogPagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+};
+
+function toSafePositiveInt(value: unknown, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+function extractPagination(
+  response: any,
+  requestedPage: number,
+  requestedLimit: number,
+  itemCount: number,
+): CatalogPagination {
+  const source =
+    response?.pagination ??
+    response?.meta ??
+    response?.data?.pagination ??
+    response?.data?.meta ??
+    response?.data?.data?.pagination ??
+    response?.data?.data?.meta ??
+    {};
+
+  const totalRaw =
+    source?.total ??
+    source?.totalItems ??
+    source?.count ??
+    response?.total ??
+    response?.totalItems ??
+    response?.data?.total ??
+    response?.data?.totalItems;
+
+  const totalNumber = Number(totalRaw);
+  const total =
+    Number.isFinite(totalNumber) && totalNumber >= 0
+      ? Math.floor(totalNumber)
+      : itemCount;
+
+  const page = toSafePositiveInt(
+    source?.page ??
+      source?.currentPage ??
+      response?.page ??
+      response?.currentPage ??
+      response?.data?.page ??
+      requestedPage,
+    requestedPage,
+  );
+
+  const limit = toSafePositiveInt(
+    source?.limit ??
+      source?.pageSize ??
+      source?.perPage ??
+      response?.limit ??
+      response?.pageSize ??
+      response?.data?.limit ??
+      requestedLimit,
+    requestedLimit,
+  );
+
+  const explicitTotalPages = Number(
+    source?.totalPages ??
+      source?.pages ??
+      source?.pageCount ??
+      response?.totalPages ??
+      response?.pages ??
+      response?.data?.totalPages,
+  );
+
+  const totalPages =
+    Number.isFinite(explicitTotalPages) && explicitTotalPages > 0
+      ? Math.ceil(explicitTotalPages)
+      : Math.max(1, Math.ceil(total / limit));
+
+  const normalizedPage = Math.min(
+    Math.max(1, page),
+    Math.max(1, totalPages),
+  );
+
+  return {
+    page: normalizedPage,
+    limit,
+    total,
+    totalPages: Math.max(1, totalPages),
+    hasNextPage:
+      normalizedPage < Math.max(1, totalPages),
+    hasPrevPage:
+      normalizedPage > 1,
+  };
+}
 
 export async function fetchCatalog(
   params: Record<
     string,
     string | number | undefined | null
   > = {},
-
   locale: Locale = "fr",
 ) {
-  const query =
-    new URLSearchParams();
+  const query = new URLSearchParams();
 
-  Object.entries(params).forEach(
-    ([key, value]) => {
-      if (
-        value !== undefined &&
-        value !== null &&
-        value !== ""
-      ) {
-        query.set(
-          key,
-          String(value),
-        );
-      }
-    },
+  Object.entries(params).forEach(([key, value]) => {
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+    ) {
+      query.set(key, String(value));
+    }
+  });
+
+  /*
+   * IMPORTANT :
+   * page et limit sont transmis tels quels au backend.
+   * On ne fait jamais de pagination côté frontend ici.
+   */
+  const requestedPage = toSafePositiveInt(
+    query.get("page"),
+    1,
   );
 
-  const endpoint =
-    `/public/articles${
-      query.size
-        ? `?${query.toString()}`
-        : ""
-    }`;
+  const requestedLimit = toSafePositiveInt(
+    query.get("limit"),
+    12,
+  );
 
-  const response =
-    await apiFetch<
-      BackendArticle[]
-    >(endpoint);
+  if (!query.has("page")) {
+    query.set("page", String(requestedPage));
+  }
 
-  const data =
-    Array.isArray(
-      response?.data,
-    )
-      ? response.data
-      : Array.isArray(response)
-      ? response
-      : [];
+  if (!query.has("limit")) {
+    query.set("limit", String(requestedLimit));
+  }
+
+  const endpoint = `/public/articles?${query.toString()}`;
+
+  const response = await apiFetch<any>(endpoint);
+  const data = extractArray(response);
+
+  const pagination = extractPagination(
+    response,
+    requestedPage,
+    requestedLimit,
+    data.length,
+  );
 
   return {
-    products:
-      data.map(
-        (item) =>
-          mapApiProduct(
-            item,
-            locale,
-          ),
-      ),
-
-    pagination:
-      response?.pagination,
+    products: data.map((item) => mapApiProduct(item, locale)),
+    pagination,
   };
 }
 
@@ -783,35 +919,29 @@ export async function fetchCategories(
     );
 
   const data =
-    Array.isArray(
-      response?.data,
-    )
-      ? response.data
-      : Array.isArray(response)
-      ? response
-      : [];
+    extractArray(response);
 
   return data.map(
     (category: any) => ({
       id:
-        category.id !=
-        null
-          ? Number(
+        category.id != null
+          ? toNumber(
               category.id,
             )
           : undefined,
 
       parentId:
         category.parent_id ==
-        null
+          null
           ? null
-          : Number(
+          : toNumber(
               category.parent_id,
             ),
 
       slug:
         String(
-          category.slug || "",
+          category.slug ??
+            "",
         ),
 
       label:
@@ -829,15 +959,15 @@ export async function fetchCategories(
         ),
 
       image:
-        category.image_url
-          ? backendUrl(
-              category.image_url,
-            )
-          : "",
+        safeBackendUrl(
+          category.image_url ??
+            category.image ??
+            "",
+        ),
 
       sortOrder:
-        Number(
-          category.sort_order ||
+        toNumber(
+          category.sort_order ??
             0,
         ),
     }),
@@ -859,24 +989,19 @@ export async function fetchBrands(
     );
 
   const data =
-    Array.isArray(
-      response?.data,
-    )
-      ? response.data
-      : Array.isArray(response)
-      ? response
-      : [];
+    extractArray(response);
 
   return data.map(
     (brand: any) => ({
       id:
-        Number(
-          brand.id || 0,
+        toNumber(
+          brand.id,
         ),
 
       slug:
         String(
-          brand.slug || "",
+          brand.slug ??
+            "",
         ),
 
       name:
@@ -894,21 +1019,21 @@ export async function fetchBrands(
         ),
 
       logo:
-        brand.logo_url
-          ? backendUrl(
-              brand.logo_url,
-            )
-          : "",
+        safeBackendUrl(
+          brand.logo_url ??
+            brand.logo ??
+            "",
+        ),
 
       sortOrder:
-        Number(
-          brand.sort_order ||
+        toNumber(
+          brand.sort_order ??
             0,
         ),
 
       articleCount:
-        Number(
-          brand.article_count ||
+        toNumber(
+          brand.article_count ??
             0,
         ),
     }),
@@ -924,16 +1049,17 @@ export async function fetchProductBySlug(
   locale: Locale = "fr",
 ) {
   const response =
-    await apiFetch<
-      BackendArticle
-    >(
+    await apiFetch<any>(
       `/public/articles/${encodeURIComponent(
         slug,
       )}`,
     );
 
   const raw =
-    response?.data || {};
+    response?.data ??
+    response?.article ??
+    response ??
+    {};
 
   return {
     product:
@@ -945,3 +1071,4 @@ export async function fetchProductBySlug(
     raw,
   };
 }
+
