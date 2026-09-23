@@ -3,6 +3,7 @@
 import CrudManager from "@/components/admin/CrudManager";
 import { backendUrl } from "@/lib/api";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { useLocale } from "@/components/LocaleProvider";
 
 import {
   PackageCheck,
@@ -13,13 +14,14 @@ import {
 } from "lucide-react";
 
 export default function Page() {
+  const { text, isArabic } = useLocale();
   return (
     <div className="min-h-full bg-slate-50">
       <div className="mx-auto w-full max-w-[1800px] space-y-6 p-4 md:p-6 lg:p-8">
         {/* HEADER */}
         <AdminPageHeader
-          eyebrow="Catalogue"
-          title="Marques"
+          eyebrow={text("Catalogue", "الكتالوج")}
+          title={text("Marques", "العلامات التجارية")}
           subtitle="Centralisez les marques, leurs logos, descriptions bilingues et leur ordre d'affichage."
           icon={<PackageCheck size={18} />}
         />
@@ -30,13 +32,9 @@ export default function Page() {
           <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Organisation
-                </p>
+                <p className="text-sm font-semibold text-slate-500">{text("Organisation", "التنظيم")}</p>
 
-                <h3 className="mt-2 text-xl font-black text-slate-900">
-                  Marques
-                </h3>
+                <h3 className="mt-2 text-xl font-black text-slate-900">{text("Marques", "العلامات التجارية")}</h3>
               </div>
 
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
@@ -44,18 +42,14 @@ export default function Page() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-semibold text-slate-400">
-              Centralisez toutes vos marques
-            </p>
+            <p className="mt-4 text-xs font-semibold text-slate-400">{text("Centralisez toutes vos marques", "اجمع جميع علاماتك التجارية في مكان واحد")}</p>
           </div>
 
           {/* Multilingue */}
           <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Multilingue
-                </p>
+                <p className="text-sm font-semibold text-slate-500">{text("Multilingue", "متعدد اللغات")}</p>
 
                 <h3 className="mt-2 text-xl font-black text-slate-900">
                   FR / AR
@@ -67,22 +61,16 @@ export default function Page() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-semibold text-slate-400">
-              Noms et descriptions bilingues
-            </p>
+            <p className="mt-4 text-xs font-semibold text-slate-400">{text("Noms et descriptions bilingues", "أسماء وأوصاف باللغتين")}</p>
           </div>
 
           {/* Catalogue */}
           <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Catalogue
-                </p>
+                <p className="text-sm font-semibold text-slate-500">{text("Catalogue", "الكتالوج")}</p>
 
-                <h3 className="mt-2 text-xl font-black text-slate-900">
-                  Actif
-                </h3>
+                <h3 className="mt-2 text-xl font-black text-slate-900">{text("Actif", "نشط")}</h3>
               </div>
 
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
@@ -90,9 +78,7 @@ export default function Page() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-semibold text-slate-400">
-              Marques disponibles dans la boutique
-            </p>
+            <p className="mt-4 text-xs font-semibold text-slate-400">{text("Marques disponibles dans la boutique", "العلامات التجارية المتاحة في المتجر")}</p>
           </div>
         </div>
 
@@ -104,13 +90,13 @@ export default function Page() {
           <div className="p-1 md:p-2">
             <CrudManager
               title="Marques / العلامات التجارية"
-              subtitle="Créez, modifiez et organisez vos marques directement depuis cette interface."
+              subtitle={text("Créez, modifiez et organisez vos marques directement depuis cette interface.", "أنشئ وعدّل ونظّم علاماتك التجارية مباشرة من هذه الواجهة.")}
               endpoint="/marques"
               columns={[
                 /* LOGO */
                 {
                   key: "logo_url",
-                  label: "Logo",
+                  label: text("Logo", "الشعار"),
                   render: (row) =>
                     row.logo_url ? (
                       <div className="flex h-14 w-20 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-slate-50 shadow-sm">
@@ -130,7 +116,7 @@ export default function Page() {
                 /* NOM FR */
                 {
                   key: "name",
-                  label: "Nom FR",
+                  label: text("Nom FR", "الاسم بالفرنسية"),
                   render: (row) => (
                     <div className="min-w-[180px]">
                       <p className="text-sm font-black text-slate-900">
@@ -149,7 +135,7 @@ export default function Page() {
                 /* NOM AR */
                 {
                   key: "name_ar",
-                  label: "الاسم AR",
+                  label: text("الاسم AR", "الاسم بالعربية"),
                   render: (row) => (
                     <span
                       dir="rtl"
@@ -163,7 +149,7 @@ export default function Page() {
                 /* PRODUITS */
                 {
                   key: "article_count",
-                  label: "Produits liés",
+                  label: text("Produits liés", "المنتجات المرتبطة"),
                   render: (row) => (
                     <div className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2">
                       <Boxes
@@ -185,7 +171,7 @@ export default function Page() {
                 /* ORDRE */
                 {
                   key: "sort_order",
-                  label: "Ordre",
+                  label: text("Ordre", "الترتيب"),
                   render: (row) => (
                     <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-slate-100 px-2 font-mono text-xs font-black text-slate-600">
                       {row.sort_order ?? 0}
@@ -196,17 +182,13 @@ export default function Page() {
                 /* ACTIF */
                 {
                   key: "active",
-                  label: "Actif",
+                  label: text("Actif", "نشط"),
                   render: (row) =>
                     row.active ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                        <CheckCircle2 size={13} />
-                        Oui
-                      </span>
+                        <CheckCircle2 size={13} />{text("Oui", "نعم")}</span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
-                        Non
-                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">{text("Non", "لا")}</span>
                     ),
                 },
               ]}
@@ -214,7 +196,7 @@ export default function Page() {
                 /* NOM FR */
                 {
                   name: "name",
-                  label: "Nom français",
+                  label: text("Nom français", "الاسم بالفرنسية"),
                   required: true,
                 },
 
@@ -228,13 +210,13 @@ export default function Page() {
                 /* SLUG */
                 {
                   name: "slug",
-                  label: "Slug",
+                  label: text("Slug", "الرابط"),
                 },
 
                 /* ORDRE */
                 {
                   name: "sortOrder",
-                  label: "Ordre d'affichage",
+                  label: text("Ordre d'affichage", "ترتيب العرض"),
                   type: "number",
                   fromRow: "sort_order",
                 },
@@ -242,7 +224,7 @@ export default function Page() {
                 /* LOGO */
                 {
                   name: "logoUrl",
-                  label: "Logo",
+                  label: text("Logo", "الشعار"),
                   type: "image",
                   fromRow: "logo_url",
                   colSpan: true,
@@ -251,7 +233,7 @@ export default function Page() {
                 /* DESCRIPTION FR */
                 {
                   name: "description",
-                  label: "Description française",
+                  label: text("Description française", "الوصف بالفرنسية"),
                   type: "textarea",
                   colSpan: true,
                 },
@@ -281,7 +263,7 @@ export default function Page() {
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-[#60A5FA]" />
 
-            <span>Gestion des marques</span>
+            <span>{text("Gestion des marques", "إدارة العلامات التجارية")}</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-4">

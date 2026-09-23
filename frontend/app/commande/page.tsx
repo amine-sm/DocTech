@@ -84,68 +84,32 @@ type ShippingCost = {
 ========================================================= */
 
 function getElogistiaBody(response: any): any[] {
-  if (Array.isArray(response?.data)) {
-    return response.data;
-  }
-
-  if (Array.isArray(response?.data?.body)) {
-    return response.data.body;
-  }
-
-  if (Array.isArray(response?.body)) {
-    return response.body;
-  }
-
-  if (Array.isArray(response?.raw?.body)) {
-    return response.raw.body;
-  }
-
-  if (Array.isArray(response)) {
-    return response;
-  }
-
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.body)) return response.data.body;
+  if (Array.isArray(response?.body)) return response.body;
+  if (Array.isArray(response?.raw?.body)) return response.raw.body;
+  if (Array.isArray(response)) return response;
   return [];
 }
 
-function normalizeWilayas(
-  response: any
-): DeliveryWilaya[] {
+function normalizeWilayas(response: any): DeliveryWilaya[] {
   return getElogistiaBody(response)
     .map((item: any): DeliveryWilaya | null => {
-      const id =
-        item?.Id ??
-        item?.id ??
-        item?.ID ??
-        item?.code;
-
+      const id = item?.Id ?? item?.id ?? item?.ID ?? item?.code;
       const name =
-        item?.wilaya ??
-        item?.Wilaya ??
-        item?.name ??
-        item?.nom;
+        item?.wilaya ?? item?.Wilaya ?? item?.name ?? item?.nom;
 
-      if (
-        id === undefined ||
-        id === null ||
-        !name
-      ) {
-        return null;
-      }
+      if (id === undefined || id === null || !name) return null;
 
       return {
         id: String(id),
         name: String(name).trim(),
       };
     })
-    .filter(
-      (item): item is DeliveryWilaya =>
-        item !== null
-    );
+    .filter((item): item is DeliveryWilaya => item !== null);
 }
 
-function normalizeCommunes(
-  response: any
-): DeliveryCommune[] {
+function normalizeCommunes(response: any): DeliveryCommune[] {
   return getElogistiaBody(response)
     .map((item: any): DeliveryCommune | null => {
       const id =
@@ -163,28 +127,17 @@ function normalizeCommunes(
         item?.name ??
         item?.nom;
 
-      if (
-        id === undefined ||
-        id === null ||
-        !name
-      ) {
-        return null;
-      }
+      if (id === undefined || id === null || !name) return null;
 
       return {
         id: String(id),
         name: String(name).trim(),
       };
     })
-    .filter(
-      (item): item is DeliveryCommune =>
-        item !== null
-    );
+    .filter((item): item is DeliveryCommune => item !== null);
 }
 
-function normalizeShippingCosts(
-  response: any
-): ShippingCost[] {
+function normalizeShippingCosts(response: any): ShippingCost[] {
   return getElogistiaBody(response)
     .map((item: any): ShippingCost | null => {
       const wilayaId =
@@ -203,11 +156,7 @@ function normalizeShippingCosts(
         "";
 
       const homeRaw = item?.home;
-
-      const deskRaw =
-        item?.stopdesk ??
-        item?.stopDesk ??
-        item?.desk;
+      const deskRaw = item?.stopdesk ?? item?.stopDesk ?? item?.desk;
 
       const home =
         homeRaw !== undefined &&
@@ -223,32 +172,16 @@ function normalizeShippingCosts(
           ? Number(deskRaw)
           : null;
 
-      if (
-        wilayaId === undefined ||
-        wilayaId === null
-      ) {
-        return null;
-      }
+      if (wilayaId === undefined || wilayaId === null) return null;
 
       return {
         wilayaId: String(wilayaId).trim(),
         name: String(name).trim(),
-        home:
-          home !== null &&
-          Number.isFinite(home)
-            ? home
-            : null,
-        desk:
-          desk !== null &&
-          Number.isFinite(desk)
-            ? desk
-            : null,
+        home: home !== null && Number.isFinite(home) ? home : null,
+        desk: desk !== null && Number.isFinite(desk) ? desk : null,
       };
     })
-    .filter(
-      (item): item is ShippingCost =>
-        item !== null
-    );
+    .filter((item): item is ShippingCost => item !== null);
 }
 
 /* =========================================================
@@ -258,67 +191,31 @@ function normalizeShippingCosts(
 export default function OrderPage() {
   const { text } = useLocale();
 
-  const [step, setStep] =
-    useState<Step>(1);
+  const [step, setStep] = useState<Step>(1);
 
-  const [items, setItems] =
-    useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [ready, setReady] = useState(false);
 
-  const [ready, setReady] =
-    useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const [submitted, setSubmitted] =
-    useState(false);
+  const [orderNumber, setOrderNumber] = useState("");
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  /* CUSTOMER */
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [note, setNote] = useState("");
 
-  const [orderNumber, setOrderNumber] =
-    useState("");
-
-  /* -------------------------------------------------------
-     CUSTOMER
-  ------------------------------------------------------- */
-
-  const [customerName, setCustomerName] =
-    useState("");
-
-  const [phone, setPhone] =
-    useState("");
-
-  const [note, setNote] =
-    useState("");
-
-  /* -------------------------------------------------------
-     DELIVERY
-  ------------------------------------------------------- */
-
-  const [shippingMode, setShippingMode] =
-    useState<"home" | "desk">("home");
-
-  const [deliveryWilayas, setDeliveryWilayas] =
-    useState<DeliveryWilaya[]>([]);
-
-  const [deliveryCommunes, setDeliveryCommunes] =
-    useState<DeliveryCommune[]>([]);
-
-  const [shippingCosts, setShippingCosts] =
-    useState<Record<string, ShippingCost>>({});
-
-  const [selectedWilayaId, setSelectedWilayaId] =
-    useState("");
-
-  const [selectedCommuneId, setSelectedCommuneId] =
-    useState("");
-
-  const [address, setAddress] =
-    useState("");
-
-  const [loadingDelivery, setLoadingDelivery] =
-    useState(true);
-
-  const [loadingCommunes, setLoadingCommunes] =
-    useState(false);
+  /* DELIVERY */
+  const [shippingMode, setShippingMode] = useState<"home" | "desk">("home");
+  const [deliveryWilayas, setDeliveryWilayas] = useState<DeliveryWilaya[]>([]);
+  const [deliveryCommunes, setDeliveryCommunes] = useState<DeliveryCommune[]>([]);
+  const [shippingCosts, setShippingCosts] = useState<Record<string, ShippingCost>>({});
+  const [selectedWilayaId, setSelectedWilayaId] = useState("");
+  const [selectedCommuneId, setSelectedCommuneId] = useState("");
+  const [address, setAddress] = useState("");
+  const [loadingDelivery, setLoadingDelivery] = useState(true);
+  const [loadingCommunes, setLoadingCommunes] = useState(false);
 
   /* -------------------------------------------------------
      CART + ELOGISTIA
@@ -334,89 +231,41 @@ export default function OrderPage() {
       setLoadingDelivery(true);
 
       try {
-        const [
-          wilayaResponse,
-          shippingResponse,
-        ] = await Promise.all([
-          apiFetch<any>(
-            "/elogistia/wilayas",
-            {
-              cache: "no-store",
-            }
-          ),
-
-          apiFetch<any>(
-            "/elogistia/shipping-costs",
-            {
-              cache: "no-store",
-            }
-          ),
+        const [wilayaResponse, shippingResponse] = await Promise.all([
+          apiFetch<any>("/elogistia/wilayas", { cache: "no-store" }),
+          apiFetch<any>("/elogistia/shipping-costs", { cache: "no-store" }),
         ]);
 
         if (cancelled) return;
 
-        const wilayas =
-          normalizeWilayas(
-            wilayaResponse
-          );
+        const wilayas = normalizeWilayas(wilayaResponse);
+        const shippingRows = normalizeShippingCosts(shippingResponse);
 
-        const shippingRows =
-          normalizeShippingCosts(
-            shippingResponse
-          );
-
-        const costs: Record<
-          string,
-          ShippingCost
-        > = {};
+        const costs: Record<string, ShippingCost> = {};
 
         for (const row of shippingRows) {
-          const key =
-            String(row.wilayaId).trim();
+          const key = String(row.wilayaId).trim();
+          if (key) costs[key] = row;
 
-          if (key) {
-            costs[key] = row;
-          }
-
-          const rowName =
-            row.name
-              .trim()
-              .toLowerCase();
-
+          const rowName = row.name.trim().toLowerCase();
           if (rowName) {
-            const matching =
-              wilayas.find(
-                (w) =>
-                  w.name
-                    .trim()
-                    .toLowerCase() ===
-                  rowName
-              );
-
-            if (matching) {
-              costs[
-                String(matching.id)
-              ] = row;
-            }
+            const matching = wilayas.find(
+              (w) => w.name.trim().toLowerCase() === rowName
+            );
+            if (matching) costs[String(matching.id)] = row;
           }
         }
 
         setDeliveryWilayas(wilayas);
         setShippingCosts(costs);
       } catch (error) {
-        console.error(
-          "Elogistia delivery data:",
-          error
-        );
-
+        console.error("Elogistia delivery data:", error);
         if (!cancelled) {
           setDeliveryWilayas([]);
           setShippingCosts({});
         }
       } finally {
-        if (!cancelled) {
-          setLoadingDelivery(false);
-        }
+        if (!cancelled) setLoadingDelivery(false);
       }
     }
 
@@ -446,34 +295,21 @@ export default function OrderPage() {
       setDeliveryCommunes([]);
 
       try {
-        const response =
-          await apiFetch<any>(
-            `/elogistia/municipalities?wilaya=${encodeURIComponent(
-              selectedWilayaId
-            )}`,
-            {
-              cache: "no-store",
-            }
-          );
+        const response = await apiFetch<any>(
+          `/elogistia/municipalities?wilaya=${encodeURIComponent(
+            selectedWilayaId
+          )}`,
+          { cache: "no-store" }
+        );
 
         if (cancelled) return;
 
-        setDeliveryCommunes(
-          normalizeCommunes(response)
-        );
+        setDeliveryCommunes(normalizeCommunes(response));
       } catch (error) {
-        console.error(
-          "Elogistia municipalities:",
-          error
-        );
-
-        if (!cancelled) {
-          setDeliveryCommunes([]);
-        }
+        console.error("Elogistia municipalities:", error);
+        if (!cancelled) setDeliveryCommunes([]);
       } finally {
-        if (!cancelled) {
-          setLoadingCommunes(false);
-        }
+        if (!cancelled) setLoadingCommunes(false);
       }
     }
 
@@ -488,59 +324,38 @@ export default function OrderPage() {
      CALCULATIONS
   ------------------------------------------------------- */
 
-  const subtotal = useMemo(
-    () => getCartSubtotal(items),
-    [items]
-  );
+  const subtotal = useMemo(() => getCartSubtotal(items), [items]);
 
   const totalQuantity = useMemo(
-    () =>
-      items.reduce(
-        (sum, item) =>
-          sum + item.quantity,
-        0
-      ),
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
     [items]
   );
 
-  const selectedShipping =
-    selectedWilayaId
-      ? shippingCosts[
-          String(selectedWilayaId)
-        ] ?? null
-      : null;
+  const selectedShipping = selectedWilayaId
+    ? shippingCosts[String(selectedWilayaId)] ?? null
+    : null;
 
-  const selectedShippingFee =
-    selectedShipping
-      ? shippingMode === "home"
-        ? selectedShipping.home
-        : selectedShipping.desk
-      : null;
+  const selectedShippingFee = selectedShipping
+    ? shippingMode === "home"
+      ? selectedShipping.home
+      : selectedShipping.desk
+    : null;
 
   const deliveryFee =
-    selectedShippingFee != null
-      ? Number(selectedShippingFee)
-      : 0;
+    selectedShippingFee != null ? Number(selectedShippingFee) : 0;
 
-  const total =
-    subtotal + deliveryFee;
+  const total = subtotal + deliveryFee;
 
-  const selectedWilaya =
-    deliveryWilayas.find(
-      (item) =>
-        String(item.id) ===
-        String(selectedWilayaId)
-    );
+  const selectedWilaya = deliveryWilayas.find(
+    (item) => String(item.id) === String(selectedWilayaId)
+  );
 
-  const selectedCommune =
-    deliveryCommunes.find(
-      (item) =>
-        String(item.id) ===
-        String(selectedCommuneId)
-    );
+  const selectedCommune = deliveryCommunes.find(
+    (item) => String(item.id) === String(selectedCommuneId)
+  );
 
   /* -------------------------------------------------------
-     STEP 1
+     STEP 1 → 2
   ------------------------------------------------------- */
 
   function goToStep2() {
@@ -565,42 +380,29 @@ export default function OrderPage() {
     }
 
     setStep(2);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   /* -------------------------------------------------------
-     STEP 2
+     STEP 2 → 3
   ------------------------------------------------------- */
 
   function goToStep3() {
     if (!selectedWilayaId) {
       window.alert(
-        text(
-          "Veuillez sélectionner une wilaya.",
-          "يرجى اختيار الولاية."
-        )
+        text("Veuillez sélectionner une wilaya.", "يرجى اختيار الولاية.")
       );
       return;
     }
 
     if (!selectedCommuneId) {
       window.alert(
-        text(
-          "Veuillez sélectionner une commune.",
-          "يرجى اختيار البلدية."
-        )
+        text("Veuillez sélectionner une commune.", "يرجى اختيار البلدية.")
       );
       return;
     }
 
-    if (
-      shippingMode === "home" &&
-      !address.trim()
-    ) {
+    if (shippingMode === "home" && !address.trim()) {
       window.alert(
         text(
           "Veuillez renseigner votre adresse.",
@@ -621,82 +423,85 @@ export default function OrderPage() {
     }
 
     setStep(3);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   /* -------------------------------------------------------
      SUBMIT
+     ⭐ FIX 1 : deliveryType suit shippingMode (HOME ou DESK)
+     ⭐ FIX 2 : Vérification du stock avant envoi
   ------------------------------------------------------- */
 
   async function submitOrder() {
     if (!items.length) return;
-
     if (submitting) return;
+
+    /* ⭐ Vérification stock */
+    const outOfStock = items.find(
+      (item) => Number(item.product.stock ?? 0) <= 0
+    );
+
+    if (outOfStock) {
+      window.alert(
+        text(
+          `Le produit "${outOfStock.product.name}" n'est plus en stock.`,
+          `المنتج "${outOfStock.product.name}" لم يعد متوفراً.`
+        )
+      );
+      return;
+    }
+
+    const insufficient = items.find(
+      (item) => item.quantity > Number(item.product.stock ?? 0)
+    );
+
+    if (insufficient) {
+      window.alert(
+        text(
+          `Stock insuffisant pour "${insufficient.product.name}". Disponible : ${insufficient.product.stock}.`,
+          `الكمية غير كافية لـ "${insufficient.product.name}". المتوفر: ${insufficient.product.stock}.`
+        )
+      );
+      return;
+    }
 
     setSubmitting(true);
 
     try {
-      const result =
-        await apiFetch<any>(
-          "/public/commandes",
-          {
-            method: "POST",
+      const payload = {
+        customerName: customerName.trim(),
+        phone: phone.trim(),
 
-            bodyJson: {
-              customerName:
-                customerName.trim(),
+        wilaya: selectedWilaya?.name || null,
+        wilayaId: selectedWilayaId || null,
 
-              phone:
-                phone.trim(),
+        commune: selectedCommune?.name || null,
+        communeId: selectedCommuneId || null,
 
-              wilaya:
-                selectedWilaya?.name ||
-                null,
+        // ⭐ Adresse uniquement si HOME
+        address: shippingMode === "home" ? address.trim() : null,
 
-              wilayaId:
-                selectedWilayaId || null,
+        note: note.trim(),
 
-              commune:
-                selectedCommune?.name ||
-                null,
+        // ⭐ IMPORTANT : deliveryType suit shippingMode
+        deliveryType: shippingMode === "desk" ? "DESK" : "HOME",
 
-              communeId:
-                selectedCommuneId || null,
+        shippingMode: shippingMode === "desk" ? "DESK" : "HOME",
 
-              address:
-                shippingMode === "home"
-                  ? address.trim()
-                  : null,
+        shippingFee: deliveryFee,
 
-              note:
-                note.trim(),
+        items: items.map((item) => ({
+          articleId: item.product.id,
+          quantity: item.quantity,
+        })),
+      };
 
-              deliveryType:
-                "HOME",
+      console.log("📦 POST /public/commandes payload:", payload);
 
-              shippingMode:
-                shippingMode === "desk"
-                  ? "DESK"
-                  : "HOME",
-
-              shippingFee:
-                deliveryFee,
-
-              items: items.map(
-                (item) => ({
-                  articleId:
-                    item.product.id,
-                  quantity:
-                    item.quantity,
-                })
-              ),
-            },
-          }
-        );
+      const result = await apiFetch<any>("/public/commandes", {
+        method: "POST",
+        bodyJson: payload,
+      });
 
       const tracking =
         result?.trackingNumber ||
@@ -705,23 +510,13 @@ export default function OrderPage() {
         result?.data?.orderNumber ||
         "";
 
-      setOrderNumber(
-        String(tracking)
-      );
-
+      setOrderNumber(String(tracking));
       clearCart();
-
       setSubmitted(true);
 
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error: any) {
-      console.error(
-        "Commande:",
-        error
-      );
+      console.error("Commande:", error);
 
       window.alert(
         error?.message ||
@@ -742,11 +537,7 @@ export default function OrderPage() {
   if (!ready) {
     return (
       <div className="min-h-screen bg-[#f6f8fc]">
-        <Suspense
-          fallback={
-            <div className="h-20 bg-white" />
-          }
-        >
+        <Suspense fallback={<div className="h-20 bg-white" />}>
           <Header />
         </Suspense>
 
@@ -756,21 +547,13 @@ export default function OrderPage() {
   }
 
   if (submitted) {
-    return (
-      <SuccessPage
-        orderNumber={orderNumber}
-      />
-    );
+    return <SuccessPage orderNumber={orderNumber} />;
   }
 
   if (!items.length) {
     return (
       <div className="min-h-screen bg-[#f6f8fc]">
-        <Suspense
-          fallback={
-            <div className="h-20 bg-white" />
-          }
-        >
+        <Suspense fallback={<div className="h-20 bg-white" />}>
           <Header />
         </Suspense>
 
@@ -786,22 +569,12 @@ export default function OrderPage() {
   ======================================================= */
 
   return (
-    <div
-      className="min-h-screen bg-[#f6f8fc] text-[#0f172a]"
-      dir="ltr"
-    >
-      <Suspense
-        fallback={
-          <div className="h-20 bg-white" />
-        }
-      >
+    <div className="min-h-screen bg-[#f6f8fc] text-[#0f172a]" dir="ltr">
+      <Suspense fallback={<div className="h-20 bg-white" />}>
         <Header />
       </Suspense>
 
-      {/* =================================================
-          TOP PAGE
-      ================================================= */}
-
+      {/* TOP PAGE */}
       <section className="border-b border-slate-100 bg-white">
         <div className="mx-auto max-w-[1320px] px-4 py-7 sm:px-6 lg:px-8">
           <Link
@@ -812,30 +585,17 @@ export default function OrderPage() {
               size={15}
               className="transition-transform group-hover:-translate-x-1"
             />
-
-            {text(
-              "Retour au panier",
-              "العودة إلى السلة"
-            )}
+            {text("Retour au panier", "العودة إلى السلة")}
           </Link>
 
           <div className="mt-6">
             <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-blue-600">
-              <ShoppingBag
-                size={12}
-              />
-
-              {text(
-                "Commande",
-                "الطلب"
-              )}
+              <ShoppingBag size={12} />
+              {text("Commande", "الطلب")}
             </span>
 
             <h1 className="mt-3 text-3xl font-black tracking-[-0.055em] text-slate-950 sm:text-4xl">
-              {text(
-                "Finalisez votre commande",
-                "أكمل طلبك"
-              )}
+              {text("Finalisez votre commande", "أكمل طلبك")}
             </h1>
 
             <p className="mt-2 max-w-xl text-sm font-medium text-slate-500">
@@ -846,53 +606,26 @@ export default function OrderPage() {
             </p>
           </div>
 
-          <ProgressSteps
-            current={step}
-          />
+          <ProgressSteps current={step} />
         </div>
       </section>
 
-      {/* =================================================
-          CONTENT
-      ================================================= */}
-
+      {/* CONTENT */}
       <main className="mx-auto max-w-[1320px] px-4 py-7 sm:px-6 lg:px-8 lg:py-10">
         <div className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_390px]">
-          {/* =================================================
-              LEFT
-          ================================================= */}
-
           <div className="min-w-0">
-            <AnimatePresence
-              mode="wait"
-            >
+            <AnimatePresence mode="wait">
               {step === 1 && (
                 <motion.div
                   key="step-one"
-                  initial={{
-                    opacity: 0,
-                    x: 20,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    x: 0,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    x: -20,
-                  }}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
                 >
                   <StepContainer
                     number="01"
-                    icon={
-                      <UserRound
-                        size={20}
-                      />
-                    }
-                    title={text(
-                      "Vos informations",
-                      "بياناتك"
-                    )}
+                    icon={<UserRound size={20} />}
+                    title={text("Vos informations", "بياناتك")}
                     description={text(
                       "Renseignez vos coordonnées pour que nous puissions vous contacter.",
                       "أدخل معلوماتك حتى نتمكن من التواصل معك."
@@ -900,25 +633,12 @@ export default function OrderPage() {
                   >
                     <div className="grid gap-5 md:grid-cols-2">
                       <Field
-                        label={text(
-                          "Nom et prénom",
-                          "الاسم واللقب"
-                        )}
-                        icon={
-                          <UserRound
-                            size={15}
-                          />
-                        }
+                        label={text("Nom et prénom", "الاسم واللقب")}
+                        icon={<UserRound size={15} />}
                       >
                         <input
-                          value={
-                            customerName
-                          }
-                          onChange={(e) =>
-                            setCustomerName(
-                              e.target.value
-                            )
-                          }
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
                           placeholder={text(
                             "Ex. Mohammed Amine",
                             "مثال: محمد أمين"
@@ -928,23 +648,12 @@ export default function OrderPage() {
                       </Field>
 
                       <Field
-                        label={text(
-                          "Téléphone",
-                          "الهاتف"
-                        )}
-                        icon={
-                          <Phone
-                            size={15}
-                          />
-                        }
+                        label={text("Téléphone", "الهاتف")}
+                        icon={<Phone size={15} />}
                       >
                         <input
                           value={phone}
-                          onChange={(e) =>
-                            setPhone(
-                              e.target.value
-                            )
-                          }
+                          onChange={(e) => setPhone(e.target.value)}
                           placeholder="05 / 06 / 07..."
                           className={inputClass}
                           inputMode="tel"
@@ -955,17 +664,12 @@ export default function OrderPage() {
                     <div className="mt-6 rounded-2xl bg-blue-50 p-4">
                       <div className="flex gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
-                          <ShieldCheck
-                            size={18}
-                          />
+                          <ShieldCheck size={18} />
                         </span>
 
                         <div>
                           <strong className="block text-xs font-black text-slate-900">
-                            {text(
-                              "Informations protégées",
-                              "بياناتك محمية"
-                            )}
+                            {text("Informations protégées", "بياناتك محمية")}
                           </strong>
 
                           <p className="mt-1 text-[10px] leading-5 text-slate-500">
@@ -980,13 +684,8 @@ export default function OrderPage() {
 
                     <div className="mt-7 flex justify-end">
                       <NextButton
-                        label={text(
-                          "Continuer",
-                          "متابعة"
-                        )}
-                        onClick={
-                          goToStep2
-                        }
+                        label={text("Continuer", "متابعة")}
+                        onClick={goToStep2}
                       />
                     </div>
                   </StepContainer>
@@ -996,111 +695,58 @@ export default function OrderPage() {
               {step === 2 && (
                 <motion.div
                   key="step-two"
-                  initial={{
-                    opacity: 0,
-                    x: 20,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    x: 0,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    x: -20,
-                  }}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
                 >
                   <StepContainer
                     number="02"
-                    icon={
-                      <Truck
-                        size={20}
-                      />
-                    }
-                    title={text(
-                      "Mode de livraison",
-                      "طريقة التوصيل"
-                    )}
+                    icon={<Truck size={20} />}
+                    title={text("Mode de livraison", "طريقة التوصيل")}
                     description={text(
                       "Choisissez comment vous souhaitez recevoir votre commande.",
                       "اختر طريقة استلام طلبك."
                     )}
                   >
-                    {/* DELIVERY */}
+                    {/* DELIVERY CARDS */}
                     <div className="grid gap-4 md:grid-cols-2">
                       <DeliveryCard
-                        active={
-                          shippingMode ===
-                          "home"
-                        }
-                        icon={
-                          <Home
-                            size={22}
-                          />
-                        }
-                        title={text(
-                          "À domicile",
-                          "التوصيل إلى المنزل"
-                        )}
+                        active={shippingMode === "home"}
+                        icon={<Home size={22} />}
+                        title={text("À domicile", "التوصيل إلى المنزل")}
                         description={text(
                           "Votre colis arrive directement chez vous.",
                           "يصلك الطلب مباشرة إلى منزلك."
                         )}
                         price={
-                          selectedShipping?.home !=
-                          null
-                            ? formatPrice(
-                                selectedShipping.home
-                              )
+                          selectedShipping?.home != null
+                            ? formatPrice(selectedShipping.home)
                             : "--"
                         }
-                        onClick={() =>
-                          setShippingMode(
-                            "home"
-                          )
-                        }
+                        onClick={() => setShippingMode("home")}
                       />
 
                       <DeliveryCard
-                        active={
-                          shippingMode ===
-                          "desk"
-                        }
-                        icon={
-                          <Store
-                            size={22}
-                          />
-                        }
-                        title={text(
-                          "Stop Desk",
-                          "المكتب"
-                        )}
+                        active={shippingMode === "desk"}
+                        icon={<Store size={22} />}
+                        title={text("Stop Desk", "المكتب")}
                         description={text(
                           "Retirez votre colis dans un point de retrait.",
                           "استلم طلبك من نقطة الاستلام."
                         )}
                         price={
-                          selectedShipping?.desk !=
-                          null
-                            ? formatPrice(
-                                selectedShipping.desk
-                              )
+                          selectedShipping?.desk != null
+                            ? formatPrice(selectedShipping.desk)
                             : "--"
                         }
-                        onClick={() =>
-                          setShippingMode(
-                            "desk"
-                          )
-                        }
+                        onClick={() => setShippingMode("desk")}
                       />
                     </div>
 
                     {/* LOCATION */}
                     <div className="mt-9">
                       <span className="text-[9px] font-black uppercase tracking-[0.16em] text-blue-600">
-                        {text(
-                          "Localisation",
-                          "الموقع"
-                        )}
+                        {text("Localisation", "الموقع")}
                       </span>
 
                       <h2 className="mt-1 text-2xl font-black tracking-[-0.045em] text-slate-950">
@@ -1112,30 +758,13 @@ export default function OrderPage() {
 
                       <div className="mt-5 grid gap-4 md:grid-cols-2">
                         <SearchableSelect
-                          label={text(
-                            "Wilaya",
-                            "الولاية"
-                          )}
-                          icon={
-                            <MapPin
-                              size={15}
-                            />
-                          }
-                          options={
-                            deliveryWilayas
-                          }
-                          value={
-                            selectedWilayaId
-                          }
-                          onChange={
-                            setSelectedWilayaId
-                          }
-                          loading={
-                            loadingDelivery
-                          }
-                          disabled={
-                            loadingDelivery
-                          }
+                          label={text("Wilaya", "الولاية")}
+                          icon={<MapPin size={15} />}
+                          options={deliveryWilayas}
+                          value={selectedWilayaId}
+                          onChange={setSelectedWilayaId}
+                          loading={loadingDelivery}
+                          disabled={loadingDelivery}
                           placeholder={text(
                             "Rechercher une wilaya...",
                             "ابحث عن ولاية..."
@@ -1148,31 +777,13 @@ export default function OrderPage() {
                         />
 
                         <SearchableSelect
-                          label={text(
-                            "Commune",
-                            "البلدية"
-                          )}
-                          icon={
-                            <MapPin
-                              size={15}
-                            />
-                          }
-                          options={
-                            deliveryCommunes
-                          }
-                          value={
-                            selectedCommuneId
-                          }
-                          onChange={
-                            setSelectedCommuneId
-                          }
-                          loading={
-                            loadingCommunes
-                          }
-                          disabled={
-                            !selectedWilayaId ||
-                            loadingCommunes
-                          }
+                          label={text("Commune", "البلدية")}
+                          icon={<MapPin size={15} />}
+                          options={deliveryCommunes}
+                          value={selectedCommuneId}
+                          onChange={setSelectedCommuneId}
+                          loading={loadingCommunes}
+                          disabled={!selectedWilayaId || loadingCommunes}
                           placeholder={
                             !selectedWilayaId
                               ? text(
@@ -1191,52 +802,32 @@ export default function OrderPage() {
                         />
                       </div>
 
-                      {shippingMode ===
-                        "home" && (
+                      {/* ADDRESS (HOME only) */}
+                      {shippingMode === "home" && (
                         <div className="mt-4">
                           <Field
-                            label={text(
-                              "Adresse",
-                              "العنوان"
-                            )}
-                            icon={
-                              <Home
-                                size={15}
-                              />
-                            }
+                            label={text("Adresse", "العنوان")}
+                            icon={<Home size={15} />}
                           >
                             <input
-                              value={
-                                address
-                              }
-                              onChange={(
-                                e
-                              ) =>
-                                setAddress(
-                                  e.target
-                                    .value
-                                )
-                              }
+                              value={address}
+                              onChange={(e) => setAddress(e.target.value)}
                               placeholder={text(
                                 "Quartier, rue, numéro, repère...",
                                 "الحي، الشارع، رقم المنزل..."
                               )}
-                              className={
-                                inputClass
-                              }
+                              className={inputClass}
                             />
                           </Field>
                         </div>
                       )}
 
-                      {shippingMode ===
-                        "desk" && (
+                      {/* STOP DESK INFO */}
+                      {shippingMode === "desk" && (
                         <div className="mt-4 rounded-2xl bg-blue-50 p-4">
                           <div className="flex gap-3">
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600">
-                              <Store
-                                size={17}
-                              />
+                              <Store size={17} />
                             </span>
 
                             <div>
@@ -1264,32 +855,21 @@ export default function OrderPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="block text-[8px] font-black uppercase tracking-[0.15em] text-slate-500">
-                            {text(
-                              "Frais de livraison",
-                              "سعر التوصيل"
-                            )}
+                            {text("Frais de livraison", "سعر التوصيل")}
                           </span>
 
                           <strong className="mt-1 block text-xl font-black">
-                            {selectedShippingFee !=
-                            null
-                              ? formatPrice(
-                                  selectedShippingFee
-                                )
+                            {selectedShippingFee != null
+                              ? formatPrice(selectedShippingFee)
                               : "--"}
                           </strong>
                         </div>
 
                         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600">
-                          {shippingMode ===
-                          "home" ? (
-                            <Home
-                              size={19}
-                            />
+                          {shippingMode === "home" ? (
+                            <Home size={19} />
                           ) : (
-                            <Store
-                              size={19}
-                            />
+                            <Store size={19} />
                           )}
                         </span>
                       </div>
@@ -1299,29 +879,16 @@ export default function OrderPage() {
                     <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                       <button
                         type="button"
-                        onClick={() =>
-                          setStep(1)
-                        }
+                        onClick={() => setStep(1)}
                         className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-7 text-xs font-black text-slate-600 transition hover:bg-slate-50"
                       >
-                        <ArrowLeft
-                          size={15}
-                        />
-
-                        {text(
-                          "Retour",
-                          "رجوع"
-                        )}
+                        <ArrowLeft size={15} />
+                        {text("Retour", "رجوع")}
                       </button>
 
                       <NextButton
-                        label={text(
-                          "Continuer",
-                          "متابعة"
-                        )}
-                        onClick={
-                          goToStep3
-                        }
+                        label={text("Continuer", "متابعة")}
+                        onClick={goToStep3}
                       />
                     </div>
                   </StepContainer>
@@ -1331,30 +898,14 @@ export default function OrderPage() {
               {step === 3 && (
                 <motion.div
                   key="step-three"
-                  initial={{
-                    opacity: 0,
-                    x: 20,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    x: 0,
-                  }}
-                  exit={{
-                    opacity: 0,
-                    x: -20,
-                  }}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
                 >
                   <StepContainer
                     number="03"
-                    icon={
-                      <CheckCircle2
-                        size={20}
-                      />
-                    }
-                    title={text(
-                      "Confirmation",
-                      "تأكيد الطلب"
-                    )}
+                    icon={<CheckCircle2 size={20} />}
+                    title={text("Confirmation", "تأكيد الطلب")}
                     description={text(
                       "Vérifiez vos informations avant de confirmer.",
                       "راجع معلوماتك قبل تأكيد الطلب."
@@ -1362,78 +913,41 @@ export default function OrderPage() {
                   >
                     {/* CUSTOMER REVIEW */}
                     <ReviewCard
-                      icon={
-                        <UserRound
-                          size={17}
-                        />
-                      }
-                      title={text(
-                        "Vos informations",
-                        "بياناتك"
-                      )}
-                      onEdit={() =>
-                        setStep(1)
-                      }
+                      icon={<UserRound size={17} />}
+                      title={text("Vos informations", "بياناتك")}
+                      onEdit={() => setStep(1)}
                     >
                       <p className="font-bold text-slate-900">
                         {customerName}
                       </p>
-
-                      <p>
-                        {phone}
-                      </p>
+                      <p>{phone}</p>
                     </ReviewCard>
 
                     {/* DELIVERY REVIEW */}
                     <ReviewCard
                       icon={
-                        shippingMode ===
-                        "home" ? (
-                          <Home
-                            size={17}
-                          />
+                        shippingMode === "home" ? (
+                          <Home size={17} />
                         ) : (
-                          <Store
-                            size={17}
-                          />
+                          <Store size={17} />
                         )
                       }
-                      title={text(
-                        "Livraison",
-                        "التوصيل"
-                      )}
-                      onEdit={() =>
-                        setStep(2)
-                      }
+                      title={text("Livraison", "التوصيل")}
+                      onEdit={() => setStep(2)}
                     >
                       <p className="font-bold text-slate-900">
-                        {shippingMode ===
-                        "home"
-                          ? text(
-                              "À domicile",
-                              "التوصيل إلى المنزل"
-                            )
-                          : text(
-                              "Stop Desk",
-                              "المكتب"
-                            )}
+                        {shippingMode === "home"
+                          ? text("À domicile", "التوصيل إلى المنزل")
+                          : text("Stop Desk", "المكتب")}
                       </p>
 
                       <p>
                         {selectedWilaya?.name}
                         {" · "}
-                        {
-                          selectedCommune?.name
-                        }
+                        {selectedCommune?.name}
                       </p>
 
-                      {shippingMode ===
-                        "home" &&
-                        address && (
-                          <p>
-                            {address}
-                          </p>
-                        )}
+                      {shippingMode === "home" && address && <p>{address}</p>}
                     </ReviewCard>
 
                     {/* NOTE */}
@@ -1443,19 +957,11 @@ export default function OrderPage() {
                           "Note pour la commande",
                           "ملاحظة للطلب"
                         )}
-                        icon={
-                          <PackageCheck
-                            size={15}
-                          />
-                        }
+                        icon={<PackageCheck size={15} />}
                       >
                         <textarea
                           value={note}
-                          onChange={(e) =>
-                            setNote(
-                              e.target.value
-                            )
-                          }
+                          onChange={(e) => setNote(e.target.value)}
                           rows={4}
                           placeholder={text(
                             "Ex. Appelez-moi avant la livraison...",
@@ -1471,10 +977,7 @@ export default function OrderPage() {
                       <div className="flex items-end justify-between">
                         <div>
                           <span className="text-[9px] font-black uppercase tracking-[0.15em] text-blue-600">
-                            {text(
-                              "Votre panier",
-                              "سلتك"
-                            )}
+                            {text("Votre panier", "سلتك")}
                           </span>
 
                           <h3 className="mt-1 text-xl font-black tracking-[-0.04em]">
@@ -1485,59 +988,34 @@ export default function OrderPage() {
                           </h3>
                         </div>
 
-                        <ShoppingBag
-                          size={20}
-                          className="text-slate-300"
-                        />
+                        <ShoppingBag size={20} className="text-slate-300" />
                       </div>
 
                       <div className="mt-4 space-y-3">
-                        {items.map(
-                          (item) => (
-                            <CartReviewItem
-                              key={
-                                item
-                                  .product
-                                  .id
-                              }
-                              item={
-                                item
-                              }
-                            />
-                          )
-                        )}
+                        {items.map((item) => (
+                          <CartReviewItem key={item.product.id} item={item} />
+                        ))}
                       </div>
                     </div>
 
                     {/* FINAL TOTAL */}
                     <div className="mt-6 rounded-3xl bg-slate-950 p-6 text-white">
                       <SummaryRow
-                        label={text(
-                          "Sous-total",
-                          "المجموع الفرعي"
-                        )}
-                        value={formatPrice(
-                          subtotal
-                        )}
+                        label={text("Sous-total", "المجموع الفرعي")}
+                        value={formatPrice(subtotal)}
                       />
 
                       <div className="mt-4">
                         <SummaryRow
                           label={
-                            shippingMode ===
-                            "home"
+                            shippingMode === "home"
                               ? text(
                                   "Livraison à domicile",
                                   "التوصيل إلى المنزل"
                                 )
-                              : text(
-                                  "Stop Desk",
-                                  "المكتب"
-                                )
+                              : text("Stop Desk", "المكتب")
                           }
-                          value={formatPrice(
-                            deliveryFee
-                          )}
+                          value={formatPrice(deliveryFee)}
                         />
                       </div>
 
@@ -1546,10 +1024,7 @@ export default function OrderPage() {
                       <div className="flex items-end justify-between gap-4">
                         <div>
                           <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-slate-500">
-                            {text(
-                              "Total à payer",
-                              "الإجمالي"
-                            )}
+                            {text("Total à payer", "الإجمالي")}
                           </span>
 
                           <span className="mt-1 block text-[9px] text-slate-500">
@@ -1561,9 +1036,7 @@ export default function OrderPage() {
                         </div>
 
                         <strong className="text-3xl font-black tracking-[-0.05em]">
-                          {formatPrice(
-                            total
-                          )}
+                          {formatPrice(total)}
                         </strong>
                       </div>
                     </div>
@@ -1572,54 +1045,31 @@ export default function OrderPage() {
                     <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row">
                       <button
                         type="button"
-                        onClick={() =>
-                          setStep(2)
-                        }
+                        onClick={() => setStep(2)}
                         className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-6 text-xs font-black text-slate-600 hover:bg-slate-50"
                       >
-                        <ArrowLeft
-                          size={15}
-                        />
-
-                        {text(
-                          "Modifier",
-                          "تعديل"
-                        )}
+                        <ArrowLeft size={15} />
+                        {text("Modifier", "تعديل")}
                       </button>
 
                       <button
                         type="button"
-                        disabled={
-                          submitting
-                        }
-                        onClick={
-                          submitOrder
-                        }
+                        disabled={submitting}
+                        onClick={submitOrder}
                         className="group flex h-14 flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-xs font-black text-white shadow-[0_15px_35px_rgba(37,99,235,0.25)] transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {submitting ? (
                           <>
                             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-
-                            {text(
-                              "Enregistrement...",
-                              "جاري التسجيل..."
-                            )}
+                            {text("Enregistrement...", "جاري التسجيل...")}
                           </>
                         ) : (
                           <>
-                            <Check
-                              size={16}
-                              strokeWidth={
-                                3
-                              }
-                            />
-
+                            <Check size={16} strokeWidth={3} />
                             {text(
                               "Confirmer la commande",
                               "تأكيد الطلب"
                             )}
-
                             <ArrowRight
                               size={15}
                               className="rtl-flip transition-transform group-hover:translate-x-1"
@@ -1634,21 +1084,14 @@ export default function OrderPage() {
             </AnimatePresence>
           </div>
 
-          {/* =================================================
-              RIGHT CART
-          ================================================= */}
-
+          {/* RIGHT CART */}
           <OrderSummary
             items={items}
             subtotal={subtotal}
             deliveryFee={deliveryFee}
             total={total}
-            shippingMode={
-              shippingMode
-            }
-            selectedShippingFee={
-              selectedShippingFee
-            }
+            shippingMode={shippingMode}
+            selectedShippingFee={selectedShippingFee}
             currentStep={step}
           />
         </div>
@@ -1663,108 +1106,59 @@ export default function OrderPage() {
    PROGRESS
 ========================================================= */
 
-function ProgressSteps({
-  current,
-}: {
-  current: Step;
-}) {
+function ProgressSteps({ current }: { current: Step }) {
   const { text } = useLocale();
 
   const steps = [
-    {
-      number: 1,
-      title: text(
-        "Panier",
-        "السلة"
-      ),
-    },
-    {
-      number: 2,
-      title: text(
-        "Livraison",
-        "التوصيل"
-      ),
-    },
-    {
-      number: 3,
-      title: text(
-        "Confirmation",
-        "التأكيد"
-      ),
-    },
+    { number: 1, title: text("Panier", "السلة") },
+    { number: 2, title: text("Livraison", "التوصيل") },
+    { number: 3, title: text("Confirmation", "التأكيد") },
   ];
 
   return (
     <div className="mt-8 overflow-x-auto pb-1">
       <div className="flex min-w-[540px] items-center">
-        {steps.map(
-          (item, index) => {
-            const active =
-              current ===
-              item.number;
+        {steps.map((item, index) => {
+          const active = current === item.number;
+          const completed = current > item.number;
 
-            const completed =
-              current >
-              item.number;
+          return (
+            <div key={item.number} className="flex flex-1 items-center">
+              <div className="flex items-center gap-2">
+                <span
+                  className={[
+                    "flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-black",
+                    active
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                      : completed
+                        ? "bg-emerald-500 text-white"
+                        : "bg-slate-100 text-slate-400",
+                  ].join(" ")}
+                >
+                  {completed ? <Check size={13} strokeWidth={3} /> : item.number}
+                </span>
 
-            return (
-              <div
-                key={
-                  item.number
-                }
-                className="flex flex-1 items-center"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={[
-                      "flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-black",
-                      active
-                        ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                        : completed
-                          ? "bg-emerald-500 text-white"
-                          : "bg-slate-100 text-slate-400",
-                    ].join(" ")}
-                  >
-                    {completed ? (
-                      <Check
-                        size={13}
-                        strokeWidth={
-                          3
-                        }
-                      />
-                    ) : (
-                      item.number
-                    )}
-                  </span>
-
-                  <span
-                    className={[
-                      "text-[10px] font-black",
-                      active
-                        ? "text-slate-950"
-                        : "text-slate-400",
-                    ].join(" ")}
-                  >
-                    {item.title}
-                  </span>
-                </div>
-
-                {index <
-                  steps.length -
-                    1 && (
-                  <div
-                    className={[
-                      "mx-4 h-px flex-1",
-                      completed
-                        ? "bg-emerald-300"
-                        : "bg-slate-200",
-                    ].join(" ")}
-                  />
-                )}
+                <span
+                  className={[
+                    "text-[10px] font-black",
+                    active ? "text-slate-950" : "text-slate-400",
+                  ].join(" ")}
+                >
+                  {item.title}
+                </span>
               </div>
-            );
-          }
-        )}
+
+              {index < steps.length - 1 && (
+                <div
+                  className={[
+                    "mx-4 h-px flex-1",
+                    completed ? "bg-emerald-300" : "bg-slate-200",
+                  ].join(" ")}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1799,10 +1193,7 @@ function StepContainer({
 
           <div>
             <span className="text-[9px] font-black uppercase tracking-[0.16em] text-blue-600">
-              {text(
-                `Étape ${number}`,
-                `الخطوة ${number}`
-              )}
+              {text(`Étape ${number}`, `الخطوة ${number}`)}
             </span>
 
             <h2 className="mt-1 text-2xl font-black tracking-[-0.045em] text-slate-950">
@@ -1816,9 +1207,7 @@ function StepContainer({
         </div>
       </header>
 
-      <div className="p-6 sm:p-8">
-        {children}
-      </div>
+      <div className="p-6 sm:p-8">{children}</div>
     </section>
   );
 }
@@ -1842,10 +1231,7 @@ function Field({
   return (
     <label className="block">
       <span className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.08em] text-slate-600">
-        <span className="text-blue-600">
-          {icon}
-        </span>
-
+        <span className="text-blue-600">{icon}</span>
         {label}
       </span>
 
@@ -1917,9 +1303,7 @@ function DeliveryCard({
         <span
           className={[
             "flex h-12 w-12 items-center justify-center rounded-2xl",
-            active
-              ? "bg-white/15 text-white"
-              : "bg-blue-50 text-blue-600",
+            active ? "bg-white/15 text-white" : "bg-blue-50 text-blue-600",
           ].join(" ")}
         >
           {icon}
@@ -1933,10 +1317,7 @@ function DeliveryCard({
               : "border-slate-200 text-transparent",
           ].join(" ")}
         >
-          <Check
-            size={13}
-            strokeWidth={3}
-          />
+          <Check size={13} strokeWidth={3} />
         </span>
       </div>
 
@@ -1947,9 +1328,7 @@ function DeliveryCard({
       <p
         className={[
           "mt-2 min-h-[42px] text-[10px] font-medium leading-5",
-          active
-            ? "text-blue-100"
-            : "text-slate-500",
+          active ? "text-blue-100" : "text-slate-500",
         ].join(" ")}
       >
         {description}
@@ -1960,28 +1339,18 @@ function DeliveryCard({
           <span
             className={[
               "block text-[8px] font-black uppercase tracking-[0.15em]",
-              active
-                ? "text-blue-200"
-                : "text-slate-400",
+              active ? "text-blue-200" : "text-slate-400",
             ].join(" ")}
           >
-            {text(
-              "Tarif",
-              "السعر"
-            )}
+            {text("Tarif", "السعر")}
           </span>
 
-          <strong className="mt-1 block text-xl font-black">
-            {price}
-          </strong>
+          <strong className="mt-1 block text-xl font-black">{price}</strong>
         </div>
 
         {active && (
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.1em] text-white">
-            {text(
-              "Sélectionné",
-              "تم الاختيار"
-            )}
+            {text("Sélectionné", "تم الاختيار")}
           </span>
         )}
       </div>
@@ -2014,9 +1383,7 @@ function SearchableSelect({
   icon: ReactNode;
   options: SelectOption[];
   value: string;
-  onChange: (
-    value: string
-  ) => void;
+  onChange: (value: string) => void;
   loading?: boolean;
   disabled?: boolean;
   placeholder: string;
@@ -2025,76 +1392,42 @@ function SearchableSelect({
 }) {
   const { text } = useLocale();
 
-  const [open, setOpen] =
-    useState(false);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlighted, setHighlighted] = useState(0);
 
-  const [query, setQuery] =
-    useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-  const [
-    highlighted,
-    setHighlighted,
-  ] = useState(0);
+  const selected = options.find(
+    (item) => String(item.id) === String(value)
+  );
 
-  const rootRef =
-    useRef<HTMLDivElement>(null);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
 
-  const searchRef =
-    useRef<HTMLInputElement>(null);
-
-  const selected =
-    options.find(
+    return options.filter(
       (item) =>
-        String(item.id) ===
-        String(value)
+        item.name.toLowerCase().includes(q) ||
+        String(item.id).toLowerCase().includes(q)
     );
-
-  const filtered =
-    useMemo(() => {
-      const q =
-        query
-          .trim()
-          .toLowerCase();
-
-      if (!q) {
-        return options;
-      }
-
-      return options.filter(
-        (item) =>
-          item.name
-            .toLowerCase()
-            .includes(q) ||
-          String(item.id)
-            .toLowerCase()
-            .includes(q)
-      );
-    }, [options, query]);
+  }, [options, query]);
 
   useEffect(() => {
-    function handleOutside(
-      event: MouseEvent
-    ) {
+    function handleOutside(event: MouseEvent) {
       if (
         rootRef.current &&
-        !rootRef.current.contains(
-          event.target as Node
-        )
+        !rootRef.current.contains(event.target as Node)
       ) {
         setOpen(false);
       }
     }
 
-    document.addEventListener(
-      "mousedown",
-      handleOutside
-    );
+    document.addEventListener("mousedown", handleOutside);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleOutside
-      );
+      document.removeEventListener("mousedown", handleOutside);
     };
   }, []);
 
@@ -2110,89 +1443,46 @@ function SearchableSelect({
     setHighlighted(0);
   }, [query]);
 
-  function choose(
-    option: SelectOption
-  ) {
-    onChange(
-      String(option.id)
-    );
-
+  function choose(option: SelectOption) {
+    onChange(String(option.id));
     setOpen(false);
     setQuery("");
   }
 
-  function handleKeyDown(
-    event: KeyboardEvent<HTMLInputElement>
-  ) {
-    if (
-      event.key === "Escape"
-    ) {
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Escape") {
       event.preventDefault();
       setOpen(false);
       return;
     }
 
-    if (
-      event.key === "ArrowDown"
-    ) {
+    if (event.key === "ArrowDown") {
       event.preventDefault();
-
-      setHighlighted(
-        (current) =>
-          filtered.length
-            ? Math.min(
-                current + 1,
-                filtered.length -
-                  1
-              )
-            : 0
+      setHighlighted((current) =>
+        filtered.length
+          ? Math.min(current + 1, filtered.length - 1)
+          : 0
       );
-
       return;
     }
 
-    if (
-      event.key === "ArrowUp"
-    ) {
+    if (event.key === "ArrowUp") {
       event.preventDefault();
-
-      setHighlighted(
-        (current) =>
-          Math.max(
-            current - 1,
-            0
-          )
-      );
-
+      setHighlighted((current) => Math.max(current - 1, 0));
       return;
     }
 
-    if (
-      event.key === "Enter"
-    ) {
+    if (event.key === "Enter") {
       event.preventDefault();
-
-      const option =
-        filtered[
-          highlighted
-        ];
-
-      if (option) {
-        choose(option);
-      }
+      const option = filtered[highlighted];
+      if (option) choose(option);
     }
   }
 
   return (
-    <div
-      ref={rootRef}
-      className="relative"
-    >
+    <div ref={rootRef} className="relative">
       <label className="mb-2 flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.08em] text-slate-600">
-        <span className="text-blue-600">
-          {icon}
-        </span>
-
+        <span className="text-blue-600">{icon}</span>
         {label}
       </label>
 
@@ -2201,7 +1491,6 @@ function SearchableSelect({
         disabled={disabled}
         onClick={() => {
           if (disabled) return;
-
           setOpen(true);
           setQuery("");
           setHighlighted(0);
@@ -2223,15 +1512,7 @@ function SearchableSelect({
               : "bg-slate-100 text-slate-400",
           ].join(" ")}
         >
-          {selected ? (
-            <Check
-              size={15}
-            />
-          ) : (
-            <MapPin
-              size={15}
-            />
-          )}
+          {selected ? <Check size={15} /> : <MapPin size={15} />}
         </span>
 
         <span className="min-w-0 flex-1">
@@ -2239,19 +1520,13 @@ function SearchableSelect({
             {selected
               ? selected.name
               : loading
-                ? text(
-                    "Chargement...",
-                    "جاري التحميل..."
-                  )
+                ? text("Chargement...", "جاري التحميل...")
                 : placeholder}
           </span>
 
           {selected && (
             <span className="mt-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-slate-400">
-              {text(
-                ` ${selected.id}`,
-                ` ${selected.id}`
-              )}
+              {text(` ${selected.id}`, ` ${selected.id}`)}
             </span>
           )}
         </span>
@@ -2260,208 +1535,129 @@ function SearchableSelect({
           size={16}
           className={[
             "shrink-0 text-slate-400 transition",
-            open
-              ? "rotate-180 text-blue-600"
-              : "",
+            open ? "rotate-180 text-blue-600" : "",
           ].join(" ")}
         />
       </button>
 
       <AnimatePresence>
-        {open &&
-          !disabled && (
-            <motion.div
-              initial={{
-                opacity: 0,
-                y: -5,
-                scale: 0.98,
-              }}
-              animate={{
-                opacity: 1,
-                y: 6,
-                scale: 1,
-              }}
-              exit={{
-                opacity: 0,
-                y: -5,
-                scale: 0.98,
-              }}
-              className="absolute inset-x-0 top-full z-[100] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_25px_70px_rgba(15,23,42,0.16)]"
-            >
-              <div className="border-b border-slate-100 bg-slate-50 p-3">
-                <div className="relative">
-                  <Search
-                    size={14}
-                    className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"
-                  />
+        {open && !disabled && (
+          <motion.div
+            initial={{ opacity: 0, y: -5, scale: 0.98 }}
+            animate={{ opacity: 1, y: 6, scale: 1 }}
+            exit={{ opacity: 0, y: -5, scale: 0.98 }}
+            className="absolute inset-x-0 top-full z-[100] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_25px_70px_rgba(15,23,42,0.16)]"
+          >
+            <div className="border-b border-slate-100 bg-slate-50 p-3">
+              <div className="relative">
+                <Search
+                  size={14}
+                  className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
 
-                  <input
-                    ref={searchRef}
-                    value={query}
-                    onChange={(event) =>
-                      setQuery(
-                        event.target.value
-                      )
-                    }
-                    onKeyDown={
-                      handleKeyDown
-                    }
-                    placeholder={text(
-                      "Rechercher...",
-                      "بحث..."
-                    )}
-                    className="h-11 w-full rounded-xl border border-slate-200 bg-white ps-10 pe-9 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                  />
+                <input
+                  ref={searchRef}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={text("Rechercher...", "بحث...")}
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-white ps-10 pe-9 text-xs font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+                />
 
-                  {query && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setQuery(
-                          ""
-                        )
-                      }
-                      className="absolute end-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"
-                    >
-                      <X
-                        size={13}
-                      />
-                    </button>
-                  )}
-                </div>
-
-                <div className="mt-2 flex justify-between px-1 text-[8px] font-bold text-slate-400">
-                  <span>
-                    {numberOptions
-                      ? text(
-                          `${options.length} wilayas`,
-                          `${options.length} ولاية`
-                        )
-                      : text(
-                          `${options.length} communes`,
-                          `${options.length} بلدية`
-                        )}
-                  </span>
-
-                  <span>
-                    ↑ ↓ · Enter
-                  </span>
-                </div>
-              </div>
-
-              <div className="max-h-[300px] overflow-y-auto p-2">
-                {loading ? (
-                  <div className="p-7 text-center">
-                    <span className="mx-auto block h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
-                  </div>
-                ) : filtered.length ? (
-                  filtered.map(
-                    (
-                      option,
-                      index
-                    ) => {
-                      const active =
-                        String(
-                          option.id
-                        ) ===
-                        String(value);
-
-                      const isHighlighted =
-                        index ===
-                        highlighted;
-
-                      return (
-                        <button
-                          key={String(
-                            option.id
-                          )}
-                          type="button"
-                          onMouseEnter={() =>
-                            setHighlighted(
-                              index
-                            )
-                          }
-                          onClick={() =>
-                            choose(
-                              option
-                            )
-                          }
-                          className={[
-                            "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-start transition",
-                            isHighlighted
-                              ? "bg-blue-50"
-                              : "hover:bg-slate-50",
-                          ].join(
-                            " "
-                          )}
-                        >
-                          {numberOptions && (
-                            <span
-                              className={[
-                                "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[9px] font-black",
-                                active
-                                  ? "bg-blue-600 text-white"
-                                  : "bg-slate-100 text-slate-500",
-                              ].join(
-                                " "
-                              )}
-                            >
-                              {String(
-                                index +
-                                  1
-                              ).padStart(
-                                2,
-                                "0"
-                              )}
-                            </span>
-                          )}
-
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[11px] font-black text-slate-800">
-                              {
-                                option.name
-                              }
-                            </span>
-
-                            <span className="mt-0.5 block text-[8px] text-slate-400">
-                              {text(
-                                ` ${option.id}`,
-                                ` ${option.id}`
-                              )}
-                            </span>
-                          </span>
-
-                          {active && (
-                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white">
-                              <Check
-                                size={
-                                  13
-                                }
-                                strokeWidth={
-                                  3
-                                }
-                              />
-                            </span>
-                          )}
-                        </button>
-                      );
-                    }
-                  )
-                ) : (
-                  <div className="p-7 text-center">
-                    <Search
-                      size={20}
-                      className="mx-auto text-slate-300"
-                    />
-
-                    <p className="mt-2 text-xs font-black text-slate-700">
-                      {emptyText}
-                    </p>
-                  </div>
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="absolute end-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100"
+                  >
+                    <X size={13} />
+                  </button>
                 )}
               </div>
-            </motion.div>
-          )}
+
+              <div className="mt-2 flex justify-between px-1 text-[8px] font-bold text-slate-400">
+                <span>
+                  {numberOptions
+                    ? text(
+                        `${options.length} wilayas`,
+                        `${options.length} ولاية`
+                      )
+                    : text(
+                        `${options.length} communes`,
+                        `${options.length} بلدية`
+                      )}
+                </span>
+
+                <span>↑ ↓ · Enter</span>
+              </div>
+            </div>
+
+            <div className="max-h-[300px] overflow-y-auto p-2">
+              {loading ? (
+                <div className="p-7 text-center">
+                  <span className="mx-auto block h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+                </div>
+              ) : filtered.length ? (
+                filtered.map((option, index) => {
+                  const active =
+                    String(option.id) === String(value);
+
+                  const isHighlighted = index === highlighted;
+
+                  return (
+                    <button
+                      key={String(option.id)}
+                      type="button"
+                      onMouseEnter={() => setHighlighted(index)}
+                      onClick={() => choose(option)}
+                      className={[
+                        "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-start transition",
+                        isHighlighted ? "bg-blue-50" : "hover:bg-slate-50",
+                      ].join(" ")}
+                    >
+                      {numberOptions && (
+                        <span
+                          className={[
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[9px] font-black",
+                            active
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-100 text-slate-500",
+                          ].join(" ")}
+                        >
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                      )}
+
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[11px] font-black text-slate-800">
+                          {option.name}
+                        </span>
+
+                        <span className="mt-0.5 block text-[8px] text-slate-400">
+                          {text(` ${option.id}`, ` ${option.id}`)}
+                        </span>
+                      </span>
+
+                      {active && (
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white">
+                          <Check size={13} strokeWidth={3} />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="p-7 text-center">
+                  <Search size={20} className="mx-auto text-slate-300" />
+
+                  <p className="mt-2 text-xs font-black text-slate-700">
+                    {emptyText}
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
@@ -2493,21 +1689,14 @@ function ReviewCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between">
-            <strong className="text-xs font-black">
-              {title}
-            </strong>
+            <strong className="text-xs font-black">{title}</strong>
 
             <button
               type="button"
-              onClick={
-                onEdit
-              }
+              onClick={onEdit}
               className="text-[9px] font-black text-blue-600"
             >
-              {text(
-                "Modifier",
-                "تعديل"
-              )}
+              {text("Modifier", "تعديل")}
             </button>
           </div>
 
@@ -2522,14 +1711,9 @@ function ReviewCard({
 
 /* =========================================================
    CART ITEM
-   IMPORTANT: NO TRUNCATE
 ========================================================= */
 
-function CartReviewItem({
-  item,
-}: {
-  item: CartItem;
-}) {
+function CartReviewItem({ item }: { item: CartItem }) {
   return (
     <div className="flex items-center gap-4 rounded-2xl bg-slate-50 p-3">
       <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl bg-white">
@@ -2543,7 +1727,6 @@ function CartReviewItem({
       </div>
 
       <div className="min-w-0 flex-1">
-        {/* PAS DE TRUNCATE ICI */}
         <p className="text-sm font-black leading-5 text-slate-900">
           {item.product.name}
         </p>
@@ -2554,10 +1737,7 @@ function CartReviewItem({
       </div>
 
       <strong className="shrink-0 text-xs font-black text-slate-950">
-        {formatPrice(
-          item.product.price *
-            item.quantity
-        )}
+        {formatPrice(item.product.price * item.quantity)}
       </strong>
     </div>
   );
@@ -2580,12 +1760,8 @@ function OrderSummary({
   subtotal: number;
   deliveryFee: number;
   total: number;
-  shippingMode:
-    | "home"
-    | "desk";
-  selectedShippingFee:
-    | number
-    | null;
+  shippingMode: "home" | "desk";
+  selectedShippingFee: number | null;
   currentStep: Step;
 }) {
   const { text } = useLocale();
@@ -2593,22 +1769,15 @@ function OrderSummary({
   return (
     <aside className="xl:sticky xl:top-6">
       <div className="overflow-hidden rounded-[28px] bg-[#050b1c] text-white shadow-[0_25px_70px_rgba(15,23,42,0.18)]">
-        {/* HEADER */}
         <div className="border-b border-white/10 px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <span className="text-[8px] font-black uppercase tracking-[0.18em] text-blue-300">
-                {text(
-                  "Résumé",
-                  "الملخص"
-                )}
+                {text("Résumé", "الملخص")}
               </span>
 
               <h2 className="mt-1 text-xl font-black tracking-[-0.04em]">
-                {text(
-                  "Votre commande",
-                  "طلبك"
-                )}
+                {text("Votre commande", "طلبك")}
               </h2>
 
               <span className="mt-1 block text-[9px] font-bold text-slate-500">
@@ -2620,108 +1789,67 @@ function OrderSummary({
             </div>
 
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/5 text-blue-300">
-              <ReceiptText
-                size={19}
-              />
+              <ReceiptText size={19} />
             </span>
           </div>
         </div>
 
-        {/* PRODUCTS */}
         <div className="space-y-3 p-4">
-          {items.map(
-            (item) => (
-              <div
-                key={
-                  item.product.id
-                }
-                className="rounded-2xl bg-[#0d1428] p-3"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="relative h-[70px] w-[70px] shrink-0 overflow-hidden rounded-xl bg-white">
-                    <Image
-                      src={
-                        item
-                          .product
-                          .image
-                      }
-                      alt={
-                        item
-                          .product
-                          .name
-                      }
-                      fill
-                      sizes="70px"
-                      className="object-contain p-2"
-                    />
-                  </div>
+          {items.map((item) => (
+            <div
+              key={item.product.id}
+              className="rounded-2xl bg-[#0d1428] p-3"
+            >
+              <div className="flex items-start gap-3">
+                <div className="relative h-[70px] w-[70px] shrink-0 overflow-hidden rounded-xl bg-white">
+                  <Image
+                    src={item.product.image}
+                    alt={item.product.name}
+                    fill
+                    sizes="70px"
+                    className="object-contain p-2"
+                  />
+                </div>
 
-                  <div className="min-w-0 flex-1">
-                    {/* NOM COMPLET */}
-                    <p className="break-words text-[11px] font-black leading-[1.45] text-white">
-                      {
-                        item
-                          .product
-                          .name
-                      }
-                    </p>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-[11px] font-black leading-[1.45] text-white">
+                    {item.product.name}
+                  </p>
 
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="text-[9px] font-bold text-slate-500">
-                        {text(
-                          `Quantité : ${item.quantity}`,
-                          `الكمية: ${item.quantity}`
-                        )}
-                      </span>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-bold text-slate-500">
+                      {text(
+                        `Quantité : ${item.quantity}`,
+                        `الكمية: ${item.quantity}`
+                      )}
+                    </span>
 
-                      <strong className="shrink-0 text-[11px] font-black text-blue-300">
-                        {formatPrice(
-                          item
-                            .product
-                            .price *
-                            item.quantity
-                        )}
-                      </strong>
-                    </div>
+                    <strong className="shrink-0 text-[11px] font-black text-blue-300">
+                      {formatPrice(item.product.price * item.quantity)}
+                    </strong>
                   </div>
                 </div>
               </div>
-            )
-          )}
+            </div>
+          ))}
         </div>
 
-        {/* TOTAL */}
         <div className="border-t border-white/10 p-6">
           <SummaryRow
-            label={text(
-              "Sous-total",
-              "المجموع الفرعي"
-            )}
-            value={formatPrice(
-              subtotal
-            )}
+            label={text("Sous-total", "المجموع الفرعي")}
+            value={formatPrice(subtotal)}
           />
 
           <div className="mt-4">
             <SummaryRow
               label={
-                shippingMode ===
-                "home"
-                  ? text(
-                      "Livraison à domicile",
-                      "التوصيل إلى المنزل"
-                    )
-                  : text(
-                      "Stop Desk",
-                      "المكتب"
-                    )
+                shippingMode === "home"
+                  ? text("Livraison à domicile", "التوصيل إلى المنزل")
+                  : text("Stop Desk", "المكتب")
               }
               value={
-                selectedShippingFee !=
-                null
-                  ? formatPrice(
-                      deliveryFee
-                    )
+                selectedShippingFee != null
+                  ? formatPrice(deliveryFee)
                   : "--"
               }
             />
@@ -2730,136 +1858,70 @@ function OrderSummary({
           <div className="my-5 border-t border-dashed border-white/10" />
 
           <span className="text-[8px] font-black uppercase tracking-[0.16em] text-slate-500">
-            {text(
-              "Total",
-              "الإجمالي"
-            )}
+            {text("Total", "الإجمالي")}
           </span>
 
           <div className="mt-1 flex items-end justify-between gap-3">
             <div>
               <span className="block text-[9px] text-slate-500">
-                {text(
-                  "Paiement à la livraison",
-                  "الدفع عند الاستلام"
-                )}
+                {text("Paiement à la livraison", "الدفع عند الاستلام")}
               </span>
             </div>
 
             <strong className="text-[30px] font-black tracking-[-0.055em]">
-              {formatPrice(
-                total
-              )}
+              {formatPrice(total)}
             </strong>
           </div>
 
           <div className="mt-5 flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-3 text-[8px] font-black text-emerald-300">
-            <ShieldCheck
-              size={13}
-            />
-
+            <ShieldCheck size={13} />
             {text(
               "Paiement sécurisé à la livraison",
               "الدفع عند الاستلام"
             )}
           </div>
 
-          {/* MINI PROGRESS */}
           <div className="mt-7">
             <div className="flex items-center">
-              {[1, 2, 3].map(
-                (number, index) => {
-                  const completed =
-                    currentStep >
-                    number;
+              {[1, 2, 3].map((number, index) => {
+                const completed = currentStep > number;
+                const active = currentStep === number;
 
-                  const active =
-                    currentStep ===
-                    number;
-
-                  return (
-                    <div
-                      key={
-                        number
-                      }
-                      className="flex flex-1 items-center"
+                return (
+                  <div key={number} className="flex flex-1 items-center">
+                    <span
+                      className={[
+                        "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[9px] font-black",
+                        active
+                          ? "bg-blue-600 text-white"
+                          : completed
+                            ? "bg-white text-slate-950"
+                            : "bg-slate-800 text-slate-500",
+                      ].join(" ")}
                     >
+                      {completed ? <Check size={12} /> : number}
+                    </span>
+
+                    {index < 2 && (
                       <span
                         className={[
-                          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[9px] font-black",
-                          active
-                            ? "bg-blue-600 text-white"
-                            : completed
-                              ? "bg-white text-slate-950"
-                              : "bg-slate-800 text-slate-500",
-                        ].join(
-                          " "
-                        )}
-                      >
-                        {completed ? (
-                          <Check
-                            size={
-                              12
-                            }
-                          />
-                        ) : (
-                          number
-                        )}
-                      </span>
-
-                      {index <
-                        2 && (
-                        <span
-                          className={[
-                            "h-px flex-1",
-                            completed
-                              ? "bg-blue-500"
-                              : "bg-slate-800",
-                          ].join(
-                            " "
-                          )}
-                        />
-                      )}
-                    </div>
-                  );
-                }
-              )}
+                          "h-px flex-1",
+                          completed ? "bg-blue-500" : "bg-slate-800",
+                        ].join(" ")}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="mt-2 flex justify-between text-[8px] font-bold text-slate-500">
-              <span>
-                {text(
-                  "Panier",
-                  "السلة"
-                )}
+              <span>{text("Panier", "السلة")}</span>
+              <span className={currentStep === 2 ? "text-blue-400" : ""}>
+                {text("Livraison", "التوصيل")}
               </span>
-
-              <span
-                className={
-                  currentStep ===
-                  2
-                    ? "text-blue-400"
-                    : ""
-                }
-              >
-                {text(
-                  "Livraison",
-                  "التوصيل"
-                )}
-              </span>
-
-              <span
-                className={
-                  currentStep ===
-                  3
-                    ? "text-blue-400"
-                    : ""
-                }
-              >
-                {text(
-                  "Confirmation",
-                  "التأكيد"
-                )}
+              <span className={currentStep === 3 ? "text-blue-400" : ""}>
+                {text("Confirmation", "التأكيد")}
               </span>
             </div>
           </div>
@@ -2897,47 +1959,28 @@ function SummaryRow({
    SUCCESS
 ========================================================= */
 
-function SuccessPage({
-  orderNumber,
-}: {
-  orderNumber: string;
-}) {
+function SuccessPage({ orderNumber }: { orderNumber: string }) {
   const { text } = useLocale();
 
   return (
     <div className="min-h-screen bg-[#f6f8fc]">
-      <Suspense
-        fallback={
-          <div className="h-20 bg-white" />
-        }
-      >
+      <Suspense fallback={<div className="h-20 bg-white" />}>
         <Header />
       </Suspense>
 
       <main className="mx-auto max-w-3xl px-4 py-14 sm:px-6 lg:py-20">
         <motion.div
-          initial={{
-            opacity: 0,
-            y: 20,
-          }}
-          animate={{
-            opacity: 1,
-            y: 0,
-          }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
           className="overflow-hidden rounded-[32px] bg-white shadow-[0_25px_80px_rgba(15,23,42,0.08)]"
         >
           <div className="bg-slate-950 px-6 py-12 text-center text-white">
             <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
-              <CheckCircle2
-                size={40}
-              />
+              <CheckCircle2 size={40} />
             </span>
 
             <span className="mt-6 block text-[9px] font-black uppercase tracking-[0.16em] text-blue-300">
-              {text(
-                "Commande confirmée",
-                "تم تأكيد الطلب"
-              )}
+              {text("Commande confirmée", "تم تأكيد الطلب")}
             </span>
 
             <h1 className="mt-2 text-3xl font-black tracking-[-0.05em]">
@@ -2958,45 +2001,29 @@ function SuccessPage({
           <div className="p-6 sm:p-10">
             <div className="rounded-3xl bg-blue-50 p-6 text-center">
               <span className="block text-[9px] font-black uppercase tracking-[0.15em] text-blue-600">
-                {text(
-                  "Référence commande",
-                  "رقم الطلب"
-                )}
+                {text("Référence commande", "رقم الطلب")}
               </span>
 
               <strong className="mt-2 block break-all text-2xl font-black tracking-[0.04em]">
                 {orderNumber ||
-                  text(
-                    "Commande enregistrée",
-                    "تم تسجيل الطلب"
-                  )}
+                  text("Commande enregistrée", "تم تسجيل الطلب")}
               </strong>
             </div>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/articles"
-                className="flex h-13 flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-xs font-black text-white hover:bg-blue-600"
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-4 text-xs font-black text-white hover:bg-blue-600"
               >
-                {text(
-                  "Continuer mes achats",
-                  "متابعة التسوق"
-                )}
-
-                <ArrowRight
-                  size={15}
-                  className="rtl-flip"
-                />
+                {text("Continuer mes achats", "متابعة التسوق")}
+                <ArrowRight size={15} className="rtl-flip" />
               </Link>
 
               <Link
                 href="/"
-                className="flex h-13 flex-1 items-center justify-center rounded-2xl border border-slate-200 px-5 py-4 text-xs font-black text-slate-700"
+                className="flex flex-1 items-center justify-center rounded-2xl border border-slate-200 px-5 py-4 text-xs font-black text-slate-700"
               >
-                {text(
-                  "Accueil",
-                  "الرئيسية"
-                )}
+                {text("Accueil", "الرئيسية")}
               </Link>
             </div>
           </div>
@@ -3019,16 +2046,11 @@ function EmptyPage() {
     <main className="mx-auto max-w-xl px-4 py-20">
       <div className="rounded-[30px] bg-white p-10 text-center shadow-sm">
         <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-950 text-blue-300">
-          <ShoppingBag
-            size={26}
-          />
+          <ShoppingBag size={26} />
         </span>
 
         <h1 className="mt-5 text-2xl font-black">
-          {text(
-            "Votre panier est vide",
-            "سلة التسوق فارغة"
-          )}
+          {text("Votre panier est vide", "سلة التسوق فارغة")}
         </h1>
 
         <p className="mt-2 text-sm text-slate-500">
@@ -3042,10 +2064,7 @@ function EmptyPage() {
           href="/articles"
           className="mt-6 inline-flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-6 text-xs font-black text-white"
         >
-          {text(
-            "Voir le catalogue",
-            "عرض المنتجات"
-          )}
+          {text("Voir le catalogue", "عرض المنتجات")}
         </Link>
       </div>
     </main>
@@ -3064,7 +2083,6 @@ function LoadingPage() {
 
         <div className="mt-8 grid gap-7 lg:grid-cols-[1fr_390px]">
           <div className="h-[650px] rounded-[28px] bg-white" />
-
           <div className="h-[550px] rounded-[28px] bg-slate-900" />
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { useLocale } from "@/components/LocaleProvider";
 import { adminList } from "@/lib/admin-api";
 import { apiFetch, backendUrl } from "@/lib/api";
 
@@ -207,6 +208,7 @@ function extractArticleIds(row: Promotion): Array<number | string> {
 ========================================================= */
 
 export default function Page() {
+  const { text, isArabic } = useLocale();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
 
@@ -494,8 +496,8 @@ async function loadPromotions() {
       nameAr: promotion.name_ar || "",
       type:
         promotion.type === "MONTANT"
-          ? "MONTANT"
-          : "POURCENTAGE",
+          ? text("MONTANT", "مبلغ")
+          : text("POURCENTAGE", "نسبة مئوية"),
       value:
         promotion.value !== null &&
         promotion.value !== undefined
@@ -567,21 +569,21 @@ async function loadPromotions() {
 
     if (!form.name.trim()) {
       setError(
-        "Le nom français est obligatoire."
+        text("Le nom français est obligatoire.", "الاسم بالفرنسية مطلوب.")
       );
       return;
     }
 
     if (!form.value) {
       setError(
-        "La valeur de la promotion est obligatoire."
+        text("La valeur de la promotion est obligatoire.", "قيمة العرض مطلوبة.")
       );
       return;
     }
 
     if (form.articleIds.length !== 1) {
       setError(
-        "Une promotion doit être associée à un seul produit."
+        text("Une promotion doit être associée à un seul produit.", "يجب ربط العرض بمنتج واحد فقط.")
       );
       return;
     }
@@ -590,21 +592,21 @@ async function loadPromotions() {
       Number(form.value) < 0
     ) {
       setError(
-        "La valeur de la promotion doit être positive."
+        text("La valeur de la promotion doit être positive.", "يجب أن تكون قيمة العرض موجبة.")
       );
       return;
     }
 
     if (!form.startAt) {
       setError(
-        "La date de début est obligatoire."
+        text("La date de début est obligatoire.", "تاريخ البداية مطلوب.")
       );
       return;
     }
 
     if (!form.endAt) {
       setError(
-        "La date de fin est obligatoire."
+        text("La date de fin est obligatoire.", "تاريخ النهاية مطلوب.")
       );
       return;
     }
@@ -621,7 +623,7 @@ async function loadPromotions() {
       end <= start
     ) {
       setError(
-        "La date de fin doit être après la date de début."
+        text("La date de fin doit être après la date de début.", "يجب أن يكون تاريخ النهاية بعد تاريخ البداية.")
       );
       return;
     }
@@ -631,7 +633,7 @@ async function loadPromotions() {
       Number(form.value) > 100
     ) {
       setError(
-        "Une remise en pourcentage ne peut pas dépasser 100 %."
+        text("Une remise en pourcentage ne peut pas dépasser 100 %.", "لا يمكن أن تتجاوز الخصم بالنسبة المئوية 100٪.")
       );
       return;
     }
@@ -702,7 +704,7 @@ async function loadPromotions() {
   ) {
     const confirmed =
       window.confirm(
-        "Voulez-vous vraiment supprimer cette promotion ?"
+        text("Voulez-vous vraiment supprimer cette promotion ?", "هل أنت متأكد من حذف هذا العرض؟")
       );
 
     if (!confirmed) return;
@@ -742,8 +744,8 @@ async function loadPromotions() {
         ====================================================== */}
 
         <AdminPageHeader
-          eyebrow="Marketing"
-          title="Promotions"
+          eyebrow={text("Marketing", "التسويق")}
+          title={text("Promotions", "العروض")}
           subtitle="Créez des offres bilingues, planifiez leur période et choisissez précisément les articles concernés."
           icon={<Percent size={18} />}
         />
@@ -760,9 +762,7 @@ async function loadPromotions() {
             <div className="flex items-start justify-between">
 
               <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Promotions
-                </p>
+                <p className="text-sm font-semibold text-slate-500">{text("Promotions", "العروض")}</p>
 
                 <h3 className="mt-2 text-2xl font-black text-slate-900">
                   {stats.total}
@@ -894,9 +894,7 @@ async function loadPromotions() {
                 onClick={openCreate}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-500/20 transition hover:-translate-y-0.5 hover:bg-blue-700"
               >
-                <Plus size={17} />
-                Ajouter une promotion
-              </button>
+                <Plus size={17} />{text("Ajouter une promotion", "إضافة عرض")}</button>
             </div>
 
             {/* SEARCH */}
@@ -917,7 +915,7 @@ async function loadPromotions() {
                       e.target.value
                     )
                   }
-                  placeholder="Rechercher une promotion..."
+                  placeholder={text("Rechercher une promotion...", "البحث عن عرض...")}
                   className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                 />
 
@@ -936,13 +934,9 @@ async function loadPromotions() {
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50">
 
-                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        Nom FR
-                      </th>
+                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">{text("Nom FR", "الاسم بالفرنسية")}</th>
 
-                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        الاسم AR
-                      </th>
+                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">{text("الاسم AR", "الاسم بالعربية")}</th>
 
                       <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">
                         Type
@@ -952,25 +946,15 @@ async function loadPromotions() {
                         Valeur
                       </th>
 
-                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        Badge
-                      </th>
+                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">{text("Badge", "الشارة")}</th>
 
-                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        Articles
-                      </th>
+                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">{text("Articles", "المنتجات")}</th>
 
-                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        Début
-                      </th>
+                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">{text("Début", "البداية")}</th>
 
-                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        Fin
-                      </th>
+                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">{text("Fin", "النهاية")}</th>
 
-                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">
-                        Statut
-                      </th>
+                      <th className="px-4 py-4 text-left text-[11px] font-black uppercase tracking-wider text-slate-500">{text("Statut", "الحالة")}</th>
 
                       <th className="px-4 py-4 text-right text-[11px] font-black uppercase tracking-wider text-slate-500">
                         Actions
@@ -1004,9 +988,7 @@ async function loadPromotions() {
                             <Gift size={24} />
                           </div>
 
-                          <p className="mt-4 text-sm font-black text-slate-700">
-                            Aucune promotion
-                          </p>
+                          <p className="mt-4 text-sm font-black text-slate-700">{text("Aucune promotion", "لا توجد عروض")}</p>
 
                           <p className="mt-1 text-xs font-medium text-slate-400">
                             Créez votre première promotion.
@@ -1071,14 +1053,10 @@ async function loadPromotions() {
                               {promotion.type ===
                               "POURCENTAGE" ? (
                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">
-                                  <Percent size={13} />
-                                  Pourcentage
-                                </span>
+                                  <Percent size={13} />{text("Pourcentage", "نسبة مئوية")}</span>
                               ) : (
                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">
-                                  <Tag size={13} />
-                                  Montant
-                                </span>
+                                  <Tag size={13} />{text("Montant", "مبلغ")}</span>
                               )}
 
                             </td>
@@ -1185,9 +1163,7 @@ async function loadPromotions() {
                                   Active
                                 </span>
                               ) : (
-                                <span className="inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
-                                  Inactive
-                                </span>
+                                <span className="inline-flex rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">{text("Inactive", "غير نشطة")}</span>
                               )}
 
                             </td>
@@ -1206,7 +1182,7 @@ async function loadPromotions() {
                                     )
                                   }
                                   className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#2563EB] transition hover:bg-blue-100"
-                                  title="Modifier"
+                                  title={text("Modifier", "تعديل")}
                                 >
                                   <Edit3 size={15} />
                                 </button>
@@ -1223,7 +1199,7 @@ async function loadPromotions() {
                                     promotion.id
                                   }
                                   className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500 transition hover:bg-red-100 disabled:opacity-50"
-                                  title="Supprimer"
+                                  title={text("Supprimer", "حذف")}
                                 >
                                   {deletingId ===
                                   promotion.id ? (
@@ -1329,14 +1305,14 @@ async function loadPromotions() {
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]">
                       {editingPromotion
-                        ? "Modification"
-                        : "Création"}
+                        ? text("Modification", "تعديل")
+                        : text("Création", "إنشاء")}
                     </p>
 
                     <h2 className="mt-1 text-xl font-black text-slate-900 md:text-2xl">
                       {editingPromotion
-                        ? "Modifier la promotion"
-                        : "Ajouter une promotion"}
+                        ? text("Modifier la promotion", "تعديل العرض")
+                        : text("Ajouter une promotion", "إضافة عرض")}
                     </h2>
 
                     <p className="mt-1 text-xs font-medium text-slate-400">
@@ -1393,9 +1369,7 @@ async function loadPromotions() {
                     {/* NOM FR */}
 
                     <div>
-                      <label className="mb-2 block text-xs font-bold text-slate-600">
-                        Nom français
-                        <span className="ml-1 text-red-500">
+                      <label className="mb-2 block text-xs font-bold text-slate-600">{text("Nom français", "الاسم بالفرنسية")}<span className="ml-1 text-red-500">
                           *
                         </span>
                       </label>
@@ -1408,7 +1382,7 @@ async function loadPromotions() {
                             name: e.target.value,
                           }))
                         }
-                        placeholder="Ex : Soldes d'été"
+                        placeholder={text("Ex : Soldes d'été", "مثال: تخفيضات الصيف")}
                         className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
                       />
                     </div>
@@ -1451,20 +1425,16 @@ async function loadPromotions() {
                             ...current,
                             type:
                               e.target.value ===
-                              "MONTANT"
-                                ? "MONTANT"
-                                : "POURCENTAGE",
+                              text("MONTANT", "مبلغ")
+                                ? text("MONTANT", "مبلغ")
+                                : text("POURCENTAGE", "نسبة مئوية"),
                           }))
                         }
                         className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
                       >
-                        <option value="POURCENTAGE">
-                          Pourcentage
-                        </option>
+                        <option value="POURCENTAGE">{text("Pourcentage", "نسبة مئوية")}</option>
 
-                        <option value="MONTANT">
-                          Montant
-                        </option>
+                        <option value="MONTANT">{text("Montant", "مبلغ")}</option>
                       </select>
                     </div>
 
@@ -1485,7 +1455,7 @@ async function loadPromotions() {
                           min="0"
                           max={
                             form.type ===
-                            "POURCENTAGE"
+                            text("POURCENTAGE", "نسبة مئوية")
                               ? 100
                               : undefined
                           }
@@ -1506,7 +1476,7 @@ async function loadPromotions() {
 
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg bg-slate-100 px-2 py-1 text-xs font-black text-slate-500">
                           {form.type ===
-                          "POURCENTAGE"
+                          text("POURCENTAGE", "نسبة مئوية")
                             ? "%"
                             : "DA"}
                         </span>
@@ -1517,9 +1487,7 @@ async function loadPromotions() {
                     {/* BADGE FR */}
 
                     <div>
-                      <label className="mb-2 block text-xs font-bold text-slate-600">
-                        Badge français
-                      </label>
+                      <label className="mb-2 block text-xs font-bold text-slate-600">{text("Badge français", "الشارة بالفرنسية")}</label>
 
                       <input
                         value={form.badge}
@@ -1530,7 +1498,7 @@ async function loadPromotions() {
                               e.target.value,
                           }))
                         }
-                        placeholder="Ex : SOLDES"
+                        placeholder={text("Ex : SOLDES", "مثال: تخفيضات")}
                         className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
                       />
                     </div>
@@ -1563,9 +1531,7 @@ async function loadPromotions() {
                     {/* DEBUT */}
 
                     <div>
-                      <label className="mb-2 block text-xs font-bold text-slate-600">
-                        Début
-                        <span className="ml-1 text-red-500">
+                      <label className="mb-2 block text-xs font-bold text-slate-600">{text("Début", "البداية")}<span className="ml-1 text-red-500">
                           *
                         </span>
                       </label>
@@ -1599,9 +1565,7 @@ async function loadPromotions() {
                     {/* FIN */}
 
                     <div>
-                      <label className="mb-2 block text-xs font-bold text-slate-600">
-                        Fin
-                        <span className="ml-1 text-red-500">
+                      <label className="mb-2 block text-xs font-bold text-slate-600">{text("Fin", "النهاية")}<span className="ml-1 text-red-500">
                           *
                         </span>
                       </label>
@@ -1706,9 +1670,7 @@ async function loadPromotions() {
                             Produit concerné
                           </h3>
 
-                          <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-                            Sélectionnez un seul produit pour cette promotion.
-                          </p>
+                          <p className="mt-0.5 text-[11px] font-medium text-slate-400">{text("Sélectionnez un seul produit pour cette promotion.", "اختر منتجاً واحداً فقط لهذا العرض.")}</p>
 
                         </div>
 
@@ -1718,8 +1680,8 @@ async function loadPromotions() {
 
                     <div className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-black text-[#2563EB]">
                       {form.articleIds.length === 1
-                        ? "1 produit"
-                        : "Aucun produit"}
+                        ? text("1 produit", "منتج واحد")
+                        : text("Aucun produit", "لا يوجد منتج")}
                     </div>
 
                   </div>
@@ -1740,7 +1702,7 @@ async function loadPromotions() {
                           e.target.value
                         )
                       }
-                      placeholder="Rechercher par code, nom ou nom arabe..."
+                      placeholder={text("Rechercher par code, nom ou nom arabe...", "البحث حسب الرمز أو الاسم أو الاسم بالعربية...")}
                       className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-xs font-medium text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
                     />
 
@@ -1762,9 +1724,7 @@ async function loadPromotions() {
                         </span>
                       </div>
 
-                      <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-slate-500">
-                        1 seul produit
-                      </span>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-slate-500">{text("1 seul produit", "منتج واحد فقط")}</span>
 
                     </div>
 
@@ -1799,7 +1759,7 @@ async function loadPromotions() {
 
                           <p className="truncate text-xs font-black text-slate-800">
                             {selectedArticle.name ||
-                              "Article sans nom"}
+                              text("Article sans nom", "منتج بدون اسم")}
                           </p>
 
                           {selectedArticle.name_ar && (
@@ -1828,16 +1788,14 @@ async function loadPromotions() {
                             }))
                           }
                           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-500 transition hover:bg-red-100"
-                          title="Retirer le produit"
+                          title={text("Retirer le produit", "إزالة المنتج")}
                         >
                           <X size={14} />
                         </button>
 
                       </div>
                     ) : (
-                      <p className="rounded-xl border border-dashed border-blue-200 bg-white px-3 py-3 text-center text-[11px] font-semibold text-slate-400">
-                        Aucun produit sélectionné. Choisissez un seul produit ci-dessous.
-                      </p>
+                      <p className="rounded-xl border border-dashed border-blue-200 bg-white px-3 py-3 text-center text-[11px] font-semibold text-slate-400">{text("Aucun produit sélectionné. Choisissez un seul produit ci-dessous.", "لم يتم اختيار أي منتج. اختر منتجاً واحداً أدناه.")}</p>
                     )}
 
                   </div>
@@ -1868,9 +1826,7 @@ async function loadPromotions() {
                           <ShoppingBag size={24} />
                         </div>
 
-                        <p className="mt-3 text-sm font-black text-slate-700">
-                          Aucun article trouvé
-                        </p>
+                        <p className="mt-3 text-sm font-black text-slate-700">{text("Aucun article trouvé", "لم يتم العثور على أي منتج")}</p>
 
                         <p className="mt-1 text-xs font-medium text-slate-400">
                           Modifiez votre recherche.
@@ -1978,7 +1934,7 @@ async function loadPromotions() {
 
                                   <p className="mt-0.5 truncate text-xs font-black text-slate-800">
                                     {article.name ||
-                                      "Article sans nom"}
+                                      text("Article sans nom", "منتج بدون اسم")}
                                   </p>
 
                                   {article.name_ar && (
@@ -2025,13 +1981,11 @@ async function loadPromotions() {
 
                         <p className="text-xs font-black text-slate-700">
                           {form.articleIds.length === 1
-                            ? "1 produit sélectionné"
-                            : "Aucun produit sélectionné"}
+                            ? text("1 produit sélectionné", "تم اختيار منتج واحد")
+                            : text("Aucun produit sélectionné", "لم يتم اختيار أي منتج")}
                         </p>
 
-                        <p className="text-[10px] font-medium text-slate-400">
-                          Une promotion ne peut concerner qu'un seul produit.
-                        </p>
+                        <p className="text-[10px] font-medium text-slate-400">{text("Une promotion ne peut concerner qu'un seul produit.", "لا يمكن أن يشمل العرض أكثر من منتج واحد.")}</p>
 
                       </div>
 
@@ -2077,15 +2031,13 @@ async function loadPromotions() {
 
                   {saving ? (
                     <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                      Enregistrement...
-                    </>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />{text("Enregistrement...", "جاري الحفظ...")}</>
                   ) : (
                     <>
                       <Check size={17} />
                       {editingPromotion
-                        ? "Enregistrer les modifications"
-                        : "Créer la promotion"}
+                        ? text("Enregistrer les modifications", "حفظ التعديلات")
+                        : text("Créer la promotion", "إنشاء العرض")}
                     </>
                   )}
 

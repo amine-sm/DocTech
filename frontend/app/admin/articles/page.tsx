@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { useLocale } from "@/components/LocaleProvider";
 
 import {
   apiFetch,
@@ -299,33 +300,28 @@ function StatusBadge({
 }: {
   status?: string | null;
 }) {
+  const { text } = useLocale();
   const normalized =
     normalizeStatus(status);
 
   if (normalized === "active") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-        <CheckCircle2 size={13} />
-        Actif
-      </span>
+        <CheckCircle2 size={13} />{text("Actif", "نشط")}</span>
     );
   }
 
   if (normalized === "inactive") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
-        <XCircle size={13} />
-        Inactif
-      </span>
+        <XCircle size={13} />{text("Inactif", "غير نشط")}</span>
     );
   }
 
   if (normalized === "rupture") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600">
-        <XCircle size={13} />
-        Rupture
-      </span>
+        <XCircle size={13} />{text("Rupture", "نفد المخزون")}</span>
     );
   }
 
@@ -428,6 +424,7 @@ function Field({
 ========================================================= */
 
 export default function ArticlesPage() {
+  const { text, isArabic } = useLocale();
   /* =======================================================
      DATA
   ======================================================= */
@@ -2139,8 +2136,8 @@ export default function ArticlesPage() {
         {/* HEADER */}
 
         <AdminPageHeader
-          title="Articles"
-          subtitle="Gérez votre catalogue, vos descriptions, vos stocks, vos prix et vos produits."
+          title={text("Articles", "المنتجات")}
+          subtitle={text("Gérez votre catalogue, vos descriptions, vos stocks, vos prix et vos produits.", "أدر الكتالوج والأوصاف والمخزون والأسعار والمنتجات.")}
           icon={
             <Package size={22} />
           }
@@ -2154,9 +2151,7 @@ export default function ArticlesPage() {
             }
             className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#2563EB] px-5 text-xs font-black text-white shadow-lg shadow-[#2563EB]/20 transition hover:-translate-y-0.5 hover:bg-[#1d4ed8]"
           >
-            <Plus size={17} />
-            Nouvel article
-          </button>
+            <Plus size={17} />{text("Nouvel article", "منتج جديد")}</button>
         </div>
 
         {/* ERROR */}
@@ -2302,9 +2297,7 @@ export default function ArticlesPage() {
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Stock faible
-                </p>
+                <p className="text-sm font-semibold text-slate-500">{text("Stock faible", "مخزون منخفض")}</p>
 
                 <p className="mt-2 text-3xl font-black text-slate-900">
                   {stats.lowStock}
@@ -2338,9 +2331,7 @@ export default function ArticlesPage() {
           >
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Rupture
-                </p>
+                <p className="text-sm font-semibold text-slate-500">{text("Rupture", "نفد المخزون")}</p>
 
                 <p className="mt-2 text-3xl font-black text-slate-900">
                   {stats.outOfStock}
@@ -2405,7 +2396,7 @@ export default function ArticlesPage() {
                       handleSearch();
                     }
                   }}
-                  placeholder="Nom, référence, catégorie, marque..."
+                  placeholder={text("Nom, référence, catégorie, marque...", "الاسم، المرجع، التصنيف، العلامة التجارية...")}
                   className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-11 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#60A5FA] focus:bg-white focus:ring-4 focus:ring-[#60A5FA]/10"
                 />
 
@@ -2414,7 +2405,7 @@ export default function ArticlesPage() {
                     type="button"
                     onClick={() => setSearchInput("")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                    title="Effacer la saisie"
+                    title={text("Effacer la saisie", "مسح البحث")}
                   >
                     <XCircle size={17} />
                   </button>
@@ -2457,9 +2448,7 @@ export default function ArticlesPage() {
 
               {/* STATUS */}
               <label className="block">
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">
-                  Statut
-                </span>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">{text("Statut", "الحالة")}</span>
                 <select
                   value={selectedStatus}
                   onChange={(event) => {
@@ -2474,16 +2463,14 @@ export default function ArticlesPage() {
                   className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-[#60A5FA] focus:bg-white focus:ring-4 focus:ring-[#60A5FA]/10"
                 >
                   <option value="all">Tous les statuts</option>
-                  <option value="active">Actifs</option>
+                  <option value="active">{text("Actifs", "نشطة")}</option>
                   <option value="inactive">Inactifs</option>
                 </select>
               </label>
 
               {/* STOCK */}
               <label className="block">
-                <span className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">
-                  Stock
-                </span>
+                <span className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">{text("Stock", "المخزون")}</span>
                 <select
                   value={selectedStock}
                   onChange={(event) => {
@@ -2499,9 +2486,9 @@ export default function ArticlesPage() {
                   className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-[#60A5FA] focus:bg-white focus:ring-4 focus:ring-[#60A5FA]/10"
                 >
                   <option value="all">Tous les stocks</option>
-                  <option value="available">En stock</option>
-                  <option value="low">Stock faible</option>
-                  <option value="out">Rupture</option>
+                  <option value="available">{text("En stock", "متوفر")}</option>
+                  <option value="low">{text("Stock faible", "مخزون منخفض")}</option>
+                  <option value="out">{text("Rupture", "نفد المخزون")}</option>
                 </select>
               </label>
 
@@ -2583,7 +2570,7 @@ export default function ArticlesPage() {
                         setPage(1);
                       }}
                       className="rounded-full p-0.5 transition hover:bg-[#2563EB]/10"
-                      title="Supprimer ce filtre"
+                      title={text("Supprimer ce filtre", "إزالة هذا الفلتر")}
                     >
                       <X size={13} />
                     </button>
@@ -2593,7 +2580,7 @@ export default function ArticlesPage() {
                 {selectedStatus !== "all" && (
                   <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
                     <CheckCircle2 size={13} />
-                    Statut : {selectedStatus === "active" ? "Actif" : "Inactif"}
+                    Statut : {selectedStatus === "active" ? text("Actif", "نشط") : text("Inactif", "غير نشط")}
                     <button
                       type="button"
                       onClick={() => {
@@ -2601,7 +2588,7 @@ export default function ArticlesPage() {
                         setPage(1);
                       }}
                       className="rounded-full p-0.5 transition hover:bg-emerald-100"
-                      title="Supprimer ce filtre"
+                      title={text("Supprimer ce filtre", "إزالة هذا الفلتر")}
                     >
                       <X size={13} />
                     </button>
@@ -2611,7 +2598,7 @@ export default function ArticlesPage() {
                 {selectedStock !== "all" && (
                   <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">
                     <Boxes size={13} />
-                    Stock : {selectedStock === "available" ? "En stock" : selectedStock === "low" ? "Faible" : "Rupture"}
+                    Stock : {selectedStock === "available" ? text("En stock", "متوفر") : selectedStock === "low" ? text("Faible", "منخفض") : text("Rupture", "نفد المخزون")}
                     <button
                       type="button"
                       onClick={() => {
@@ -2619,7 +2606,7 @@ export default function ArticlesPage() {
                         setPage(1);
                       }}
                       className="rounded-full p-0.5 transition hover:bg-amber-100"
-                      title="Supprimer ce filtre"
+                      title={text("Supprimer ce filtre", "إزالة هذا الفلتر")}
                     >
                       <X size={13} />
                     </button>
@@ -2656,14 +2643,12 @@ export default function ArticlesPage() {
                   onClick={() => loadArticles({ refresh: true })}
                   disabled={refreshing}
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                  title="Actualiser"
+                  title={text("Actualiser", "تحديث")}
                 >
                   <RefreshCw
                     size={14}
                     className={refreshing ? "animate-spin" : ""}
-                  />
-                  Actualiser
-                </button>
+                  />{text("Actualiser", "تحديث")}</button>
               </div>
             </div>
           </div>
@@ -2759,25 +2744,17 @@ export default function ArticlesPage() {
                       Article
                     </th>
 
-                    <th className="w-[14%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
-                      Catégorie
-                    </th>
+                    <th className="w-[14%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">{text("Catégorie", "التصنيف")}</th>
 
                     <th className="w-[14%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
                       Marque
                     </th>
 
-                    <th className="w-[13%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
-                      Prix
-                    </th>
+                    <th className="w-[13%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">{text("Prix", "السعر")}</th>
 
-                    <th className="w-[15%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
-                      Stock
-                    </th>
+                    <th className="w-[15%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">{text("Stock", "المخزون")}</th>
 
-                    <th className="w-[10%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">
-                      Statut
-                    </th>
+                    <th className="w-[10%] px-4 py-4 text-xs font-black uppercase tracking-wider text-slate-400">{text("Statut", "الحالة")}</th>
 
                     <th className="w-[17%] px-4 py-4 text-right text-xs font-black uppercase tracking-wider text-slate-400">
                       Actions
@@ -2899,7 +2876,7 @@ export default function ArticlesPage() {
                               <span className="max-w-[160px] truncate text-sm font-bold text-slate-700">
                                 {
                                   article.category_name ||
-                                  "Sans catégorie"
+                                  text("Sans catégorie", "بدون تصنيف")
                                 }
                               </span>
                             </div>
@@ -2919,7 +2896,7 @@ export default function ArticlesPage() {
                               <span className="max-w-[140px] truncate text-sm font-bold text-slate-700">
                                 {
                                   article.marque_name ||
-                                  "Sans marque"
+                                  text("Sans marque", "بدون علامة تجارية")
                                 }
                               </span>
                             </div>
@@ -2968,18 +2945,12 @@ export default function ArticlesPage() {
 
                               {stock <=
                               0 ? (
-                                <span className="inline-flex rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-600">
-                                  Rupture
-                                </span>
+                                <span className="inline-flex rounded-full bg-red-50 px-3 py-1.5 text-xs font-black text-red-600">{text("Rupture", "نفد المخزون")}</span>
                               ) : stock <=
                                 10 ? (
-                                <span className="inline-flex rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">
-                                  Stock faible
-                                </span>
+                                <span className="inline-flex rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700">{text("Stock faible", "مخزون منخفض")}</span>
                               ) : (
-                                <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
-                                  En stock
-                                </span>
+                                <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{text("En stock", "متوفر")}</span>
                               )}
 
                               <p className="mt-1 text-xs font-semibold text-slate-400">
@@ -3048,7 +3019,7 @@ export default function ArticlesPage() {
                                     )
                                   }
                                   className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2563EB] text-white shadow-sm transition hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50"
-                                  title="Enregistrer le stock"
+                                  title={text("Enregistrer le stock", "حفظ المخزون")}
                                 >
                                   {isUpdatingStock ? (
                                     <RefreshCw
@@ -3095,7 +3066,7 @@ export default function ArticlesPage() {
                               <a
                                 href={`/admin/articles/${article.id}`}
                                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-[#2563EB]/20 hover:bg-[#2563EB]/5 hover:text-[#2563EB]"
-                                title="Voir"
+                                title={text("Voir", "عرض")}
                               >
                                 <Eye
                                   size={17}
@@ -3110,7 +3081,7 @@ export default function ArticlesPage() {
                                   )
                                 }
                                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-[#60A5FA]/30 hover:bg-[#60A5FA]/5 hover:text-[#2563EB]"
-                                title="Modifier"
+                                title={text("Modifier", "تعديل")}
                               >
                                 <Edit
                                   size={17}
@@ -3129,7 +3100,7 @@ export default function ArticlesPage() {
                                   article.id
                                 }
                                 className="flex h-10 w-10 items-center justify-center rounded-xl border border-red-100 bg-white text-red-500 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                                title="Supprimer"
+                                title={text("Supprimer", "حذف")}
                               >
                                 {deletingId ===
                                 article.id ? (
@@ -3226,7 +3197,7 @@ export default function ArticlesPage() {
                         <a
                           href={`/admin/articles/${article.id}`}
                           className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-700 shadow-xl"
-                          title="Voir"
+                          title={text("Voir", "عرض")}
                         >
                           <Eye
                             size={17}
@@ -3241,7 +3212,7 @@ export default function ArticlesPage() {
                             )
                           }
                           className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-700 shadow-xl"
-                          title="Modifier"
+                          title={text("Modifier", "تعديل")}
                         >
                           <Edit
                             size={17}
@@ -3256,7 +3227,7 @@ export default function ArticlesPage() {
                             )
                           }
                           className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-red-500 shadow-xl"
-                          title="Supprimer"
+                          title={text("Supprimer", "حذف")}
                         >
                           <Trash2
                             size={17}
@@ -3326,9 +3297,7 @@ export default function ArticlesPage() {
 
                         <div className="text-right">
 
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Stock
-                          </p>
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{text("Stock", "المخزون")}</p>
 
                           <p
                             className={[
@@ -3611,20 +3580,18 @@ export default function ArticlesPage() {
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-6 py-5 backdrop-blur sm:px-7">
 
               <div>
-                <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#60A5FA]">
-                  Catalogue
-                </p>
+                <p className="text-[9px] font-black uppercase tracking-[.18em] text-[#60A5FA]">{text("Catalogue", "الكتالوج")}</p>
 
                 <h2 className="mt-1 text-xl font-black text-slate-900">
                   {editingArticle
-                    ? "Modifier l'article"
-                    : "Nouvel article"}
+                    ? text("Modifier l'article", "تعديل المنتج")
+                    : text("Nouvel article", "منتج جديد")}
                 </h2>
 
                 <p className="mt-1 text-xs text-slate-400">
                   {editingArticle
-                    ? "Modifiez toutes les informations du produit."
-                    : "Ajoutez un nouveau produit au catalogue."}
+                    ? text("Modifiez toutes les informations du produit.", "عدّل جميع معلومات المنتج.")
+                    : text("Ajoutez un nouveau produit au catalogue.", "أضف منتجاً جديداً إلى الكتالوج.")}
                 </p>
               </div>
 
@@ -3668,7 +3635,7 @@ export default function ArticlesPage() {
 
                 {/* NOM FR */}
 
-                <Field label="Nom français *">
+                <Field label={text("Nom français *", "الاسم بالفرنسية *")}>
 
                   <input
                     value={
@@ -3681,7 +3648,7 @@ export default function ArticlesPage() {
                       )
                     }
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                    placeholder="Ex. Perceuse Bosch Professional"
+                    placeholder={text("Ex. Perceuse Bosch Professional", "مثال: مثقاب Bosch Professional")}
                   />
 
                 </Field>
@@ -3722,7 +3689,7 @@ export default function ArticlesPage() {
 
                 <div className="lg:col-span-2">
 
-                  <Field label="Description française">
+                  <Field label={text("Description française", "الوصف بالفرنسية")}>
 
                     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white focus-within:border-[#2563EB] focus-within:ring-4 focus-within:ring-[#2563EB]/10">
 
@@ -3847,7 +3814,7 @@ export default function ArticlesPage() {
 
                 {/* SLUG */}
 
-                <Field label="Slug automatique">
+                <Field label={text("Slug automatique", "الرابط التلقائي")}>
 
                   <input
                     value={
@@ -3862,7 +3829,7 @@ export default function ArticlesPage() {
 
                 {/* IMAGES */}
 
-                <Field label="Images du produit">
+                <Field label={text("Images du produit", "صور المنتج")}>
 
                   <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
 
@@ -3885,7 +3852,7 @@ export default function ArticlesPage() {
                                 )}
                                 alt={
                                   articleForm.name ||
-                                  "Image produit"
+                                  text("Image produit", "صورة المنتج")
                                 }
                                 className="h-32 w-full object-contain p-2"
                               />
@@ -3997,7 +3964,7 @@ export default function ArticlesPage() {
 
                 {/* PURCHASE */}
 
-                <Field label="Prix d'achat (DZD)">
+                <Field label={text("Prix d'achat (DZD)", "سعر الشراء (دج)")}>
 
                   <input
                     type="number"
@@ -4028,7 +3995,7 @@ export default function ArticlesPage() {
 
                 {/* SALE */}
 
-                <Field label="Prix de vente (DZD) *">
+                <Field label={text("Prix de vente (DZD) *", "سعر البيع (دج) *")}>
 
                   <input
                     type="number"
@@ -4059,7 +4026,7 @@ export default function ArticlesPage() {
 
                 {/* OLD PRICE */}
 
-                <Field label="Ancien prix (DZD)">
+                <Field label={text("Ancien prix (DZD)", "السعر القديم (دج)")}>
 
                   <input
                     type="number"
@@ -4090,7 +4057,7 @@ export default function ArticlesPage() {
 
                 {/* STOCK */}
 
-                <Field label="Stock">
+                <Field label={text("Stock", "المخزون")}>
 
                   <input
                     type="number"
@@ -4135,7 +4102,7 @@ export default function ArticlesPage() {
 
                 {/* CATEGORY */}
 
-                <Field label="Catégorie">
+                <Field label={text("Catégorie", "التصنيف")}>
 
                   <select
                     value={
@@ -4247,7 +4214,7 @@ export default function ArticlesPage() {
 
                 {/* FOURNISSEUR */}
 
-                <Field label="Fournisseur">
+                <Field label={text("Fournisseur", "المورد")}>
 
                   <select
                     value={
@@ -4300,7 +4267,7 @@ export default function ArticlesPage() {
 
                 {/* STATUS */}
 
-                <Field label="Statut">
+                <Field label={text("Statut", "الحالة")}>
 
                   <select
                     value={
@@ -4323,17 +4290,11 @@ export default function ArticlesPage() {
                     className="h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none transition focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
                   >
 
-                    <option value="ACTIF">
-                      Actif
-                    </option>
+                    <option value="ACTIF">{text("Actif", "نشط")}</option>
 
-                    <option value="INACTIF">
-                      Inactif
-                    </option>
+                    <option value="INACTIF">{text("Inactif", "غير نشط")}</option>
 
-                    <option value="RUPTURE">
-                      Rupture
-                    </option>
+                    <option value="RUPTURE">{text("Rupture", "نفد المخزون")}</option>
 
                   </select>
 
@@ -4421,10 +4382,10 @@ export default function ArticlesPage() {
                   )}
 
                   {savingArticle
-                    ? "Enregistrement..."
+                    ? text("Enregistrement...", "جاري الحفظ...")
                     : editingArticle
-                    ? "Enregistrer les modifications"
-                    : "Créer l'article"}
+                    ? text("Enregistrer les modifications", "حفظ التعديلات")
+                    : text("Créer l'article", "إنشاء المنتج")}
 
                 </button>
 

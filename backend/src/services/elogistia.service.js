@@ -48,7 +48,7 @@ function setCache(key, value) {
 }
 
 /* =========================================================
-   REQUEST ELOGISTIA
+   REQUEST ELOGISTIA (GET standard)
 ========================================================= */
 
 async function request(
@@ -113,11 +113,8 @@ async function request(
 ========================================================= */
 
 /**
- * Elogistia renvoie TRÈS souvent :
- *
- *   { body: [ ... ], itemCount: N }
- *
- * Donc on teste `body` EN PREMIER.
+ * Elogistia renvoie souvent : { body: [...] }
+ * On teste `body` EN PREMIER.
  */
 function extractArray(data, possibleKeys = []) {
   if (Array.isArray(data)) return data;
@@ -251,12 +248,18 @@ async function getShippingCost(wilaya) {
   return setCache(cacheKey, data);
 }
 
+/* ⭐ ALIAS (compatibilité avec commandes.controller.js) */
+
+async function getShippingCosts(wilaya) {
+  return getShippingCost(wilaya);
+}
+
 async function getRates(wilaya) {
   return getShippingCost(wilaya);
 }
 
 /* =========================================================
-   COMMANDES
+   COMMANDES (lecture)
 ========================================================= */
 
 async function getOrders(params = {}) {
@@ -276,7 +279,7 @@ async function getOrder(tracking) {
 }
 
 /* =========================================================
-   TRACKING
+   TRACKING 
 ========================================================= */
 
 async function getTracking(tracking) {
@@ -301,6 +304,11 @@ async function getManyTracking(tracking) {
 
 /* =========================================================
    INSERT COMMANDE
+   ⚠️ IMPORTANT : cet endpoint utilise :
+   - apiKey (pas key)
+   - product / price (singuliers, pipe-separated)
+   - stop_desk (underscore)
+   - Content-Type: application/x-www-form-urlencoded
 ========================================================= */
 
 async function insertCommande(order = {}) {
@@ -312,18 +320,157 @@ async function insertCommande(order = {}) {
     throw new Error("Les données de la commande sont invalides");
   }
 
-  const payload = { ...order };
+  const apiKey = getApiKey();
 
-  if (
-    process.env.ELOGISTIA_DELIVERY_MODE &&
-    payload.modeDeLivraison === undefined
-  ) {
-    payload.modeDeLivraison = Number(
-      process.env.ELOGISTIA_DELIVERY_MODE
+  const payload = new URLSearchParams();
+
+  // ⭐ apiKey (pas key)
+  payload.append("apiKey", apiKey);
+
+  payload.append("name", String(order.name || ""));
+  payload.append(
+    "firstname",
+    String(order.firstname || "")
+  );
+  payload.append("mail", String(order.mail || ""));
+  payload.append("phone", String(order.phone || ""));
+  payload.append(
+    "address",
+    String(order.address || "")
+  );
+  payload.append(
+    "commune",
+    String(order.commune || "")
+  );
+  payload.append(
+    "fraisDeLivraison",
+    String(order.fraisDeLivraison ?? 0)
+  );
+  payload.append(
+    "remarque",
+    String(order.remarque || "")
+  );
+
+  // ⭐ stop_desk (underscore)
+  payload.append(
+    "stop_desk",
+    String(
+      order.stop_desk ??
+        order.stopDesk ??
+        process.env.ELOGISTIA_HOME_STOP_DESK ??
+        "0"
+    )
+  );
+
+  payload.append(
+    "wilaya",
+    String(order.wilaya || "")
+  );
+
+  // ⭐ product (singulier, pipe-separated)
+  payload.append(
+    "product",
+    String(order.product ?? order.products ?? "")
+  );
+
+  // ⭐ price (singulier, pipe-separated)
+  payload.append(
+    "price",
+    String(order.price ?? order.prices ?? "")
+  );
+
+  payload.append(
+    "modeDeLivraison",
+    String(
+      order.modeDeLivraison ??
+        process.env.ELOGISTIA_DELIVERY_MODE ??
+        "4"
+    )
+  );
+
+  payload.append(
+    "exchangeName",
+    String(order.exchangeName || "")
+  );
+
+  payload.append(
+    "idCommande",
+    String(order.idCommande || "")
+  );
+
+  payload.append(
+    "poids",
+    String(
+      order.poids ??
+        process.env.ELOGISTIA_DEFAULT_WEIGHT ??
+        "1"
+    )
+  );
+
+  const url = `${BASE_URL}/insertCommande/`;
+
+  console.log("==============================================");
+  console.log("ELOGISTIA → POST (insertCommande)");
+  console.log(
+    `${url}?${payload
+      .toString()
+      .replace(encodeURIComponent(apiKey), "********")}`
+  );
+  console.log("==============================================");
+
+  const response = await axios({
+    method: "POST",
+    url,
+    data: payload.toString(),
+    timeout: 30000,
+    headers: {
+      "Content-Type":
+        "application/x-www-form-urlencoded",
+      Accept: "application/json",
+      "User-Agent": "DOCTECH/1.0",
+    },
+    validateStatus: () => true,
+  });
+
+  console.log(`ELOGISTIA ← ${response.status}`);
+
+  if (response.status >= 400) {
+    console.error(
+      "ELOGISTIA ERROR:",
+      response.data
     );
+
+    const error = new Error(
+      `Elogistia HTTP ${response.status}`
+    );
+    error.response = response;
+    throw error;
   }
 
-  return request("POST", "/insertCommande", { data: payload });
+  const data = response.data;
+
+  /*
+   * Elogistia renvoie souvent :
+   * { body: [ { Tracking: "...", logID: "..." } ], itemCount: 1 }
+   * On extrait le tracking.
+   */
+  let tracking = null;
+
+  if (Array.isArray(data?.body) && data.body[0]) {
+    tracking =
+      data.body[0].Tracking ??
+      data.body[0].tracking ??
+      null;
+  } else if (data?.Tracking) {
+    tracking = data.Tracking;
+  } else if (data?.tracking) {
+    tracking = data.tracking;
+  }
+
+  return {
+    ...data,
+    tracking,
+  };
 }
 
 async function createOrder(order) {
@@ -347,6 +494,21 @@ async function cancelOrder(tracking) {
 }
 
 /* =========================================================
+   UPDATE STATUS
+========================================================= */
+
+async function updateOrdersStatus(tracking, status) {
+  if (!tracking) throw new Error("tracking obligatoire");
+
+  return request("GET", "/updateOrdersStatus", {
+    params: {
+      tracking,
+      status: String(status),
+    },
+  });
+}
+
+/* =========================================================
    EXPORT
 ========================================================= */
 
@@ -359,7 +521,9 @@ module.exports = {
   getCommunes,
   getAgences,
   getOffices,
+
   getShippingCost,
+  getShippingCosts,
   getRates,
 
   getOrders,
@@ -373,4 +537,5 @@ module.exports = {
   createOrder,
   deleteOrder,
   cancelOrder,
+  updateOrdersStatus,
 };

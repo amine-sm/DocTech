@@ -9,6 +9,7 @@ import { adminList } from "@/lib/admin-api";
 import { backendUrl } from "@/lib/api";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { useLocale } from "@/components/LocaleProvider";
 
 import {
   Tags,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 
 export default function Page() {
+  const { text, isArabic } = useLocale();
   const load = async () => {
     const result = await adminList<any>(
       "/categories",
@@ -50,8 +52,8 @@ export default function Page() {
             HEADER
         ========================================================= */}
         <AdminPageHeader
-          eyebrow="Catalogue"
-          title="Catégories"
+          eyebrow={text("Catalogue", "الكتالوج")}
+          title={text("Catégories", "التصنيفات")}
           subtitle="Organisez votre catalogue avec une structure bilingue FR / AR, images, catégories parentes et ordre d'affichage."
           icon={<Tags size={18} />}
         />
@@ -66,13 +68,9 @@ export default function Page() {
             <div className="flex items-start justify-between">
 
               <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Organisation
-                </p>
+                <p className="text-sm font-semibold text-slate-500">{text("Organisation", "التنظيم")}</p>
 
-                <h3 className="mt-2 text-xl font-black text-slate-900">
-                  Catégories
-                </h3>
+                <h3 className="mt-2 text-xl font-black text-slate-900">{text("Catégories", "التصنيفات")}</h3>
               </div>
 
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
@@ -80,9 +78,7 @@ export default function Page() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-semibold text-slate-400">
-              Structurez votre catalogue facilement
-            </p>
+            <p className="mt-4 text-xs font-semibold text-slate-400">{text("Structurez votre catalogue facilement", "نظّم الكتالوج الخاص بك بسهولة")}</p>
           </div>
 
           {/* CARD 2 */}
@@ -90,9 +86,7 @@ export default function Page() {
             <div className="flex items-start justify-between">
 
               <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Multilingue
-                </p>
+                <p className="text-sm font-semibold text-slate-500">{text("Multilingue", "متعدد اللغات")}</p>
 
                 <h3 className="mt-2 text-xl font-black text-slate-900">
                   FR / AR
@@ -104,9 +98,7 @@ export default function Page() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-semibold text-slate-400">
-              Noms et descriptions bilingues
-            </p>
+            <p className="mt-4 text-xs font-semibold text-slate-400">{text("Noms et descriptions bilingues", "أسماء وأوصاف باللغتين")}</p>
           </div>
 
           {/* CARD 3 */}
@@ -114,13 +106,9 @@ export default function Page() {
             <div className="flex items-start justify-between">
 
               <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Catalogue
-                </p>
+                <p className="text-sm font-semibold text-slate-500">{text("Catalogue", "الكتالوج")}</p>
 
-                <h3 className="mt-2 text-xl font-black text-slate-900">
-                  Actif
-                </h3>
+                <h3 className="mt-2 text-xl font-black text-slate-900">{text("Actif", "نشط")}</h3>
               </div>
 
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
@@ -128,9 +116,7 @@ export default function Page() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-semibold text-slate-400">
-              Gestion des catégories disponibles
-            </p>
+            <p className="mt-4 text-xs font-semibold text-slate-400">{text("Gestion des catégories disponibles", "إدارة التصنيفات المتاحة")}</p>
           </div>
         </div>
 
@@ -146,14 +132,14 @@ export default function Page() {
 
             <CrudManager
               title="Catégories / التصنيفات"
-              subtitle="Créez, modifiez et organisez vos catégories directement depuis cette interface."
+              subtitle={text("Créez, modifiez et organisez vos catégories directement depuis cette interface.", "أنشئ وعدّل ونظّم التصنيفات مباشرة من هذه الواجهة.")}
               endpoint="/categories"
               onLoadOptions={load}
 
               columns={[
                 {
                   key: "image_url",
-                  label: "Image",
+                  label: text("Image", "الصورة"),
 
                   render: (row) =>
                     row.image_url ? (
@@ -175,7 +161,7 @@ export default function Page() {
 
                 {
                   key: "name",
-                  label: "Nom FR",
+                  label: text("Nom FR", "الاسم بالفرنسية"),
 
                   render: (row) => (
                     <div className="min-w-[180px]">
@@ -194,7 +180,7 @@ export default function Page() {
 
                 {
                   key: "name_ar",
-                  label: "الاسم AR",
+                  label: text("الاسم AR", "الاسم بالعربية"),
 
                   render: (row) => (
                     <span
@@ -208,7 +194,7 @@ export default function Page() {
 
                 {
                   key: "parent_name",
-                  label: "Parent",
+                  label: text("Parent", "الأب"),
 
                   render: (row) => (
                     <div className="flex items-center gap-2">
@@ -218,7 +204,7 @@ export default function Page() {
 
                       <span className="text-sm font-bold text-slate-700">
                         {row.parent_name ||
-                          "Catégorie racine"}
+                          text("Catégorie racine", "التصنيف الرئيسي")}
                       </span>
                     </div>
                   ),
@@ -226,7 +212,7 @@ export default function Page() {
 
                 {
                   key: "article_count",
-                  label: "Articles",
+                  label: text("Articles", "المنتجات"),
 
                   render: (row) => (
                     <div className="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2">
@@ -244,7 +230,7 @@ export default function Page() {
 
                 {
                   key: "sort_order",
-                  label: "Ordre",
+                  label: text("Ordre", "الترتيب"),
 
                   render: (row) => (
                     <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-lg bg-slate-100 px-2 font-mono text-xs font-black text-slate-600">
@@ -255,18 +241,14 @@ export default function Page() {
 
                 {
                   key: "active",
-                  label: "Actif",
+                  label: text("Actif", "نشط"),
 
                   render: (row) =>
                     row.active ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                        <CheckCircle2 size={13} />
-                        Oui
-                      </span>
+                        <CheckCircle2 size={13} />{text("Oui", "نعم")}</span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
-                        Non
-                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">{text("Non", "لا")}</span>
                     ),
                 },
               ]}
@@ -274,7 +256,7 @@ export default function Page() {
               fields={[
                 {
                   name: "name",
-                  label: "Nom français",
+                  label: text("Nom français", "الاسم بالفرنسية"),
                   required: true,
                 },
 
@@ -286,26 +268,26 @@ export default function Page() {
 
                 {
                   name: "slug",
-                  label: "Slug",
+                  label: text("Slug", "الرابط"),
                 },
 
                 {
                   name: "parentId",
-                  label: "Catégorie parent",
+                  label: text("Catégorie parent", "التصنيف الأب"),
                   type: "select",
                   fromRow: "parent_id",
                 },
 
                 {
                   name: "sortOrder",
-                  label: "Ordre d'affichage",
+                  label: text("Ordre d'affichage", "ترتيب العرض"),
                   type: "number",
                   fromRow: "sort_order",
                 },
 
                 {
                   name: "imageUrl",
-                  label: "Image",
+                  label: text("Image", "الصورة"),
                   type: "image",
                   fromRow: "image_url",
                   colSpan: true,
@@ -313,7 +295,7 @@ export default function Page() {
 
                 {
                   name: "description",
-                  label: "Description française",
+                  label: text("Description française", "الوصف بالفرنسية"),
                   type: "textarea",
                   colSpan: true,
                 },

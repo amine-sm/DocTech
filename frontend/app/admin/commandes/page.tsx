@@ -18,12 +18,12 @@ import {
   ChevronDown,
   User,
   Printer,
-  ExternalLink,
 } from "lucide-react";
 
 import { apiFetch } from "@/lib/api";
 import { formatPrice } from "@/lib/catalog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { useLocale } from "@/components/LocaleProvider";
 
 const statuses = [
   "NOUVELLE",
@@ -33,6 +33,19 @@ const statuses = [
   "LIVREE",
   "ANNULEE",
 ];
+
+type OrderItem = {
+  id?: number;
+  article_id?: number;
+  product_name?: string;
+  product_name_ar?: string;
+  sku?: string | null;
+  quantity?: number;
+  unit_price?: number;
+  line_total?: number;
+  image?: string | null;
+  image_url?: string | null;
+};
 
 type Order = {
   id: number;
@@ -52,16 +65,21 @@ type Order = {
   total?: number;
   status?: string;
   created_at?: string;
-  items?: any[];
+  items?: OrderItem[];
 };
 
 export default function Page() {
+  const { text, isArabic } = useLocale();
   const [rows, setRows] = useState<Order[]>([]);
   const [detail, setDetail] = useState<Order | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [changingStatus, setChangingStatus] = useState<number | null>(null);
   const [syncingDelivery, setSyncingDelivery] = useState<number | null>(null);
+
+  /* =========================================================
+     LOAD
+  ========================================================= */
 
   async function load() {
     setLoading(true);
@@ -81,27 +99,24 @@ export default function Page() {
     load();
   }, []);
 
+  /* =========================================================
+     UPDATE STATUS
+  ========================================================= */
+
   async function updateStatus(id: number, newStatus: string) {
     setChangingStatus(id);
 
     try {
       await apiFetch(`/commandes/${id}/status`, {
         method: "PATCH",
-        bodyJson: {
-          status: newStatus,
-        },
+        bodyJson: { status: newStatus },
       });
 
       await load();
 
       if (detail?.id === id) {
         setDetail((current) =>
-          current
-            ? {
-                ...current,
-                status: newStatus,
-              }
-            : null
+          current ? { ...current, status: newStatus } : null
         );
       }
     } catch (e: any) {
@@ -110,6 +125,10 @@ export default function Page() {
       setChangingStatus(null);
     }
   }
+
+  /* =========================================================
+     SYNC ELOGISTIA
+  ========================================================= */
 
   async function syncDelivery(id: number) {
     setSyncingDelivery(id);
@@ -124,18 +143,29 @@ export default function Page() {
     }
   }
 
+  /* =========================================================
+     BORDEREAU
+  ========================================================= */
+
   function printBordereau(order: Order) {
     if (!order.delivery_tracking) {
       alert("La commande doit d'abord être synchronisée avec Elogistia.");
       return;
     }
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+    const apiBase =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
     window.open(
-      `${apiBase}/delivery/orders/${encodeURIComponent(order.delivery_tracking)}/bordereau?format=10x15`,
+      `${apiBase}/delivery/orders/${encodeURIComponent(
+        order.delivery_tracking
+      )}/bordereau?format=10x15`,
       "_blank",
       "noopener,noreferrer"
     );
   }
+
+  /* =========================================================
+     OPEN DETAIL
+  ========================================================= */
 
   async function openOrder(id: number) {
     try {
@@ -146,28 +176,18 @@ export default function Page() {
     }
   }
 
+  /* =========================================================
+     STATS
+  ========================================================= */
+
   const stats = useMemo(() => {
     const total = rows.length;
 
-    const nouvelle = rows.filter(
-      (o) => o.status === "NOUVELLE"
-    ).length;
-
-    const preparation = rows.filter(
-      (o) => o.status === "PREPARATION"
-    ).length;
-
-    const expediee = rows.filter(
-      (o) => o.status === "EXPEDIEE"
-    ).length;
-
-    const livree = rows.filter(
-      (o) => o.status === "LIVREE"
-    ).length;
-
-    const annulee = rows.filter(
-      (o) => o.status === "ANNULEE"
-    ).length;
+    const nouvelle = rows.filter((o) => o.status === "NOUVELLE").length;
+    const preparation = rows.filter((o) => o.status === "PREPARATION").length;
+    const expediee = rows.filter((o) => o.status === "EXPEDIEE").length;
+    const livree = rows.filter((o) => o.status === "LIVREE").length;
+    const annulee = rows.filter((o) => o.status === "ANNULEE").length;
 
     const revenue = rows
       .filter((o) => o.status !== "ANNULEE")
@@ -184,72 +204,78 @@ export default function Page() {
     };
   }, [rows]);
 
+  /* =========================================================
+     RENDER
+  ========================================================= */
+
   return (
-    <div className="min-h-full bg-slate-50">
+    <div dir={isArabic ? "rtl" : "ltr"} lang={isArabic ? "ar" : "fr"} className="min-h-full bg-slate-50">
       <div className="admin-page">
-        {/* HEADER */}
+        {/* =================================================
+            HEADER
+        ================================================= */}
         <AdminPageHeader
-          eyebrow="Ventes & logistique"
-          title="Commandes"
-          subtitle="Suivez les commandes, gérez les statuts et consultez toutes les informations de livraison."
+          eyebrow={text("Ventes & logistique", "المبيعات والخدمات اللوجستية")}
+          title={text("Commandes", "الطلبات")}
+          subtitle={text("Suivez les commandes, gérez les statuts et consultez toutes les informations de livraison.", "تابع الطلبات وأدر الحالات واطلع على جميع معلومات التوصيل.")}
           icon={<ClipboardList size={14} />}
         />
 
-        {/* STATISTIQUES */}
+        {/* =================================================
+            STATISTIQUES
+        ================================================= */}
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard
             icon={<ShoppingBag size={19} />}
-            label="Total commandes"
+            label={text("Total commandes", "إجمالي الطلبات")}
             value={stats.total}
-            description="Commandes enregistrées"
+            description={text("Commandes enregistrées", "الطلبات المسجلة")}
             accent="blue"
           />
 
           <StatCard
             icon={<Clock3 size={19} />}
-            label="Nouvelles"
+            label={text("Nouvelles", "جديدة")}
             value={stats.nouvelle}
-            description="À traiter"
+            description={text("À traiter", "قيد المعالجة")}
             accent="orange"
           />
 
           <StatCard
             icon={<Package size={19} />}
-            label="Préparation"
+            label={text("Préparation", "قيد التحضير")}
             value={stats.preparation}
-            description="En préparation"
+            description={text("En préparation", "قيد التحضير")}
             accent="purple"
           />
 
           <StatCard
             icon={<Truck size={19} />}
-            label="Expédiées"
+            label={text("Expédiées", "تم الشحن")}
             value={stats.expediee}
-            description="En livraison"
+            description={text("En livraison", "قيد التوصيل")}
             accent="cyan"
           />
 
           <StatCard
             icon={<CheckCircle2 size={19} />}
-            label="Livrées"
+            label={text("Livrées", "تم التسليم")}
             value={stats.livree}
-            description="Commandes terminées"
+            description={text("Commandes terminées", "الطلبات المكتملة")}
             accent="green"
           />
         </div>
 
-        {/* BARRE OUTILS */}
+        {/* =================================================
+            BARRE OUTILS
+        ================================================= */}
         <div className="mt-6 overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]">
-                Gestion des commandes
-              </p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]">{text("Gestion des commandes", "إدارة الطلبات")}</p>
 
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-black text-slate-900">
-                  Toutes les commandes
-                </h2>
+                <h2 className="text-lg font-black text-slate-900">{text("Toutes les commandes", "جميع الطلبات")}</h2>
 
                 <span className="rounded-full bg-[#2563EB]/10 px-2.5 py-1 text-[9px] font-black text-[#2563EB]">
                   {rows.length} commande
@@ -269,7 +295,7 @@ export default function Page() {
                 className={loading ? "animate-spin" : ""}
               />
 
-              {loading ? "Actualisation..." : "Actualiser"}
+              {loading ? "Actualisation..." : text("Actualiser", "تحديث")}
             </button>
           </div>
 
@@ -277,9 +303,7 @@ export default function Page() {
           <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-3">
             <div className="flex flex-wrap items-center gap-2">
               {statuses.map((status) => {
-                const count = rows.filter(
-                  (o) => o.status === status
-                ).length;
+                const count = rows.filter((o) => o.status === status).length;
 
                 return (
                   <div
@@ -302,7 +326,9 @@ export default function Page() {
           </div>
         </div>
 
-        {/* ERREUR */}
+        {/* =================================================
+            ERREUR
+        ================================================= */}
         {error && (
           <div className="mt-5 flex items-center gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs font-bold text-red-600">
             <AlertCircle size={17} />
@@ -310,172 +336,182 @@ export default function Page() {
           </div>
         )}
 
-        {/* TABLE */}
+        {/* =================================================
+            TABLEAU
+        ================================================= */}
         <div className="mt-5 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="min-w-[1050px] w-full">
+            <table className="w-full min-w-[1050px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/80">
-                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    Commande
-                  </th>
+                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">{text("Commande", "الطلب")}</th>
 
-                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    Client
-                  </th>
+                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">{text("Client", "العميل")}</th>
 
-                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    Livraison
-                  </th>
+                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">{text("Livraison", "التوصيل")}</th>
 
-                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    Total
-                  </th>
+                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">{text("Total", "المجموع")}</th>
 
-                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    Statut
-                  </th>
+                  <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">{text("Statut", "الحالة")}</th>
 
-                  <th className="px-5 py-4 text-right text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    Action
-                  </th>
+                  <th className="px-5 py-4 text-right text-[9px] font-black uppercase tracking-wider text-slate-400">{text("Action", "الإجراء")}</th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-100">
-                {rows.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="group transition hover:bg-slate-50/70"
-                  >
-                    {/* COMMANDE */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
-                          <ClipboardList size={16} />
+                {rows.map((order) => {
+                  const firstItem = order.items?.[0];
+                  const firstImage =
+                    firstItem?.image || firstItem?.image_url || null;
+
+                  return (
+                    <tr
+                      key={order.id}
+                      className="group transition hover:bg-slate-50/70"
+                    >
+                      {/* ===== COMMANDE ===== */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          {/* ⭐ MINIATURE PRODUIT */}
+                          {firstImage ? (
+                            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-slate-50 ring-1 ring-inset ring-slate-100">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={firstImage}
+                                alt={firstItem?.product_name || "Article"}
+                                className="h-full w-full object-contain p-1"
+                                loading="lazy"
+                              />
+                            </div>
+                          ) : (
+                            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
+                              <ClipboardList size={16} />
+                            </div>
+                          )}
+
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-black text-slate-900">
+                              {order.tracking_number || `#${order.id}`}
+                            </p>
+
+                            <p className="mt-0.5 truncate text-[9px] font-semibold text-slate-400">
+                              {firstItem?.product_name || `Commande #${order.id}`}
+                            </p>
+                          </div>
                         </div>
+                      </td>
 
-                        <div>
-                          <p className="text-[11px] font-black text-slate-900">
-                            {order.tracking_number ||
-                              `#${order.id}`}
-                          </p>
+                      {/* ===== CLIENT ===== */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500">
+                            <User size={15} />
+                          </div>
 
-                          <p className="mt-0.5 text-[9px] font-semibold text-slate-400">
-                            Commande #{order.id}
-                          </p>
+                          <div>
+                            <p className="text-[11px] font-black text-slate-800">
+                              {order.customer_name || text("Client", "العميل")}
+                            </p>
+
+                            <p className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-slate-400">
+                              <Phone size={10} />
+                              {order.phone || "—"}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* CLIENT */}
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-500">
-                          <User size={15} />
-                        </div>
-
-                        <div>
-                          <p className="text-[11px] font-black text-slate-800">
-                            {order.customer_name || "Client"}
-                          </p>
-
-                          <p className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-slate-400">
-                            <Phone size={10} />
-                            {order.phone || "—"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* LIVRAISON */}
-                    <td className="px-5 py-4">
-                      <div className="flex flex-col items-start gap-1.5">
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#2563EB]/10 px-2.5 py-1.5 text-[9px] font-black text-[#2563EB]">
-                          <Truck size={11} />
-
-                          {order.delivery_type || "Livraison"}
-                        </span>
-
-                        {(order.wilaya || order.commune) && (
-                          <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-400">
-                            <MapPin size={10} />
-                            {order.wilaya || "—"}
-                            {order.commune ? ` • ${order.commune}` : ""}
+                      {/* ===== LIVRAISON ===== */}
+                      <td className="px-5 py-4">
+                        <div className="flex flex-col items-start gap-1.5">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#2563EB]/10 px-2.5 py-1.5 text-[9px] font-black text-[#2563EB]">
+                            <Truck size={11} />
+                            {order.delivery_type || text("Livraison", "التوصيل")}
                           </span>
-                        )}
 
-                        {order.delivery_type === "HOME" && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                            {order.delivery_tracking ? (
-                              <>
-                                <span className="rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-black text-emerald-600">
-                                  {order.delivery_tracking}
-                                </span>
+                          {(order.wilaya || order.commune) && (
+                            <span className="flex items-center gap-1 text-[9px] font-semibold text-slate-400">
+                              <MapPin size={10} />
+                              {order.wilaya || "—"}
+                              {order.commune ? ` • ${order.commune}` : ""}
+                            </span>
+                          )}
+
+                          {order.delivery_type !== "STORE" && (
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              {order.delivery_tracking ? (
+                                <>
+                                  <span className="rounded-full bg-emerald-50 px-2 py-1 text-[8px] font-black text-emerald-600">
+                                    {order.delivery_tracking}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => printBordereau(order)}
+                                    className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2 py-1 text-[8px] font-black text-white"
+                                  >
+                                    <Printer size={9} />
+                                    Bon
+                                  </button>
+                                </>
+                              ) : (
                                 <button
                                   type="button"
-                                  onClick={() => printBordereau(order)}
-                                  className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-2 py-1 text-[8px] font-black text-white"
+                                  onClick={() => syncDelivery(order.id)}
+                                  disabled={syncingDelivery === order.id}
+                                  className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-1 text-[8px] font-black text-orange-600 disabled:opacity-50"
                                 >
-                                  <Printer size={9} />
-                                  Bon
+                                  <RefreshCw
+                                    size={9}
+                                    className={
+                                      syncingDelivery === order.id
+                                        ? "animate-spin"
+                                        : ""
+                                    }
+                                  />
+                                  {syncingDelivery === order.id
+                                    ? text("Envoi…", "جاري الإرسال...")
+                                    : text("Envoyer Elogistia", "إرسال إلى Elogistia")}
                                 </button>
-                              </>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => syncDelivery(order.id)}
-                                disabled={syncingDelivery === order.id}
-                                className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-1 text-[8px] font-black text-orange-600 disabled:opacity-50"
-                              >
-                                <RefreshCw size={9} className={syncingDelivery === order.id ? "animate-spin" : ""} />
-                                {syncingDelivery === order.id ? "Envoi…" : "Envoyer Elogistia"}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </td>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
 
-                    {/* TOTAL */}
-                    <td className="px-5 py-4">
-                      <div>
-                        <p className="text-sm font-black text-[#2563EB]">
-                          {formatPrice(Number(order.total || 0))}
-                        </p>
+                      {/* ===== TOTAL ===== */}
+                      <td className="px-5 py-4">
+                        <div>
+                          <p className="text-sm font-black text-[#2563EB]">
+                            {formatPrice(Number(order.total || 0))}
+                          </p>
 
-                        <p className="mt-0.5 text-[8px] font-bold uppercase tracking-wider text-slate-400">
-                          Total commande
-                        </p>
-                      </div>
-                    </td>
+                          <p className="mt-0.5 text-[8px] font-bold uppercase tracking-wider text-slate-400">{text("Total commande", "إجمالي الطلب")}</p>
+                        </div>
+                      </td>
 
-                    {/* STATUT */}
-                    <td className="px-5 py-4">
-                      <StatusSelect
-                        value={order.status || "NOUVELLE"}
-                        loading={changingStatus === order.id}
-                        onChange={(value) =>
-                          updateStatus(order.id, value)
-                        }
-                      />
-                    </td>
+                      {/* ===== STATUT ===== */}
+                      <td className="px-5 py-4">
+                        <StatusSelect
+                          value={order.status || "NOUVELLE"}
+                          loading={changingStatus === order.id}
+                          onChange={(value) => updateStatus(order.id, value)}
+                        />
+                      </td>
 
-                    {/* ACTION */}
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => openOrder(order.id)}
-                        className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2563EB]/10 px-3 text-[9px] font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
-                      >
-                        <Eye size={14} />
-                        <span className="hidden lg:inline">
-                          Détails
-                        </span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      {/* ===== ACTION ===== */}
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => openOrder(order.id)}
+                          className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2563EB]/10 px-3 text-[9px] font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
+                        >
+                          <Eye size={14} />
+                          <span className="hidden lg:inline">Détails</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -484,10 +520,7 @@ export default function Page() {
           {loading && !rows.length && (
             <div className="flex flex-col items-center justify-center p-16">
               <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
-                <RefreshCw
-                  size={20}
-                  className="animate-spin"
-                />
+                <RefreshCw size={20} className="animate-spin" />
               </div>
 
               <p className="mt-4 text-xs font-black text-slate-500">
@@ -508,8 +541,8 @@ export default function Page() {
               </h3>
 
               <p className="mt-1 max-w-sm text-[10px] font-semibold leading-5 text-slate-400">
-                Les nouvelles commandes apparaîtront
-                automatiquement dans cette liste.
+                Les nouvelles commandes apparaîtront automatiquement dans cette
+                liste.
               </p>
             </div>
           )}
@@ -536,7 +569,9 @@ export default function Page() {
           )}
         </div>
 
-        {/* MODAL DETAIL */}
+        {/* =================================================
+            MODAL DÉTAIL
+        ================================================= */}
         {detail && (
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
@@ -547,7 +582,7 @@ export default function Page() {
             }}
           >
             <div className="max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-[30px] bg-white shadow-2xl">
-              {/* MODAL HEADER */}
+              {/* HEADER */}
               <div className="relative overflow-hidden bg-[#2563EB] px-6 py-6 text-white sm:px-7">
                 <div className="absolute -right-10 -top-16 h-40 w-40 rounded-full bg-white/10" />
                 <div className="absolute -bottom-20 right-20 h-44 w-44 rounded-full bg-white/5" />
@@ -559,17 +594,14 @@ export default function Page() {
                     </div>
 
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-blue-100">
-                        Détail commande
-                      </p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-blue-100">{text("Détail commande", "تفاصيل الطلب")}</p>
 
                       <h2 className="mt-1 text-xl font-black sm:text-2xl">
-                        {detail.tracking_number ||
-                          `#${detail.id}`}
+                        {detail.tracking_number || `#${detail.id}`}
                       </h2>
 
                       <p className="mt-1 text-[10px] font-semibold text-blue-100">
-                        {detail.customer_name || "Client"}
+                        {detail.customer_name || text("Client", "العميل")}
                       </p>
                     </div>
                   </div>
@@ -584,41 +616,36 @@ export default function Page() {
                 </div>
               </div>
 
+              {/* BODY */}
               <div className="max-h-[calc(92vh-120px)] overflow-y-auto p-5 sm:p-7">
                 {/* INFOS CLIENT */}
                 <div>
                   <div className="mb-3 flex items-center justify-between">
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#2563EB]">
-                        Informations
-                      </p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#2563EB]">{text("Informations", "المعلومات")}</p>
 
-                      <h3 className="mt-1 text-sm font-black text-slate-900">
-                        Client & livraison
-                      </h3>
+                      <h3 className="mt-1 text-sm font-black text-slate-900">{text("Client & livraison", "العميل والتوصيل")}</h3>
                     </div>
 
-                    <StatusBadge
-                      status={detail.status || "NOUVELLE"}
-                    />
+                    <StatusBadge status={detail.status || "NOUVELLE"} />
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <InfoCard
                       icon={<User size={15} />}
-                      label="Client"
+                      label={text("Client", "العميل")}
                       value={detail.customer_name || "—"}
                     />
 
                     <InfoCard
                       icon={<Phone size={15} />}
-                      label="Téléphone"
+                      label={text("Téléphone", "الهاتف")}
                       value={detail.phone || "—"}
                     />
 
                     <InfoCard
                       icon={<MapPin size={15} />}
-                      label="Wilaya"
+                      label={text("Wilaya", "الولاية")}
                       value={detail.wilaya || "—"}
                     />
 
@@ -630,29 +657,27 @@ export default function Page() {
 
                     <InfoCard
                       icon={<Truck size={15} />}
-                      label="Type livraison"
+                      label={text("Type livraison", "نوع التوصيل")}
                       value={detail.delivery_type || "—"}
                     />
 
                     <InfoCard
                       icon={<Building2 size={15} />}
-                      label="Frais livraison"
+                      label={text("Frais livraison", "تكلفة التوصيل")}
                       value={formatPrice(Number(detail.delivery_fee || 0))}
                     />
 
                     <InfoCard
                       icon={<Package size={15} />}
-                      label="Tracking Elogistia"
-                      value={detail.delivery_tracking || "Non synchronisé"}
+                      label={text("Tracking Elogistia", "رقم تتبع Elogistia")}
+                      value={detail.delivery_tracking || text("Non synchronisé", "غير متزامن")}
                       highlight={Boolean(detail.delivery_tracking)}
                     />
 
                     <InfoCard
                       icon={<Clock3 size={15} />}
-                      label="Total"
-                      value={formatPrice(
-                        Number(detail.total || 0)
-                      )}
+                      label={text("Total", "المجموع")}
+                      value={formatPrice(Number(detail.total || 0))}
                       highlight
                     />
                   </div>
@@ -662,9 +687,7 @@ export default function Page() {
                 {detail.address && (
                   <div className="mt-6 rounded-2xl border border-slate-100 bg-slate-50 p-4">
                     <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-slate-400">
-                      <MapPin size={13} />
-                      Adresse de livraison
-                    </div>
+                      <MapPin size={13} />{text("Adresse de livraison", "عنوان التوصيل")}</div>
 
                     <p className="mt-2 text-xs font-bold leading-5 text-slate-700">
                       {detail.address}
@@ -672,24 +695,32 @@ export default function Page() {
                   </div>
                 )}
 
-                {detail.delivery_type === "HOME" && (
+                {/* ELOGISTIA */}
+                {detail.delivery_type !== "STORE" && (
                   <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange-100 bg-orange-50 p-4">
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-wider text-orange-500">Elogistia</p>
+                      <p className="text-[9px] font-black uppercase tracking-wider text-orange-500">
+                        Elogistia
+                      </p>
+
                       <p className="mt-1 text-xs font-bold text-slate-700">
-                        {detail.delivery_tracking ? `Tracking : ${detail.delivery_tracking}` : "Commande non synchronisée avec le transporteur."}
+                        {detail.delivery_tracking
+                          ? `Tracking : ${detail.delivery_tracking}`
+                          : detail.delivery_sync_error
+                          ? `Erreur : ${detail.delivery_sync_error}`
+                          : "Commande non synchronisée avec le transporteur."}
                       </p>
                     </div>
+
                     {detail.delivery_tracking && (
                       <button
                         type="button"
                         onClick={() => printBordereau(detail)}
                         className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-[9px] font-black text-white"
                       >
-                        <Printer size={13} />
-                        Imprimer le bon
-                      </button>
+                        <Printer size={13} />{text("Imprimer le bon", "طباعة الوصل")}</button>
                     )}
+
                     {!detail.delivery_tracking && (
                       <button
                         type="button"
@@ -697,100 +728,104 @@ export default function Page() {
                         disabled={syncingDelivery === detail.id}
                         className="inline-flex h-10 items-center gap-2 rounded-xl bg-orange-500 px-4 text-[9px] font-black text-white disabled:opacity-60"
                       >
-                        <RefreshCw size={13} className={syncingDelivery === detail.id ? "animate-spin" : ""} />
-                        {syncingDelivery === detail.id ? "Synchronisation…" : "Synchroniser"}
+                        <RefreshCw
+                          size={13}
+                          className={
+                            syncingDelivery === detail.id ? "animate-spin" : ""
+                          }
+                        />
+                        {syncingDelivery === detail.id
+                          ? text("Synchronisation…", "جاري المزامنة...")
+                          : text("Synchroniser", "مزامنة")}
                       </button>
                     )}
                   </div>
                 )}
 
-                {/* ARTICLES */}
+                {/* ===== ARTICLES AVEC IMAGES ===== */}
                 <div className="mt-7">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#2563EB]">
-                        Contenu
-                      </p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#2563EB]">{text("Contenu", "المحتوى")}</p>
 
-                      <h3 className="mt-1 text-sm font-black text-slate-900">
-                        Articles commandés
-                      </h3>
+                      <h3 className="mt-1 text-sm font-black text-slate-900">{text("Articles commandés", "المنتجات المطلوبة")}</h3>
                     </div>
 
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-[9px] font-black text-slate-500">
                       {(detail.items || []).length} article
-                      {(detail.items || []).length > 1
-                        ? "s"
-                        : ""}
+                      {(detail.items || []).length > 1 ? "s" : ""}
                     </span>
                   </div>
 
                   <div className="mt-3 space-y-2">
                     {(detail.items || []).length ? (
-                      (detail.items || []).map(
-                        (item: any, index: number) => (
-                          <div
-                            key={
-                              item.id ??
-                              item.article_id ??
-                              index
-                            }
-                            className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition hover:border-[#2563EB]/20 hover:bg-slate-50"
-                          >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
-                                <Package size={16} />
-                              </div>
+                      (detail.items || []).map((item, index) => {
+                        const image = item.image || item.image_url || null;
 
-                              <div className="min-w-0">
-                                <p className="truncate text-xs font-black text-slate-800">
+                        return (
+                          <div
+                            key={item.id ?? item.article_id ?? index}
+                            className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition hover:border-[#2563EB]/20 hover:bg-slate-50"
+                          >
+                            {/* ⭐ IMAGE */}
+                            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-50 ring-1 ring-inset ring-slate-100">
+                              {image ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={image}
+                                  alt={item.product_name || "Article"}
+                                  className="h-full w-full object-contain p-1.5"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="grid h-full w-full place-items-center text-slate-300">
+                                  <Package size={22} />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* INFOS */}
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-black leading-5 text-slate-800">
                                   {item.product_name ||
-                                    item.article_name ||
-                                    item.name ||
                                     "Article"}
                                 </p>
 
-                                <p className="mt-1 text-[9px] font-bold text-slate-400">
-                                  Quantité :{" "}
-                                  {item.quantity || 0}
+                                <div className="mt-1 flex items-center gap-2 text-[9px] font-bold text-slate-400">
+                                  <span>Quantité : {item.quantity || 0}</span>
+
+                                  {item.sku && (
+                                    <>
+                                      <span className="h-1 w-1 rounded-full bg-slate-300" />
+                                      <span>SKU : {item.sku}</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* PRIX */}
+                              <div className="shrink-0 text-right">
+                                <p className="text-xs font-black text-[#2563EB]">
+                                  {formatPrice(Number(item.line_total || 0))}
                                 </p>
+
+                                {item.unit_price !== undefined && (
+                                  <p className="mt-1 text-[8px] font-bold text-slate-400">
+                                    {formatPrice(Number(item.unit_price || 0))} /
+                                    unité
+                                  </p>
+                                )}
                               </div>
                             </div>
-
-                            <div className="shrink-0 text-right">
-                              <p className="text-xs font-black text-[#2563EB]">
-                                {formatPrice(
-                                  Number(
-                                    item.line_total || 0
-                                  )
-                                )}
-                              </p>
-
-                              {item.unit_price !==
-                                undefined && (
-                                <p className="mt-1 text-[8px] font-bold text-slate-400">
-                                  {formatPrice(
-                                    Number(
-                                      item.unit_price || 0
-                                    )
-                                  )}{" "}
-                                  / unité
-                                </p>
-                              )}
-                            </div>
                           </div>
-                        )
-                      )
+                        );
+                      })
                     ) : (
                       <div className="rounded-2xl bg-slate-50 p-8 text-center">
-                        <Package
-                          size={24}
-                          className="mx-auto text-slate-300"
-                        />
+                        <Package size={24} className="mx-auto text-slate-300" />
 
-                        <p className="mt-2 text-xs font-bold text-slate-400">
-                          Aucun article disponible.
-                        </p>
+                        <p className="mt-2 text-xs font-bold text-slate-400">{text("Aucun article disponible.", "لا توجد منتجات متاحة.")}</p>
                       </div>
                     )}
                   </div>
@@ -799,19 +834,13 @@ export default function Page() {
                 {/* TOTAL FINAL */}
                 <div className="mt-6 flex items-center justify-between rounded-2xl bg-[#2563EB] p-5 text-white">
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-blue-100">
-                      Total commande
-                    </p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-blue-100">{text("Total commande", "إجمالي الطلب")}</p>
 
-                    <p className="mt-1 text-xs font-bold text-blue-100">
-                      Montant à encaisser
-                    </p>
+                    <p className="mt-1 text-xs font-bold text-blue-100">{text("Montant à encaisser", "المبلغ المطلوب تحصيله")}</p>
                   </div>
 
                   <p className="text-xl font-black">
-                    {formatPrice(
-                      Number(detail.total || 0)
-                    )}
+                    {formatPrice(Number(detail.total || 0))}
                   </p>
                 </div>
               </div>
@@ -871,11 +900,7 @@ function StatCard({
             {label}
           </p>
 
-          <p
-            className={`mt-2 text-2xl font-black ${styles.value}`}
-          >
-            {value}
-          </p>
+          <p className={`mt-2 text-2xl font-black ${styles.value}`}>{value}</p>
 
           <p className="mt-1 text-[9px] font-semibold text-slate-400">
             {description}
@@ -892,25 +917,35 @@ function StatCard({
   );
 }
 
+const statusLabels: Record<string, { fr: string; ar: string }> = {
+  NOUVELLE: { fr: "Nouvelle", ar: "جديدة" },
+  CONFIRMEE: { fr: "Confirmée", ar: "مؤكدة" },
+  PREPARATION: { fr: "Préparation", ar: "قيد التحضير" },
+  EXPEDIEE: { fr: "Expédiée", ar: "تم الشحن" },
+  LIVREE: { fr: "Livrée", ar: "تم التسليم" },
+  ANNULEE: { fr: "Annulée", ar: "ملغاة" },
+};
+
+function statusLabel(status: string, locale: "fr" | "ar") {
+  return statusLabels[status]?.[locale] || status;
+}
+
 /* =========================================================
    STATUS DOT
 ========================================================= */
 
 function StatusDot({ status }: { status: string }) {
-  const color = {
-    NOUVELLE: "bg-orange-500",
-    CONFIRMEE: "bg-blue-500",
-    PREPARATION: "bg-purple-500",
-    EXPEDIEE: "bg-cyan-500",
-    LIVREE: "bg-emerald-500",
-    ANNULEE: "bg-red-500",
-  }[status] || "bg-slate-400";
+  const color =
+    {
+      NOUVELLE: "bg-orange-500",
+      CONFIRMEE: "bg-blue-500",
+      PREPARATION: "bg-purple-500",
+      EXPEDIEE: "bg-cyan-500",
+      LIVREE: "bg-emerald-500",
+      ANNULEE: "bg-red-500",
+    }[status] || "bg-slate-400";
 
-  return (
-    <span
-      className={`h-1.5 w-1.5 rounded-full ${color}`}
-    />
-  );
+  return <span className={`h-1.5 w-1.5 rounded-full ${color}`} />;
 }
 
 /* =========================================================
@@ -918,27 +953,23 @@ function StatusDot({ status }: { status: string }) {
 ========================================================= */
 
 function StatusBadge({ status }: { status: string }) {
-  const styles = {
-    NOUVELLE:
-      "bg-orange-50 text-orange-600 border-orange-100",
-    CONFIRMEE:
-      "bg-blue-50 text-blue-600 border-blue-100",
-    PREPARATION:
-      "bg-purple-50 text-purple-600 border-purple-100",
-    EXPEDIEE:
-      "bg-cyan-50 text-cyan-600 border-cyan-100",
-    LIVREE:
-      "bg-emerald-50 text-emerald-600 border-emerald-100",
-    ANNULEE:
-      "bg-red-50 text-red-600 border-red-100",
-  }[status] || "bg-slate-50 text-slate-500 border-slate-100";
+  const { isArabic } = useLocale();
+  const styles =
+    {
+      NOUVELLE: "bg-orange-50 text-orange-600 border-orange-100",
+      CONFIRMEE: "bg-blue-50 text-blue-600 border-blue-100",
+      PREPARATION: "bg-purple-50 text-purple-600 border-purple-100",
+      EXPEDIEE: "bg-cyan-50 text-cyan-600 border-cyan-100",
+      LIVREE: "bg-emerald-50 text-emerald-600 border-emerald-100",
+      ANNULEE: "bg-red-50 text-red-600 border-red-100",
+    }[status] || "bg-slate-50 text-slate-500 border-slate-100";
 
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[8px] font-black ${styles}`}
     >
       <StatusDot status={status} />
-      {status}
+      {statusLabel(status, isArabic ? "ar" : "fr")}
     </span>
   );
 }
@@ -956,20 +987,16 @@ function StatusSelect({
   loading: boolean;
   onChange: (value: string) => void;
 }) {
-  const styles = {
-    NOUVELLE:
-      "bg-orange-50 text-orange-600 border-orange-100",
-    CONFIRMEE:
-      "bg-blue-50 text-blue-600 border-blue-100",
-    PREPARATION:
-      "bg-purple-50 text-purple-600 border-purple-100",
-    EXPEDIEE:
-      "bg-cyan-50 text-cyan-600 border-cyan-100",
-    LIVREE:
-      "bg-emerald-50 text-emerald-600 border-emerald-100",
-    ANNULEE:
-      "bg-red-50 text-red-600 border-red-100",
-  }[value] || "bg-slate-50 text-slate-500 border-slate-200";
+  const { isArabic } = useLocale();
+  const styles =
+    {
+      NOUVELLE: "bg-orange-50 text-orange-600 border-orange-100",
+      CONFIRMEE: "bg-blue-50 text-blue-600 border-blue-100",
+      PREPARATION: "bg-purple-50 text-purple-600 border-purple-100",
+      EXPEDIEE: "bg-cyan-50 text-cyan-600 border-cyan-100",
+      LIVREE: "bg-emerald-50 text-emerald-600 border-emerald-100",
+      ANNULEE: "bg-red-50 text-red-600 border-red-100",
+    }[value] || "bg-slate-50 text-slate-500 border-slate-200";
 
   return (
     <div className="relative inline-flex">
@@ -983,7 +1010,7 @@ function StatusSelect({
       >
         {statuses.map((status) => (
           <option key={status} value={status}>
-            {status}
+            {statusLabel(status, isArabic ? "ar" : "fr")}
           </option>
         ))}
       </select>
@@ -1028,9 +1055,7 @@ function InfoCard({
     >
       <div
         className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-wider ${
-          highlight
-            ? "text-[#2563EB]"
-            : "text-slate-400"
+          highlight ? "text-[#2563EB]" : "text-slate-400"
         }`}
       >
         {icon}
@@ -1039,9 +1064,7 @@ function InfoCard({
 
       <p
         className={`mt-2 text-sm font-black ${
-          highlight
-            ? "text-[#2563EB]"
-            : "text-slate-800"
+          highlight ? "text-[#2563EB]" : "text-slate-800"
         }`}
       >
         {value}

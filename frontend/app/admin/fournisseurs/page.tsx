@@ -3,6 +3,7 @@
 
 import CrudManager from "@/components/admin/CrudManager";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { useLocale } from "@/components/LocaleProvider";
 
 import {
   Building2,
@@ -14,14 +15,15 @@ import {
 } from "lucide-react";
 
 export default function Page() {
+  const { text, isArabic } = useLocale();
   return (
     <div className="min-h-full bg-slate-50">
       <div className="mx-auto w-full max-w-[1800px] space-y-6 p-4 md:p-6 lg:p-8">
         {/* HEADER */}
         <AdminPageHeader
-          eyebrow="Achats"
-          title="Fournisseurs"
-          subtitle="Pilotez vos partenaires, contacts, coordonnées et statut commercial depuis un espace unique."
+          eyebrow={text("Achats", "المشتريات")}
+          title={text("Fournisseurs", "الموردون")}
+          subtitle={text("Pilotez vos partenaires, contacts, coordonnées et statut commercial depuis un espace unique.", "أدر شركاءك وجهات الاتصال والبيانات وحالة النشاط التجاري من مكان واحد.")}
           icon={<Building2 size={18} />}
         />
 
@@ -35,9 +37,7 @@ export default function Page() {
                   Partenaires
                 </p>
 
-                <h3 className="mt-2 text-xl font-black text-slate-900">
-                  Fournisseurs
-                </h3>
+                <h3 className="mt-2 text-xl font-black text-slate-900">{text("Fournisseurs", "الموردون")}</h3>
               </div>
 
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
@@ -45,9 +45,7 @@ export default function Page() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-semibold text-slate-400">
-              Centralisez vos partenaires commerciaux
-            </p>
+            <p className="mt-4 text-xs font-semibold text-slate-400">{text("Centralisez vos partenaires commerciaux", "اجمع شركاءك التجاريين في مكان واحد")}</p>
           </div>
 
           {/* CONTACTS */}
@@ -68,9 +66,7 @@ export default function Page() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-semibold text-slate-400">
-              Contacts et coordonnées commerciales
-            </p>
+            <p className="mt-4 text-xs font-semibold text-slate-400">{text("Contacts et coordonnées commerciales", "جهات الاتصال والبيانات التجارية")}</p>
           </div>
 
           {/* STATUT */}
@@ -81,9 +77,7 @@ export default function Page() {
                   Activité
                 </p>
 
-                <h3 className="mt-2 text-xl font-black text-slate-900">
-                  Statut
-                </h3>
+                <h3 className="mt-2 text-xl font-black text-slate-900">{text("Statut", "الحالة")}</h3>
               </div>
 
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
@@ -91,9 +85,7 @@ export default function Page() {
               </div>
             </div>
 
-            <p className="mt-4 text-xs font-semibold text-slate-400">
-              Suivez les fournisseurs actifs et inactifs
-            </p>
+            <p className="mt-4 text-xs font-semibold text-slate-400">{text("Suivez les fournisseurs actifs et inactifs", "تابع الموردين النشطين وغير النشطين")}</p>
           </div>
         </div>
 
@@ -104,14 +96,14 @@ export default function Page() {
 
           <div className="p-1 md:p-2">
             <CrudManager
-              title="Fournisseurs"
-              subtitle="Créez, modifiez et gérez vos partenaires et leurs coordonnées commerciales directement depuis cette interface."
+              title={text("Fournisseurs", "الموردون")}
+              subtitle={text("Créez, modifiez et gérez vos partenaires et leurs coordonnées commerciales directement depuis cette interface.", "أنشئ وعدّل وأدر شركاءك وبياناتهم التجارية مباشرة من هذه الواجهة.")}
               endpoint="/fournisseurs"
               columns={[
                 /* CODE */
                 {
                   key: "code",
-                  label: "Code",
+                  label: text("Code", "الرمز"),
                   render: (row) => (
                     <span className="inline-flex items-center rounded-lg bg-slate-100 px-3 py-2 font-mono text-xs font-black text-slate-600">
                       {row.code || "—"}
@@ -122,7 +114,7 @@ export default function Page() {
                 /* NOM */
                 {
                   key: "nom",
-                  label: "Nom",
+                  label: text("Nom", "الاسم"),
                   render: (row) => (
                     <div className="min-w-[180px]">
                       <p className="text-sm font-black text-slate-900">
@@ -141,7 +133,7 @@ export default function Page() {
                 /* CONTACT */
                 {
                   key: "contact_name",
-                  label: "Contact",
+                  label: text("Contact", "جهة الاتصال"),
                   render: (row) => (
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#2563EB]/10 text-[#2563EB]">
@@ -158,7 +150,7 @@ export default function Page() {
                 /* TELEPHONE */
                 {
                   key: "telephone",
-                  label: "Téléphone",
+                  label: text("Téléphone", "الهاتف"),
                   render: (row) => (
                     <div className="flex items-center gap-2">
                       <Phone
@@ -176,7 +168,7 @@ export default function Page() {
                 /* WILAYA */
                 {
                   key: "wilaya",
-                  label: "Wilaya",
+                  label: text("Wilaya", "الولاية"),
                   render: (row) => (
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
@@ -193,24 +185,20 @@ export default function Page() {
                 /* STATUT */
                 {
                   key: "statut",
-                  label: "Statut",
+                  label: text("Statut", "الحالة"),
                   render: (row) =>
                     row.statut === "ACTIF" ? (
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
-                        <CheckCircle2 size={13} />
-                        Actif
-                      </span>
+                        <CheckCircle2 size={13} />{text("Actif", "نشط")}</span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">
-                        Inactif
-                      </span>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-500">{text("Inactif", "غير نشط")}</span>
                     ),
                 },
 
                 /* NIF */
                 {
                   key: "nif",
-                  label: "NIF",
+                  label: text("NIF", "الرقم الجبائي NIF"),
                   render: (row) => (
                     <span className="font-mono text-xs font-semibold text-slate-500">
                       {row.nif || "—"}
@@ -221,7 +209,7 @@ export default function Page() {
                 /* NIS */
                 {
                   key: "nis",
-                  label: "NIS",
+                  label: text("NIS", "الرقم الإحصائي NIS"),
                   render: (row) => (
                     <span className="font-mono text-xs font-semibold text-slate-500">
                       {row.nis || "—"}
@@ -233,74 +221,74 @@ export default function Page() {
                 /* NOM */
                 {
                   name: "nom",
-                  label: "Nom",
+                  label: text("Nom", "الاسم"),
                   required: true,
                 },
 
                 /* CONTACT */
                 {
                   name: "contactName",
-                  label: "Contact",
+                  label: text("Contact", "جهة الاتصال"),
                   fromRow: "contact_name",
                 },
 
                 /* EMAIL */
                 {
                   name: "email",
-                  label: "Email",
+                  label: text("Email", "البريد الإلكتروني"),
                   type: "email",
                 },
 
                 /* TELEPHONE */
                 {
                   name: "telephone",
-                  label: "Téléphone",
+                  label: text("Téléphone", "الهاتف"),
                 },
 
                 /* ADRESSE */
                 {
                   name: "adresse",
-                  label: "Adresse",
+                  label: text("Adresse", "العنوان"),
                   colSpan: true,
                 },
 
                 /* WILAYA */
                 {
                   name: "wilaya",
-                  label: "Wilaya",
+                  label: text("Wilaya", "الولاية"),
                 },
 
                 /* NIF */
                 {
                   name: "nif",
-                  label: "NIF",
+                  label: text("NIF", "الرقم الجبائي NIF"),
                 },
 
                 /* NIS */
                 {
                   name: "nis",
-                  label: "NIS",
+                  label: text("NIS", "الرقم الإحصائي NIS"),
                 },
 
                 /* REGISTRE COMMERCE */
                 {
                   name: "registreCommerce",
-                  label: "Registre de commerce",
+                  label: text("Registre de commerce", "السجل التجاري"),
                   fromRow: "registre_commerce",
                 },
 
                 /* STATUT */
                 {
                   name: "statut",
-                  label: "Statut",
+                  label: text("Statut", "الحالة"),
                   type: "select",
                   options: [
                     {
-                      label: "Actif",
+                      label: text("Actif", "نشط"),
                       value: "ACTIF",
                     },
                     {
-                      label: "Inactif",
+                      label: text("Inactif", "غير نشط"),
                       value: "INACTIF",
                     },
                   ],
@@ -309,7 +297,7 @@ export default function Page() {
                 /* NOTES */
                 {
                   name: "notes",
-                  label: "Notes",
+                  label: text("Notes", "ملاحظات"),
                   type: "textarea",
                   colSpan: true,
                 },
