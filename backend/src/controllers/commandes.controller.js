@@ -1367,6 +1367,33 @@ async function createPublic(
     );
 
   /* =====================================================
+     NOTIFICATION TEMPS RÉEL ADMIN
+  ===================================================== */
+
+  const io = req.app.get("io");
+
+  if (io) {
+    io.emit("order:new", {
+      id: created.id,
+      tracking_number: created.tracking_number,
+      delivery_tracking: created.delivery_tracking,
+      customer_name: created.customer_name,
+      phone: created.phone,
+      wilaya: created.wilaya,
+      commune: created.commune,
+      address: created.address,
+      delivery_type: created.delivery_type,
+      delivery_fee: Number(created.delivery_fee || 0),
+      subtotal: Number(created.subtotal || 0),
+      total: Number(created.total || 0),
+      status: created.status || "NOUVELLE",
+      created_at: created.created_at,
+    });
+
+    console.log(`🔔 NOTIFICATION ADMIN → nouvelle commande #${created.id}`);
+  }
+
+  /* =====================================================
      RESPONSE
   ===================================================== */
 
