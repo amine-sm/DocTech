@@ -1257,7 +1257,18 @@ export default function Header() {
 
             {/* CATEGORIES */}
 
-            <div className="relative">
+            <div
+              className="relative"
+              onMouseEnter={() => {
+                setCategoriesOpen(true);
+                setBrandsOpen(false);
+              }}
+              onMouseLeave={() => {
+                window.setTimeout(() => {
+                  setCategoriesOpen(false);
+                }, 120);
+              }}
+            >
 
               <button
                 type="button"
@@ -1293,11 +1304,14 @@ export default function Header() {
               </button>
 
               {categoriesOpen && (
-                <div className="absolute start-0 top-[calc(100%+8px)] z-50 w-[330px] rounded-[22px] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
+                <div
+                  onMouseEnter={() => setCategoriesOpen(true)}
+                  className="absolute start-1/2 top-[calc(100%+4px)] z-50 w-[560px] -translate-x-1/2 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.18)]"
+                >
 
                   <Link
                     href="/articles"
-                    className="mb-1 flex items-center gap-3 rounded-2xl px-3 py-3 text-[11px] font-black hover:bg-blue-50 hover:text-blue-700"
+                    className="mb-3 flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3.5 text-[11px] font-black text-slate-800 hover:bg-blue-50 hover:text-blue-700"
                   >
                     {text(
                       "Toutes les catégories",
@@ -1305,7 +1319,7 @@ export default function Header() {
                     )}
                   </Link>
 
-                  <div className="grid grid-cols-2 gap-1">
+                  <div className="grid grid-cols-2 gap-2">
 
                     {categories.map(
                       (category) => {
@@ -1328,7 +1342,7 @@ export default function Header() {
                                 false
                               )
                             }
-                            className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-[11px] ${
+                            className={`flex min-h-[48px] items-center gap-3 rounded-2xl px-4 py-3 text-[11px] font-semibold transition-colors ${
                               currentCategory ===
                               category.slug
                                 ? "bg-blue-50 text-blue-700"
@@ -1338,10 +1352,8 @@ export default function Header() {
 
                             <Icon size={14} />
 
-                            <span className="truncate">
-                              {
-                                category.label
-                              }
+                            <span className="whitespace-nowrap text-slate-700">
+                              {category.label}
                             </span>
 
                           </Link>
@@ -1358,7 +1370,18 @@ export default function Header() {
 
             {/* MARQUES */}
 
-            <div className="relative">
+            <div
+              className="relative"
+              onMouseEnter={() => {
+                setBrandsOpen(true);
+                setCategoriesOpen(false);
+              }}
+              onMouseLeave={() => {
+                window.setTimeout(() => {
+                  setBrandsOpen(false);
+                }, 120);
+              }}
+            >
 
               <button
                 type="button"
@@ -1396,11 +1419,14 @@ export default function Header() {
               </button>
 
               {brandsOpen && (
-                <div className="absolute start-0 top-[calc(100%+8px)] z-50 w-[300px] rounded-[22px] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_rgba(15,23,42,0.16)]">
+                <div
+                  onMouseEnter={() => setBrandsOpen(true)}
+                  className="absolute start-1/2 top-[calc(100%+4px)] z-50 w-[560px] -translate-x-1/2 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.18)]"
+                >
 
                   <Link
                     href="/articles"
-                    className="mb-1 flex rounded-2xl px-3 py-3 text-[11px] font-black hover:bg-blue-50 hover:text-blue-700"
+                    className="mb-3 flex items-center rounded-2xl bg-slate-50 px-4 py-3.5 text-[11px] font-black text-slate-800 hover:bg-blue-50 hover:text-blue-700"
                   >
                     {text(
                       "Toutes les marques",
@@ -1408,7 +1434,7 @@ export default function Header() {
                     )}
                   </Link>
 
-                  <div className="grid grid-cols-2 gap-1">
+                  <div className="grid grid-cols-3 gap-3">
 
                     {visibleBrands.map(
                       (brand) => (
@@ -1425,14 +1451,32 @@ export default function Header() {
                               false
                             )
                           }
-                          className={`truncate rounded-xl px-3 py-2.5 text-[11px] ${
+                          className={`group flex min-h-[92px] flex-col items-center justify-center rounded-2xl border px-3 py-3 text-center transition-all ${
                             currentBrand ===
                             brand.slug
-                              ? "bg-blue-50 text-blue-700"
-                              : "hover:bg-slate-50"
+                              ? "border-blue-200 bg-blue-50 text-blue-700 shadow-sm"
+                              : "border-slate-100 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:shadow-sm"
                           }`}
                         >
-                          {brand.name}
+                          {brand.logo ? (
+                            <div className="relative mb-2 h-9 w-20 shrink-0">
+                              <Image
+                                src={brand.logo}
+                                alt={brand.name || ""}
+                                fill
+                                sizes="80px"
+                                className="object-contain transition-transform duration-200 group-hover:scale-105"
+                              />
+                            </div>
+                          ) : (
+                            <div className="mb-2 flex h-9 w-20 items-center justify-center rounded-xl bg-slate-50 text-[10px] font-black text-slate-400">
+                              {brand.name?.slice(0, 10)}
+                            </div>
+                          )}
+
+                          <span className="whitespace-nowrap text-[10px] font-black">
+                            {brand.name}
+                          </span>
                         </Link>
                       )
                     )}
