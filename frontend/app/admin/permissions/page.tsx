@@ -14,58 +14,55 @@ type Permission = {
 };
 
 type PermissionsResponse = {
-  success?: boolean;
-  groups?: Permission[];
+  ok?: boolean;
+  data?: Permission[];
+  grouped?: Record<string, Permission[]>;
 };
-
 export default function Page() {
   const [rows, setRows] = useState<Permission[]>([]);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let mounted = true;
+useEffect(() => {
+  let mounted = true;
 
-    async function loadPermissions() {
-      try {
-        setError("");
+  async function loadPermissions() {
+    try {
+      setError("");
 
-        const response = await apiFetch<PermissionsResponse | Permission[]>(
-          "/permissions",
-        );
+      const response = await apiFetch<
+        PermissionsResponse | Permission[]
+      >("/permissions");
 
-        if (!mounted) return;
+      if (!mounted) return;
 
-        // Compatibilité avec les deux formats :
-        // 1. { success: true, groups: [...] }
-        // 2. [...]
-        if (Array.isArray(response)) {
-          setRows(response);
-          return;
-        }
-
-        setRows(
-          Array.isArray(response?.groups)
-            ? response.groups
-            : [],
-        );
-      } catch (e: any) {
-        if (!mounted) return;
-
-        setError(
-          e?.message ||
-            "Impossible de charger les permissions.",
-        );
-
-        setRows([]);
+      if (Array.isArray(response)) {
+        setRows(response);
+        return;
       }
+
+      setRows(
+        Array.isArray(response?.data)
+          ? response.data
+          : [],
+      );
+    } catch (e: any) {
+      if (!mounted) return;
+
+      setError(
+        e?.message ||
+          "Impossible de charger les permissions.",
+      );
+
+      setRows([]);
     }
+  }
 
-    loadPermissions();
+  void loadPermissions();
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  return () => {
+    mounted = false;
+  };
+}, []);
 
   const groups = useMemo(() => {
     return rows.reduce<Record<string, Permission[]>>(

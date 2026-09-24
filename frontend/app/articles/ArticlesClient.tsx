@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -63,10 +64,38 @@ export default function ArticlesClient() {
 
   const [currentPage, setCurrentPage] = useState(1);
 
+  /* Référence vers le label "Sélection" (compteur d'articles) */
+  const selectionRef = useRef<HTMLDivElement>(null);
+
   /* MOBILE FILTER DRAWER */
 
   const [mobileFiltersOpen, setMobileFiltersOpen] =
     useState(false);
+
+  /* FILTRE FLOTTANT APRES DEFILEMENT */
+
+  const [showFloatingFilter, setShowFloatingFilter] =
+    useState(false);
+
+  /* =========================================================
+     FLOATING FILTER
+  ========================================================= */
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowFloatingFilter(window.scrollY > 420);
+    };
+
+    handleScroll();
+
+    window.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
 
   /* =========================================================
      LOAD CATEGORIES + BRANDS
@@ -100,7 +129,7 @@ export default function ArticlesClient() {
           search,
           limit: 100,
         },
-        locale,
+        locale
       )
         .then((result) => {
           setProducts(result.products);
@@ -133,19 +162,19 @@ export default function ArticlesClient() {
 
     if (sort === "price-asc") {
       result.sort(
-        (a, b) => a.price - b.price,
+        (a, b) => a.price - b.price
       );
     }
 
     if (sort === "price-desc") {
       result.sort(
-        (a, b) => b.price - a.price,
+        (a, b) => b.price - a.price
       );
     }
 
     if (sort === "rating") {
       result.sort(
-        (a, b) => b.rating - a.rating,
+        (a, b) => b.rating - a.rating
       );
     }
 
@@ -169,8 +198,8 @@ export default function ArticlesClient() {
   const totalPages = Math.max(
     1,
     Math.ceil(
-      totalProducts / PRODUCTS_PER_PAGE,
-    ),
+      totalProducts / PRODUCTS_PER_PAGE
+    )
   );
 
   useEffect(() => {
@@ -182,6 +211,79 @@ export default function ArticlesClient() {
     totalPages,
   ]);
 
+  /* =========================================================
+     SCROLL FLUIDE VERS LE LABEL "SÉLECTION"
+  ========================================================= */
+
+  useEffect(() => {
+    // Ne pas remonter automatiquement lors d'un reset vers la page 1
+    // (évite un scroll parasite quand on tape dans la recherche
+    //  ou change un filtre / un tri)
+    if (currentPage === 1) {
+      return;
+    }
+
+    let animationFrame = 0;
+
+    const scrollToSelection = () => {
+      const target = selectionRef.current;
+
+      if (!target) {
+        return;
+      }
+
+      const rect = target.getBoundingClientRect();
+      const startY = window.scrollY;
+
+      // Le label "Sélection" arrive près du haut de l'écran,
+      // avec une petite marge pour ne pas coller au header.
+      const OFFSET_TOP = 100;
+
+      const targetY = Math.max(
+        0,
+        startY + rect.top - OFFSET_TOP
+      );
+
+      const distance = targetY - startY;
+
+      if (Math.abs(distance) < 2) {
+        return;
+      }
+
+      const duration = 650;
+      const startTime = performance.now();
+
+      const animate = (now: number) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Ease-out cubic : départ rapide, arrivée douce.
+        const eased = 1 - Math.pow(1 - progress, 3);
+
+        window.scrollTo(0, startY + distance * eased);
+
+        if (progress < 1) {
+          animationFrame = requestAnimationFrame(animate);
+        }
+      };
+
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    // Laisser React terminer le rendu des nouveaux produits avant le calcul.
+    animationFrame = requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToSelection);
+    });
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+    };
+  }, [currentPage]);
+
+  /* =========================================================
+     PAGINATED PRODUCTS
+  ========================================================= */
+
   const paginatedProducts = useMemo(() => {
     const start =
       (currentPage - 1) *
@@ -192,7 +294,7 @@ export default function ArticlesClient() {
 
     return visible.slice(
       start,
-      end,
+      end
     );
   }, [
     visible,
@@ -226,12 +328,12 @@ export default function ArticlesClient() {
 
     const start = Math.max(
       2,
-      currentPage - 1,
+      currentPage - 1
     );
 
     const end = Math.min(
       totalPages - 1,
-      currentPage + 1,
+      currentPage + 1
     );
 
     for (
@@ -264,13 +366,13 @@ export default function ArticlesClient() {
   const activeCategory =
     categories.find(
       (item) =>
-        item.slug === category,
+        item.slug === category
     );
 
   const activeBrand =
     brands.find(
       (item) =>
-        item.slug === brand,
+        item.slug === brand
     );
 
   const title =
@@ -278,7 +380,7 @@ export default function ArticlesClient() {
     activeCategory?.label ||
     text(
       "Tous les articles",
-      "كل المنتجات",
+      "كل المنتجات"
     );
 
   /* =========================================================
@@ -290,20 +392,114 @@ export default function ArticlesClient() {
   };
 
   /* =========================================================
+     CHANGE PAGE
+  ========================================================= */
+
+  const goToPage = (page: number) => {
+    const nextPage = Math.max(
+      1,
+      Math.min(totalPages, page)
+    );
+
+    if (nextPage === currentPage) {
+      return;
+    }
+
+    setCurrentPage(nextPage);
+  };
+
+  /* =========================================================
      PAGE
   ========================================================= */
 
   return (
     <div
-      className="
+      className={`
         min-h-screen
         bg-white
         pb-[76px]
         text-slate-950
         md:pb-0
-      "
+      `}
     >
       <Header />
+
+      {/* =====================================================
+          FILTRE FLOTTANT
+      ===================================================== */}
+
+      {showFloatingFilter &&
+        !mobileFiltersOpen && (
+          <button
+            type="button"
+            onClick={() =>
+              setMobileFiltersOpen(true)
+            }
+            aria-label={text(
+              "Afficher les filtres",
+              "إظهار الفلاتر"
+            )}
+            className={`
+              fixed
+              right-4
+              bottom-24
+              z-[900]
+              flex
+              h-12
+              w-12
+              -translate-y-1/2
+              items-center
+              justify-center
+              rounded-full
+              bg-blue-600
+              text-white
+              shadow-[0_12px_35px_rgba(15,23,42,0.25)]
+              ring-4
+              ring-white/80
+              transition-all
+              duration-300
+              hover:scale-110
+              hover:bg-blue-700
+              active:scale-95
+              rtl:right-auto
+              rtl:left-4
+              lg:hidden
+            `}
+          >
+            <SlidersHorizontal
+              size={19}
+              strokeWidth={2.5}
+            />
+
+            {(category || brand) && (
+              <span
+                className={`
+                  absolute
+                  -right-1
+                  -top-1
+                  flex
+                  h-5
+                  min-w-5
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-blue-600
+                  px-1
+                  text-[9px]
+                  font-black
+                  text-white
+                  ring-2
+                  ring-white
+                  rtl:-left-1
+                  rtl:right-auto
+                `}
+              >
+                {(category ? 1 : 0) +
+                  (brand ? 1 : 0)}
+              </span>
+            )}
+          </button>
+        )}
 
       {/* =====================================================
           MOBILE FILTER DRAWER
@@ -311,39 +507,38 @@ export default function ArticlesClient() {
 
       {mobileFiltersOpen && (
         <div
-          className="
+          className={`
             fixed
             inset-0
             z-[999]
             lg:hidden
-          "
+          `}
           role="dialog"
           aria-modal="true"
         >
-
           {/* OVERLAY */}
 
           <button
             type="button"
             aria-label={text(
               "Fermer les filtres",
-              "إغلاق الفلاتر",
+              "إغلاق الفلاتر"
             )}
             onClick={
               closeMobileFilters
             }
-            className="
+            className={`
               absolute
               inset-0
               bg-slate-950/35
               backdrop-blur-[2px]
-            "
+            `}
           />
 
           {/* DRAWER */}
 
           <aside
-            className="
+            className={`
               absolute
               inset-y-0
               left-0
@@ -356,13 +551,12 @@ export default function ArticlesClient() {
               bg-white
               shadow-[20px_0_60px_rgba(15,23,42,0.20)]
               animate-filter-drawer
-            "
+            `}
           >
-
             {/* HEADER */}
 
             <div
-              className="
+              className={`
                 flex
                 shrink-0
                 items-center
@@ -371,19 +565,17 @@ export default function ArticlesClient() {
                 border-slate-100
                 px-5
                 py-4
-              "
+              `}
             >
-
               <div
-                className="
+                className={`
                   flex
                   items-center
                   gap-3
-                "
+                `}
               >
-
                 <div
-                  className="
+                  className={`
                     flex
                     h-10
                     w-10
@@ -394,7 +586,7 @@ export default function ArticlesClient() {
                     text-white
                     shadow-lg
                     shadow-blue-600/20
-                  "
+                  `}
                 >
                   <SlidersHorizontal
                     size={18}
@@ -402,37 +594,34 @@ export default function ArticlesClient() {
                 </div>
 
                 <div>
-
                   <p
-                    className="
+                    className={`
                       text-[9px]
                       font-black
                       uppercase
                       tracking-[0.16em]
                       text-blue-600
-                    "
+                    `}
                   >
                     {text(
                       "Catalogue",
-                      "الكتالوج",
+                      "الكتالوج"
                     )}
                   </p>
 
                   <h2
-                    className="
+                    className={`
                       text-lg
                       font-black
                       text-slate-950
-                    "
+                    `}
                   >
                     {text(
                       "Filtres",
-                      "الفلاتر",
+                      "الفلاتر"
                     )}
                   </h2>
-
                 </div>
-
               </div>
 
               <button
@@ -442,9 +631,9 @@ export default function ArticlesClient() {
                 }
                 aria-label={text(
                   "Fermer",
-                  "إغلاق",
+                  "إغلاق"
                 )}
-                className="
+                className={`
                   flex
                   h-10
                   w-10
@@ -455,94 +644,86 @@ export default function ArticlesClient() {
                   text-slate-600
                   transition
                   hover:bg-slate-200
-                "
+                `}
               >
                 <X size={18} />
               </button>
-
             </div>
 
             {/* CONTENT */}
 
             <div
-              className="
+              className={`
                 flex-1
                 overflow-y-auto
                 overscroll-contain
                 px-4
                 py-5
-              "
+              `}
             >
+              {/* CATEGORIES */}
 
-              {/* =================================================
-                  CATEGORIES
-              ================================================= */}
-
-              <div className="mb-7">
-
+              <div
+                className={`mb-7`}
+              >
                 <div
-                  className="
+                  className={`
                     mb-3
                     flex
                     items-center
                     justify-between
-                  "
+                  `}
                 >
-
                   <div
-                    className="
+                    className={`
                       flex
                       items-center
                       gap-2
-                    "
+                    `}
                   >
-
                     <span
-                      className="
+                      className={`
                         h-1.5
                         w-1.5
                         rounded-full
                         bg-blue-600
-                      "
+                      `}
                     />
 
                     <span
-                      className="
+                      className={`
                         text-[10px]
                         font-black
                         uppercase
                         tracking-[0.15em]
                         text-slate-500
-                      "
+                      `}
                     >
                       {text(
                         "Catégories",
-                        "التصنيفات",
+                        "التصنيفات"
                       )}
                     </span>
-
                   </div>
 
                   <span
-                    className="
+                    className={`
                       text-[9px]
                       font-bold
                       text-slate-300
-                    "
+                    `}
                   >
                     {categories.length + 1}
                   </span>
-
                 </div>
 
                 <div
-                  className="
+                  className={`
                     grid
                     grid-cols-2
                     gap-2
-                  "
+                  `}
                 >
-
                   {/* TOUT */}
 
                   <Link
@@ -566,7 +747,6 @@ export default function ArticlesClient() {
                       }
                     `}
                   >
-
                     <span
                       className={`
                         relative
@@ -586,33 +766,32 @@ export default function ArticlesClient() {
                         }
                       `}
                     >
-
                       <Image
                         src="/images/categories/pc-portable.png"
                         alt=""
                         fill
                         sizes="44px"
-                        className="
+                        className={`
                           object-contain
                           p-1.5
-                        "
+                        `}
                       />
-
                     </span>
 
-                    <span className="min-w-0">
-
+                    <span
+                      className={`min-w-0`}
+                    >
                       <span
-                        className="
+                        className={`
                           block
                           truncate
                           text-[10px]
                           font-black
-                        "
+                        `}
                       >
                         {text(
                           "Tout",
-                          "الكل",
+                          "الكل"
                         )}
                       </span>
 
@@ -632,12 +811,10 @@ export default function ArticlesClient() {
                       >
                         {text(
                           "Tous",
-                          "الكل",
+                          "الكل"
                         )}
                       </span>
-
                     </span>
-
                   </Link>
 
                   {/* CATEGORIES */}
@@ -654,7 +831,7 @@ export default function ArticlesClient() {
                             item.slug
                           }
                           href={`/articles?categorie=${encodeURIComponent(
-                            item.slug,
+                            item.slug
                           )}`}
                           onClick={
                             closeMobileFilters
@@ -675,7 +852,6 @@ export default function ArticlesClient() {
                             }
                           `}
                         >
-
                           <span
                             className={`
                               relative
@@ -694,7 +870,6 @@ export default function ArticlesClient() {
                               }
                             `}
                           >
-
                             <Image
                               src={
                                 item.image ||
@@ -703,26 +878,26 @@ export default function ArticlesClient() {
                               alt=""
                               fill
                               sizes="44px"
-                              className="
+                              className={`
                                 object-contain
                                 p-1.5
                                 transition-transform
                                 duration-300
                                 group-hover:scale-110
-                              "
+                              `}
                             />
-
                           </span>
 
-                          <span className="min-w-0">
-
+                          <span
+                            className={`min-w-0`}
+                          >
                             <span
-                              className="
+                              className={`
                                 block
                                 truncate
                                 text-[10px]
                                 font-black
-                              "
+                              `}
                             >
                               {
                                 item.label
@@ -745,19 +920,18 @@ export default function ArticlesClient() {
                               {active
                                 ? text(
                                     "Actif",
-                                    "محدد",
+                                    "محدد"
                                   )
                                 : text(
                                     "Choisir",
-                                    "اختيار",
+                                    "اختيار"
                                   )}
                             </span>
-
                           </span>
 
                           {active && (
                             <span
-                              className="
+                              className={`
                                 absolute
                                 right-2
                                 top-2
@@ -771,7 +945,7 @@ export default function ArticlesClient() {
                                 text-blue-600
                                 rtl:left-2
                                 rtl:right-auto
-                              "
+                              `}
                             >
                               <Check
                                 size={10}
@@ -781,99 +955,85 @@ export default function ArticlesClient() {
                               />
                             </span>
                           )}
-
                         </Link>
                       );
-                    },
+                    }
                   )}
-
                 </div>
-
               </div>
 
               {/* SEPARATOR */}
 
               <div
-                className="
+                className={`
                   my-6
                   h-px
                   bg-slate-100
-                "
+                `}
               />
 
-              {/* =================================================
-                  BRANDS
-              ================================================= */}
+              {/* BRANDS */}
 
-              {brands.length >
-                0 && (
+              {brands.length > 0 && (
                 <div>
-
                   <div
-                    className="
+                    className={`
                       mb-3
                       flex
                       items-center
                       justify-between
-                    "
+                    `}
                   >
-
                     <div
-                      className="
+                      className={`
                         flex
                         items-center
                         gap-2
-                      "
+                      `}
                     >
-
                       <span
-                        className="
+                        className={`
                           h-1.5
                           w-1.5
                           rounded-full
                           bg-emerald-500
-                        "
+                        `}
                       />
 
                       <span
-                        className="
+                        className={`
                           text-[10px]
                           font-black
                           uppercase
                           tracking-[0.15em]
                           text-slate-500
-                        "
+                        `}
                       >
                         {text(
                           "Marques",
-                          "العلامات التجارية",
+                          "العلامات التجارية"
                         )}
                       </span>
-
                     </div>
 
                     <span
-                      className="
+                      className={`
                         text-[9px]
                         font-bold
                         text-slate-300
-                      "
+                      `}
                     >
-                      {
-                        brands.length
-                      }
+                      {brands.length}
                     </span>
-
                   </div>
 
                   <div
-                    className="
+                    className={`
                       grid
                       grid-cols-2
                       gap-2
-                    "
+                    `}
                   >
-
                     {brands.map(
                       (item) => {
                         const active =
@@ -886,7 +1046,7 @@ export default function ArticlesClient() {
                               item.id
                             }
                             href={`/articles?marque=${encodeURIComponent(
-                              item.slug,
+                              item.slug
                             )}`}
                             onClick={
                               closeMobileFilters
@@ -907,9 +1067,8 @@ export default function ArticlesClient() {
                               }
                             `}
                           >
-
                             <span
-                              className="
+                              className={`
                                 relative
                                 flex
                                 h-11
@@ -920,51 +1079,50 @@ export default function ArticlesClient() {
                                 overflow-hidden
                                 rounded-xl
                                 bg-white
-                              "
+                              `}
                             >
-
                               {item.logo ? (
                                 <img
                                   src={
                                     item.logo
                                   }
                                   alt=""
-                                  className="
+                                  className={`
                                     h-9
                                     w-10
                                     object-contain
                                     transition-transform
                                     duration-300
                                     group-hover:scale-110
-                                  "
+                                  `}
                                 />
                               ) : (
                                 <span
-                                  className="
+                                  className={`
                                     text-sm
                                     font-black
                                     text-slate-300
-                                  "
+                                  `}
                                 >
                                   {item.name
                                     ?.charAt(
-                                      0,
+                                      0
                                     )
                                     ?.toUpperCase()}
                                 </span>
                               )}
-
                             </span>
 
-                            <span className="min-w-0">
-
+                            <span
+                              className={`min-w-0`}
+                            >
                               <span
-                                className="
+                                className={`
                                   block
                                   truncate
                                   text-[10px]
                                   font-black
-                                "
+                                `}
                               >
                                 {
                                   item.name
@@ -987,19 +1145,18 @@ export default function ArticlesClient() {
                                 {active
                                   ? text(
                                       "Active",
-                                      "محددة",
+                                      "محددة"
                                     )
                                   : text(
                                       "Choisir",
-                                      "اختيار",
+                                      "اختيار"
                                     )}
                               </span>
-
                             </span>
 
                             {active && (
                               <span
-                                className="
+                                className={`
                                   absolute
                                   right-2
                                   top-2
@@ -1013,49 +1170,42 @@ export default function ArticlesClient() {
                                   text-slate-950
                                   rtl:left-2
                                   rtl:right-auto
-                                "
+                                `}
                               >
                                 <Check
-                                  size={
-                                    10
-                                  }
+                                  size={10}
                                   strokeWidth={
                                     3
                                   }
                                 />
                               </span>
                             )}
-
                           </Link>
                         );
-                      },
+                      }
                     )}
-
                   </div>
-
                 </div>
               )}
-
             </div>
 
             {/* FOOTER */}
 
             <div
-              className="
+              className={`
                 shrink-0
                 border-t
                 border-slate-100
                 bg-white
                 p-4
-              "
+              `}
             >
-
               <button
                 type="button"
                 onClick={
                   closeMobileFilters
                 }
-                className="
+                className={`
                   flex
                   h-12
                   w-full
@@ -1070,23 +1220,19 @@ export default function ArticlesClient() {
                   shadow-slate-950/10
                   transition
                   hover:bg-blue-600
-                "
+                `}
               >
                 {text(
                   "Voir les produits",
-                  "عرض المنتجات",
+                  "عرض المنتجات"
                 )}
               </button>
-
             </div>
-
           </aside>
-
         </div>
       )}
 
       <main className="bg-white">
-
         {/* =====================================================
             HERO
         ===================================================== */}
@@ -1094,14 +1240,14 @@ export default function ArticlesClient() {
         <ShopHero
           eyebrow={text(
             "Catalogue DOCTECH",
-            "كتالوج DOCTECH",
+            "كتالوج DOCTECH"
           )}
           title={
             category || brand
               ? title
               : text(
                   "Trouvez votre prochain équipement",
-                  "اعثر على تجهيزك القادم",
+                  "اعثر على تجهيزك القادم"
                 )
           }
           description={
@@ -1113,9 +1259,8 @@ export default function ArticlesClient() {
             <Grid2X2 size={13} />
           }
         >
-
           <div
-            className="
+            className={`
               mt-7
               flex
               items-center
@@ -1123,13 +1268,12 @@ export default function ArticlesClient() {
               text-[11px]
               font-bold
               text-slate-500
-            "
+            `}
           >
-
             <Link href="/">
               {text(
                 "Accueil",
-                "الرئيسية",
+                "الرئيسية"
               )}
             </Link>
 
@@ -1141,18 +1285,15 @@ export default function ArticlesClient() {
             <span className="text-slate-900">
               {title}
             </span>
-
           </div>
-
         </ShopHero>
-
 
         {/* =====================================================
             CONTENT
         ===================================================== */}
 
         <section
-          className="
+          className={`
             mx-auto
             max-w-[1450px]
             bg-white
@@ -1161,15 +1302,14 @@ export default function ArticlesClient() {
             sm:px-6
             lg:px-8
             lg:py-10
-          "
+          `}
         >
-
           {/* =================================================
               DESKTOP FILTERS
           ================================================= */}
 
           <div
-            className="
+            className={`
               mb-7
               hidden
               rounded-[28px]
@@ -1178,23 +1318,21 @@ export default function ArticlesClient() {
               ring-1
               ring-slate-100
               lg:block
-            "
+            `}
           >
-
             <div
-              className="
+              className={`
                 rounded-[24px]
                 bg-white
                 p-4
                 shadow-[0_8px_30px_rgba(15,23,42,0.05)]
                 sm:p-5
-              "
+              `}
             >
-
               {/* HEADER */}
 
               <div
-                className="
+                className={`
                   mb-5
                   flex
                   flex-col
@@ -1202,19 +1340,17 @@ export default function ArticlesClient() {
                   sm:flex-row
                   sm:items-center
                   sm:justify-between
-                "
+                `}
               >
-
                 <div
-                  className="
+                  className={`
                     flex
                     items-center
                     gap-3
-                  "
+                  `}
                 >
-
                   <div
-                    className="
+                    className={`
                       flex
                       h-9
                       w-9
@@ -1225,7 +1361,7 @@ export default function ArticlesClient() {
                       text-white
                       shadow-lg
                       shadow-blue-600/20
-                    "
+                    `}
                   >
                     <SlidersHorizontal
                       size={16}
@@ -1233,45 +1369,42 @@ export default function ArticlesClient() {
                   </div>
 
                   <div>
-
                     <p
-                      className="
+                      className={`
                         text-[9px]
                         font-black
                         uppercase
                         tracking-[0.18em]
                         text-blue-600
-                      "
+                      `}
                     >
                       {text(
                         "Explorer",
-                        "استكشف",
+                        "استكشف"
                       )}
                     </p>
 
                     <h3
-                      className="
+                      className={`
                         text-base
                         font-black
                         tracking-tight
                         text-slate-950
-                      "
+                      `}
                     >
                       {text(
                         "Filtrer le catalogue",
-                        "تصفية الكتالوج",
+                        "تصفية الكتالوج"
                       )}
                     </h3>
-
                   </div>
-
                 </div>
 
                 {(category ||
                   brand) && (
                   <Link
                     href="/articles"
-                    className="
+                    className={`
                       inline-flex
                       w-fit
                       items-center
@@ -1286,104 +1419,89 @@ export default function ArticlesClient() {
                       transition-all
                       hover:bg-red-50
                       hover:text-red-600
-                    "
+                    `}
                   >
-
                     <span
-                      className="
+                      className={`
                         h-1.5
                         w-1.5
                         rounded-full
                         bg-blue-600
-                      "
+                      `}
                     />
 
                     {text(
                       "Réinitialiser les filtres",
-                      "إعادة ضبط الفلاتر",
+                      "إعادة ضبط الفلاتر"
                     )}
-
                   </Link>
                 )}
-
               </div>
-
 
               {/* CATEGORIES */}
 
               <div>
-
                 <div
-                  className="
+                  className={`
                     mb-3
                     flex
                     items-center
                     justify-between
-                  "
+                  `}
                 >
-
                   <div
-                    className="
+                    className={`
                       flex
                       items-center
                       gap-2
-                    "
+                    `}
                   >
-
                     <span
-                      className="
+                      className={`
                         h-1.5
                         w-1.5
                         rounded-full
                         bg-blue-600
-                      "
+                      `}
                     />
 
                     <span
-                      className="
+                      className={`
                         text-[10px]
                         font-black
                         uppercase
                         tracking-[0.14em]
                         text-slate-500
-                      "
+                      `}
                     >
                       {text(
                         "Catégories",
-                        "التصنيفات",
+                        "التصنيفات"
                       )}
                     </span>
-
                   </div>
 
                   <span
-                    className="
+                    className={`
                       text-[9px]
                       font-bold
                       text-slate-300
-                    "
+                    `}
                   >
-                    {
-                      categories.length +
-                      1
-                    }
+                    {categories.length +
+                      1}
                   </span>
-
                 </div>
 
-
                 <div
-                  className="
+                  className={`
                     scrollbar-none
                     flex
                     gap-2
                     overflow-x-auto
                     pb-2
-                  "
+                  `}
                 >
-
-                  {/* TOUT */}
-
                   <DesktopCategory
                     href="/articles"
                     active={
@@ -1392,15 +1510,14 @@ export default function ArticlesClient() {
                     }
                     label={text(
                       "Tout",
-                      "الكل",
+                      "الكل"
                     )}
                     subtitle={text(
                       "Tous les produits",
-                      "كل المنتجات",
+                      "كل المنتجات"
                     )}
                     image="/images/categories/pc-portable.png"
                   />
-
 
                   {categories.map(
                     (item) => (
@@ -1409,7 +1526,7 @@ export default function ArticlesClient() {
                           item.slug
                         }
                         href={`/articles?categorie=${encodeURIComponent(
-                          item.slug,
+                          item.slug
                         )}`}
                         active={
                           category ===
@@ -1423,11 +1540,11 @@ export default function ArticlesClient() {
                           item.slug
                             ? text(
                                 "Sélectionné",
-                                "محدد",
+                                "محدد"
                               )
                             : text(
                                 "Voir les produits",
-                                "عرض المنتجات",
+                                "عرض المنتجات"
                               )
                         }
                         image={
@@ -1435,102 +1552,87 @@ export default function ArticlesClient() {
                           "/images/categories/pc-portable.png"
                         }
                       />
-                    ),
+                    )
                   )}
-
                 </div>
-
               </div>
-
 
               {/* SEPARATOR */}
 
               <div
-                className="
+                className={`
                   my-5
                   h-px
                   bg-slate-100
-                "
+                `}
               />
-
 
               {/* BRANDS */}
 
-              {brands.length >
-                0 && (
+              {brands.length > 0 && (
                 <div>
-
                   <div
-                    className="
+                    className={`
                       mb-3
                       flex
                       items-center
                       justify-between
-                    "
+                    `}
                   >
-
                     <div
-                      className="
+                      className={`
                         flex
                         items-center
                         gap-2
-                      "
+                      `}
                     >
-
                       <span
-                        className="
+                        className={`
                           h-1.5
                           w-1.5
                           rounded-full
                           bg-emerald-500
-                        "
+                        `}
                       />
 
                       <span
-                        className="
+                        className={`
                           text-[10px]
                           font-black
                           uppercase
                           tracking-[0.14em]
                           text-slate-500
-                        "
+                        `}
                       >
                         {text(
                           "Marques",
-                          "العلامات التجارية",
+                          "العلامات التجارية"
                         )}
                       </span>
-
                     </div>
 
                     <span
-                      className="
+                      className={`
                         text-[9px]
                         font-bold
                         text-slate-300
-                      "
+                      `}
                     >
-                      {
-                        brands.length
-                      }
+                      {brands.length}
                     </span>
-
                   </div>
 
-
                   <div
-                    className="
+                    className={`
                       scrollbar-none
                       flex
                       gap-2
                       overflow-x-auto
                       pb-2
-                    "
+                    `}
                   >
-
                     {brands.map(
                       (item) => {
-
                         const active =
                           brand ===
                           item.slug;
@@ -1541,7 +1643,7 @@ export default function ArticlesClient() {
                               item.id
                             }
                             href={`/articles?marque=${encodeURIComponent(
-                              item.slug,
+                              item.slug
                             )}`}
                             className={`
                               group
@@ -1562,9 +1664,8 @@ export default function ArticlesClient() {
                               }
                             `}
                           >
-
                             <span
-                              className="
+                              className={`
                                 relative
                                 flex
                                 h-10
@@ -1575,51 +1676,50 @@ export default function ArticlesClient() {
                                 overflow-hidden
                                 rounded-xl
                                 bg-white
-                              "
+                              `}
                             >
-
                               {item.logo ? (
                                 <img
                                   src={
                                     item.logo
                                   }
                                   alt=""
-                                  className="
+                                  className={`
                                     h-8
                                     w-9
                                     object-contain
                                     transition-transform
                                     duration-300
                                     group-hover:scale-110
-                                  "
+                                  `}
                                 />
                               ) : (
                                 <span
-                                  className="
+                                  className={`
                                     text-xs
                                     font-black
                                     text-slate-300
-                                  "
+                                  `}
                                 >
                                   {item.name
                                     ?.charAt(
-                                      0,
+                                      0
                                     )
                                     ?.toUpperCase()}
                                 </span>
                               )}
-
                             </span>
 
-                            <span className="min-w-0">
-
+                            <span
+                              className={`min-w-0`}
+                            >
                               <span
-                                className="
+                                className={`
                                   block
                                   truncate
                                   text-[10px]
                                   font-black
-                                "
+                                `}
                               >
                                 {
                                   item.name
@@ -1642,50 +1742,42 @@ export default function ArticlesClient() {
                                 {active
                                   ? text(
                                       "Sélectionnée",
-                                      "محددة",
+                                      "محددة"
                                     )
                                   : text(
                                       "Voir la marque",
-                                      "عرض العلامة",
+                                      "عرض العلامة"
                                     )}
                               </span>
-
                             </span>
-
                           </Link>
                         );
-                      },
+                      }
                     )}
-
                   </div>
-
                 </div>
               )}
-
             </div>
-
           </div>
-
 
           {/* =================================================
               MOBILE FILTER BUTTON
           ================================================= */}
 
           <div
-            className="
+            className={`
               mb-4
               lg:hidden
-            "
+            `}
           >
-
             <button
               type="button"
               onClick={() =>
                 setMobileFiltersOpen(
-                  true,
+                  true
                 )
               }
-              className="
+              className={`
                 group
                 flex
                 w-full
@@ -1699,19 +1791,17 @@ export default function ArticlesClient() {
                 shadow-[0_10px_30px_rgba(15,23,42,0.12)]
                 transition-all
                 active:scale-[0.98]
-              "
+              `}
             >
-
               <div
-                className="
+                className={`
                   flex
                   items-center
                   gap-3
-                "
+                `}
               >
-
                 <span
-                  className="
+                  className={`
                     flex
                     h-9
                     w-9
@@ -1719,7 +1809,7 @@ export default function ArticlesClient() {
                     justify-center
                     rounded-xl
                     bg-white/10
-                  "
+                  `}
                 >
                   <SlidersHorizontal
                     size={17}
@@ -1727,59 +1817,54 @@ export default function ArticlesClient() {
                 </span>
 
                 <span
-                  className="
+                  className={`
                     text-left
                     rtl:text-right
-                  "
+                  `}
                 >
-
                   <span
-                    className="
+                    className={`
                       block
                       text-[9px]
                       font-black
                       uppercase
                       tracking-[0.12em]
                       text-white/50
-                    "
+                    `}
                   >
                     {text(
                       "Catalogue",
-                      "الكتالوج",
+                      "الكتالوج"
                     )}
                   </span>
 
                   <span
-                    className="
+                    className={`
                       mt-0.5
                       block
                       text-sm
                       font-black
-                    "
+                    `}
                   >
                     {text(
                       "Filtres",
-                      "الفلاتر",
+                      "الفلاتر"
                     )}
                   </span>
-
                 </span>
-
               </div>
 
-
               <div
-                className="
+                className={`
                   flex
                   items-center
                   gap-2
-                "
+                `}
               >
-
                 {(category ||
                   brand) && (
                   <span
-                    className="
+                    className={`
                       flex
                       h-5
                       min-w-5
@@ -1790,7 +1875,7 @@ export default function ArticlesClient() {
                       px-1.5
                       text-[9px]
                       font-black
-                    "
+                    `}
                   >
                     {(category
                       ? 1
@@ -1803,40 +1888,34 @@ export default function ArticlesClient() {
 
                 <ChevronRight
                   size={17}
-                  className="
+                  className={`
                     text-white/50
                     transition-transform
                     group-hover:translate-x-1
                     rtl:rotate-180
-                  "
+                  `}
                 />
-
               </div>
-
             </button>
-
           </div>
-
 
           {/* =================================================
               SEARCH + SORT
           ================================================= */}
 
           <div
-            className="
+            className={`
               mb-6
               grid
               gap-3
               lg:grid-cols-[1fr_auto]
-            "
+            `}
           >
-
             {/* SEARCH */}
 
             <div className="relative">
-
               <Search
-                className="
+                className={`
                   absolute
                   left-4
                   top-1/2
@@ -1844,7 +1923,7 @@ export default function ArticlesClient() {
                   text-slate-400
                   rtl:left-auto
                   rtl:right-4
-                "
+                `}
                 size={18}
               />
 
@@ -1852,15 +1931,15 @@ export default function ArticlesClient() {
                 value={search}
                 onChange={(e) => {
                   setSearch(
-                    e.target.value,
+                    e.target.value
                   );
                   setCurrentPage(1);
                 }}
                 placeholder={text(
                   "Rechercher un produit, une marque...",
-                  "ابحث عن منتج أو علامة...",
+                  "ابحث عن منتج أو علامة..."
                 )}
-                className="
+                className={`
                   h-13
                   w-full
                   rounded-2xl
@@ -1875,16 +1954,14 @@ export default function ArticlesClient() {
                   outline-none
                   placeholder:text-slate-400
                   focus:border-blue-300
-                "
+                `}
               />
-
             </div>
-
 
             {/* SORT */}
 
             <div
-              className="
+              className={`
                 flex
                 items-center
                 gap-2
@@ -1893,9 +1970,8 @@ export default function ArticlesClient() {
                 border-slate-200
                 bg-white
                 px-3
-              "
+              `}
             >
-
               <SlidersHorizontal
                 size={15}
                 className="text-blue-600"
@@ -1905,54 +1981,49 @@ export default function ArticlesClient() {
                 value={sort}
                 onChange={(e) => {
                   setSort(
-                    e.target.value,
+                    e.target.value
                   );
                   setCurrentPage(1);
                 }}
-                className="
+                className={`
                   h-12
                   bg-transparent
                   text-xs
                   font-black
                   text-slate-900
                   outline-none
-                "
+                `}
               >
-
                 <option value="featured">
                   {text(
                     "Recommandés",
-                    "مقترحة",
+                    "مقترحة"
                   )}
                 </option>
 
                 <option value="price-asc">
                   {text(
                     "Prix croissant",
-                    "السعر تصاعديا",
+                    "السعر تصاعديا"
                   )}
                 </option>
 
                 <option value="price-desc">
                   {text(
                     "Prix décroissant",
-                    "السعر تنازليا",
+                    "السعر تنازليا"
                   )}
                 </option>
 
                 <option value="rating">
                   {text(
                     "Mieux notés",
-                    "الأعلى تقييما",
+                    "الأعلى تقييما"
                   )}
                 </option>
-
               </select>
-
             </div>
-
           </div>
-
 
           {/* =================================================
               ERROR
@@ -1960,7 +2031,7 @@ export default function ArticlesClient() {
 
           {error && (
             <div
-              className="
+              className={`
                 mb-5
                 rounded-2xl
                 bg-red-50
@@ -1968,104 +2039,91 @@ export default function ArticlesClient() {
                 text-sm
                 font-bold
                 text-red-600
-              "
+              `}
             >
               {error}
             </div>
           )}
-
 
           {/* =================================================
               LOADING
           ================================================= */}
 
           {loading ? (
-
             <div
-              className="
+              className={`
                 grid
                 grid-cols-2
                 gap-3
                 sm:gap-4
                 lg:grid-cols-5
-              "
+              `}
             >
-
               {Array.from({
                 length: 10,
               }).map((_, i) => (
                 <div
                   key={i}
-                  className="
+                  className={`
                     h-[390px]
                     animate-pulse
                     rounded-[26px]
                     bg-slate-100
-                  "
+                  `}
                 />
               ))}
-
             </div>
-
           ) : visible.length ? (
-
             <>
-
-              {/* =================================================
-                  RESULT COUNT
-              ================================================= */}
+              {/* RESULT COUNT */}
 
               <div
-                className="
+                ref={selectionRef}
+                className={`
                   mb-5
                   flex
                   items-end
                   justify-between
                   gap-4
-                "
+                `}
               >
-
                 <div>
-
                   <p
-                    className="
+                    className={`
                       text-[10px]
                       font-black
                       uppercase
                       tracking-[.15em]
                       text-blue-600
-                    "
+                    `}
                   >
                     {text(
                       "Sélection",
-                      "المنتجات",
+                      "المنتجات"
                     )}
                   </p>
 
                   <h2
-                    className="
+                    className={`
                       mt-1
                       text-2xl
                       font-black
                       text-slate-950
-                    "
+                    `}
                   >
                     {totalProducts}{" "}
                     {text(
-                      totalProducts >
-                        1
+                      totalProducts > 1
                         ? "articles"
                         : "article",
-                      "منتج",
+                      "منتج"
                     )}
                   </h2>
-
                 </div>
 
-                {totalPages >
-                  1 && (
+                {totalPages > 1 && (
                   <div
-                    className="
+                    className={`
                       hidden
                       text-right
                       text-[10px]
@@ -2074,36 +2132,33 @@ export default function ArticlesClient() {
                       tracking-wider
                       text-slate-400
                       sm:block
-                    "
+                    `}
                   >
                     {text(
                       `Page ${currentPage} / ${totalPages}`,
-                      `الصفحة ${currentPage} / ${totalPages}`,
+                      `الصفحة ${currentPage} / ${totalPages}`
                     )}
                   </div>
                 )}
-
               </div>
-
 
               {/* =================================================
                   PRODUCTS
               ================================================= */}
 
               <div
-                className="
+                className={`
                   grid
                   grid-cols-2
                   gap-3
                   sm:gap-4
                   lg:grid-cols-5
-                "
+                `}
               >
-
                 {paginatedProducts.map(
                   (
                     product,
-                    index,
+                    index
                   ) => (
                     <ProductCard
                       key={
@@ -2116,53 +2171,48 @@ export default function ArticlesClient() {
                         index
                       }
                     />
-                  ),
+                  )
                 )}
-
               </div>
-
 
               {/* =================================================
                   PAGINATION
               ================================================= */}
 
-              {totalPages >
-                1 && (
+              {totalPages > 1 && (
                 <div
-                  className="
+                  className={`
                     mt-10
                     flex
                     flex-col
                     items-center
                     gap-4
-                  "
+                  `}
                   dir="ltr"
                 >
-
                   <p
-                    className="
+                    className={`
                       text-[10px]
                       font-black
                       uppercase
                       tracking-[.15em]
                       text-slate-400
                       sm:hidden
-                    "
+                    `}
                   >
                     {text(
                       `Page ${currentPage} / ${totalPages}`,
-                      `الصفحة ${currentPage} / ${totalPages}`,
+                      `الصفحة ${currentPage} / ${totalPages}`
                     )}
                   </p>
 
                   <div
-                    className="
+                    className={`
                       flex
                       items-center
                       gap-1.5
-                    "
+                    `}
                   >
-
                     {/* PREVIOUS */}
 
                     <button
@@ -2172,22 +2222,16 @@ export default function ArticlesClient() {
                         1
                       }
                       onClick={() =>
-                        setCurrentPage(
-                          (
-                            page,
-                          ) =>
-                            Math.max(
-                              1,
-                              page -
-                                1,
-                            ),
+                        goToPage(
+                          currentPage -
+                            1
                         )
                       }
                       aria-label={text(
                         "Page précédente",
-                        "الصفحة السابقة",
+                        "الصفحة السابقة"
                       )}
-                      className="
+                      className={`
                         flex
                         h-10
                         w-10
@@ -2204,22 +2248,20 @@ export default function ArticlesClient() {
                         hover:text-blue-600
                         disabled:cursor-not-allowed
                         disabled:opacity-40
-                      "
+                      `}
                     >
                       <ChevronLeft
                         size={17}
                       />
                     </button>
 
-
                     {/* NUMBERS */}
 
                     {paginationItems.map(
                       (
                         item,
-                        index,
+                        index
                       ) => {
-
                         if (
                           item ===
                           "..."
@@ -2227,7 +2269,7 @@ export default function ArticlesClient() {
                           return (
                             <span
                               key={`dots-${index}`}
-                              className="
+                              className={`
                                 flex
                                 h-10
                                 w-8
@@ -2236,7 +2278,7 @@ export default function ArticlesClient() {
                                 text-xs
                                 font-black
                                 text-slate-400
-                              "
+                              `}
                             >
                               ...
                             </span>
@@ -2254,8 +2296,8 @@ export default function ArticlesClient() {
                             }
                             type="button"
                             onClick={() =>
-                              setCurrentPage(
-                                item,
+                              goToPage(
+                                item
                               )
                             }
                             className={`
@@ -2277,14 +2319,11 @@ export default function ArticlesClient() {
                               }
                             `}
                           >
-                            {
-                              item
-                            }
+                            {item}
                           </button>
                         );
-                      },
+                      }
                     )}
-
 
                     {/* NEXT */}
 
@@ -2295,22 +2334,16 @@ export default function ArticlesClient() {
                         totalPages
                       }
                       onClick={() =>
-                        setCurrentPage(
-                          (
-                            page,
-                          ) =>
-                            Math.min(
-                              totalPages,
-                              page +
-                                1,
-                            ),
+                        goToPage(
+                          currentPage +
+                            1
                         )
                       }
                       aria-label={text(
                         "Page suivante",
-                        "الصفحة التالية",
+                        "الصفحة التالية"
                       )}
-                      className="
+                      className={`
                         flex
                         h-10
                         w-10
@@ -2327,24 +2360,19 @@ export default function ArticlesClient() {
                         hover:text-blue-600
                         disabled:cursor-not-allowed
                         disabled:opacity-40
-                      "
+                      `}
                     >
                       <ChevronRight
                         size={17}
                       />
                     </button>
-
                   </div>
-
                 </div>
               )}
-
             </>
-
           ) : (
-
             <div
-              className="
+              className={`
                 rounded-[26px]
                 border
                 border-slate-200
@@ -2353,18 +2381,15 @@ export default function ArticlesClient() {
                 text-center
                 text-sm
                 text-slate-500
-              "
+              `}
             >
               {text(
                 "Aucun article trouvé.",
-                "لم يتم العثور على منتجات.",
+                "لم يتم العثور على منتجات."
               )}
             </div>
-
           )}
-
         </section>
-
       </main>
 
       <Footer />
@@ -2407,11 +2432,9 @@ export default function ArticlesClient() {
           -ms-overflow-style: none;
         }
       `}</style>
-
     </div>
   );
 }
-
 
 /* =========================================================
    DESKTOP CATEGORY CARD
@@ -2453,7 +2476,6 @@ function DesktopCategory({
         }
       `}
     >
-
       <span
         className={`
           relative
@@ -2472,33 +2494,31 @@ function DesktopCategory({
           }
         `}
       >
-
         <Image
           src={image}
           alt=""
           fill
           sizes="40px"
-          className="
+          className={`
             object-contain
             p-1.5
             transition-transform
             duration-300
             group-hover:scale-110
-          "
+          `}
         />
-
       </span>
 
-
-      <span className="min-w-0">
-
+      <span
+        className={`min-w-0`}
+      >
         <span
-          className="
+          className={`
             block
             truncate
             text-[10px]
             font-black
-          "
+          `}
         >
           {label}
         </span>
@@ -2519,9 +2539,7 @@ function DesktopCategory({
         >
           {subtitle}
         </span>
-
       </span>
-
     </Link>
   );
 }

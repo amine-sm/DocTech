@@ -967,7 +967,7 @@ export default function ArticlesPage() {
         }
 
         // STOCK FAIBLE = 1 à 10 unités
-        if (stock > 0 && stock <= 10) {
+        if (stock > 0 && stock <= 3) {
           lowStock++;
         }
 
@@ -1944,11 +1944,7 @@ export default function ArticlesPage() {
                                 <h3 className="min-w-0 flex-1 truncate text-xs font-black text-slate-900">
                                   {article.name}
                                 </h3>
-                                {isFeatured && (
-                                  <span className="shrink-0 rounded-full bg-orange-50 px-2 py-1 text-[10px] font-black text-[#FE5737]">
-                                    ⭐ TOP
-                                  </span>
-                                )}
+                              
                               </div>
 
                               {article.name_ar && (
@@ -2034,7 +2030,7 @@ export default function ArticlesPage() {
                               >
                                 {stock <= 0
                                   ? text("Rupture", "نفد")
-                                  : stock <= 10
+                                  : stock <= 3
                                   ? text("Faible", "منخفض")
                                   : text("OK", "متوفر")}
                               </p>
