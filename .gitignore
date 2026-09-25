@@ -4,7 +4,6 @@
 .env
 .env.*
 !.env.example
-!.env.local
 
 # =========================
 # DEPENDENCIES
@@ -108,7 +107,6 @@ ENV/
 # =========================
 # TESTING
 # =========================
-coverage/
 .nyc_output/
 
 # =========================
@@ -120,11 +118,7 @@ coverage/
 # =========================
 # TEMPORARY FILES
 # =========================
-*.temp
-*.tmp
 *.cache
-*.swp
-*.swo
 
 # =========================
 # CERTIFICATES / KEYS
@@ -160,3 +154,8 @@ coverage/
 # LOCAL CONFIG
 # =========================
 *.local
+
+# =========================
+# EXCEPTIONS
+# =========================
+!.env.local
