@@ -8,10 +8,14 @@ const router = express.Router();
 
 router.use(auth);
 
-// Liste des catégories
+/* =========================================================
+   LISTE — accessible depuis :
+   - /admin/categories  → categories.view
+   - /admin/articles    → articles.view (select catégorie)
+========================================================= */
 router.get(
   "/",
-  authorize("categories.view"),
+  authorize("categories.view", "articles.view"),
   asyncHandler(categoriesController.list),
 );
 

@@ -8,8 +8,16 @@ const router = express.Router();
 
 router.use(auth);
 
-// Liste des marques
-router.get("/", authorize("marques.view"), asyncHandler(marquesController.list));
+/* =========================================================
+   LISTE — accessible depuis :
+   - /admin/marques     → marques.view
+   - /admin/articles    → articles.view (select marque)
+========================================================= */
+router.get(
+  "/",
+  authorize("marques.view", "articles.view"),
+  asyncHandler(marquesController.list),
+);
 
 // Détail d'une marque
 router.get(

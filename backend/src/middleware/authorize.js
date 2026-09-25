@@ -1,17 +1,34 @@
 function authorize(...requiredPermissions) {
   return function authorizeMiddleware(req, res, next) {
     if (!req.user) {
-      return res.status(401).json({ ok: false, message: "Authentification requise." });
+      return res.status(401).json({
+        ok: false,
+        message: "Authentification requise.",
+      });
     }
 
-    if (req.user.role_code === "ADMIN") return next();
+    // ADMIN passe partout
+    if (req.user.role_code === "ADMIN") {
+      return next();
+    }
 
-    const hasAll = requiredPermissions.every((permission) =>
-      req.user.permissions.includes(permission),
+    // Aucune permission demandée → laisser passer
+    if (requiredPermissions.length === 0) {
+      return next();
+    }
+
+    const userPermissions = req.user.permissions || [];
+
+    // ✅ some() : AU MOINS UNE des permissions suffit
+    const hasAtLeastOne = requiredPermissions.some((permission) =>
+      userPermissions.includes(permission),
     );
 
-    if (!hasAll) {
-      return res.status(403).json({ ok: false, message: "Permission insuffisante." });
+    if (!hasAtLeastOne) {
+      return res.status(403).json({
+        ok: false,
+        message: "Permission insuffisante.",
+      });
     }
 
     next();

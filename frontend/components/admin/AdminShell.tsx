@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -43,6 +42,7 @@ type NavItem = {
   href: string;
   icon: any;
   group: string;
+  permission?: string;
 };
 
 type NewOrderPayload = {
@@ -95,6 +95,7 @@ function getSocketUrl() {
     window.location.origin
   );
 }
+
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
 
@@ -210,6 +211,7 @@ export default function AdminShell({
       href: "/admin/dashboard",
       icon: LayoutDashboard,
       group: "Principal",
+      permission: "dashboard.view",
     },
     {
       label: "Articles",
@@ -217,6 +219,7 @@ export default function AdminShell({
       href: "/admin/articles",
       icon: Boxes,
       group: "Catalogue",
+      permission: "articles.view",
     },
     {
       label: "Catégories",
@@ -224,6 +227,7 @@ export default function AdminShell({
       href: "/admin/categories",
       icon: Tags,
       group: "Catalogue",
+      permission: "categories.view",
     },
     {
       label: "Marques",
@@ -231,6 +235,7 @@ export default function AdminShell({
       href: "/admin/marques",
       icon: PackageCheck,
       group: "Catalogue",
+      permission: "marques.view",
     },
     {
       label: "Fournisseurs",
@@ -238,6 +243,7 @@ export default function AdminShell({
       href: "/admin/fournisseurs",
       icon: Building2,
       group: "Catalogue",
+      permission: "fournisseurs.view",
     },
     {
       label: "Stock",
@@ -245,6 +251,7 @@ export default function AdminShell({
       href: "/admin/stock",
       icon: Boxes,
       group: "Catalogue",
+      permission: "stock.view",
     },
     {
       label: "Promotions",
@@ -252,6 +259,7 @@ export default function AdminShell({
       href: "/admin/promotions",
       icon: Percent,
       group: "Catalogue",
+      permission: "promotions.view",
     },
     {
       label: "Commandes",
@@ -259,6 +267,7 @@ export default function AdminShell({
       href: "/admin/commandes",
       icon: ClipboardList,
       group: "Ventes",
+      permission: "commandes.view",
     },
     {
       label: "Utilisateurs",
@@ -266,6 +275,7 @@ export default function AdminShell({
       href: "/admin/users",
       icon: Users,
       group: "Sécurité",
+      permission: "users.view",
     },
     {
       label: "Rôles",
@@ -273,6 +283,7 @@ export default function AdminShell({
       href: "/admin/roles",
       icon: ShieldCheck,
       group: "Sécurité",
+      permission: "roles.view",
     },
     {
       label: "Permissions",
@@ -280,6 +291,7 @@ export default function AdminShell({
       href: "/admin/permissions",
       icon: ShieldCheck,
       group: "Sécurité",
+      permission: "permissions.view",
     },
   ];
 
@@ -334,9 +346,6 @@ export default function AdminShell({
       return;
     }
 
-    /*
-     * Eviter plusieurs connexions.
-     */
     if (socketRef.current) {
       return;
     }
@@ -375,11 +384,6 @@ export default function AdminShell({
 
       setSocketConnected(true);
 
-      /*
-       * Si ton backend utilise une room admin,
-       * cette émission permet au serveur d'inscrire
-       * ce navigateur dans la room.
-       */
       socket.emit("admin:join");
     });
 
@@ -401,12 +405,6 @@ export default function AdminShell({
       setSocketConnected(false);
     });
 
-    /*
-     * =====================================================
-     * NOUVELLE COMMANDE
-     * =====================================================
-     */
-
     const handleNewOrder = (
       payload: NewOrderPayload
     ) => {
@@ -417,35 +415,19 @@ export default function AdminShell({
 
       const order = normalizeOrder(payload);
 
-      /*
-       * Incrémenter le compteur global.
-       */
       setNewOrdersCount((current) => current + 1);
 
-      /*
-       * Afficher le toast global.
-       */
       setNotification(order);
 
-      /*
-       * Nettoyer l'ancien timer.
-       */
       if (notificationTimerRef.current) {
         clearTimeout(notificationTimerRef.current);
       }
 
-      /*
-       * Fermer automatiquement après 8 secondes.
-       */
       notificationTimerRef.current =
         setTimeout(() => {
           setNotification(null);
         }, 8000);
 
-      /*
-       * Petit son de notification si le navigateur
-       * l'autorise.
-       */
       try {
         const audio = new Audio(
           "/sounds/new-order.mp3"
@@ -453,21 +435,12 @@ export default function AdminShell({
 
         audio.volume = 0.45;
 
-        audio.play().catch(() => {
-          /*
-           * Certains navigateurs bloquent
-           * l'autoplay audio.
-           */
-        });
+        audio.play().catch(() => {});
       } catch {
-        // Aucun problème si le fichier audio n'existe pas.
+        // audio indisponible
       }
     };
 
-    /*
-     * Plusieurs noms possibles pour garder
-     * la compatibilité avec ton backend.
-     */
     socket.on("order:new", handleNewOrder);
     socket.on("new-order", handleNewOrder);
     socket.on("new_order", handleNewOrder);
@@ -481,30 +454,11 @@ export default function AdminShell({
         );
       }
 
-      socket.off(
-        "order:new",
-        handleNewOrder
-      );
-
-      socket.off(
-        "new-order",
-        handleNewOrder
-      );
-
-      socket.off(
-        "new_order",
-        handleNewOrder
-      );
-
-      socket.off(
-        "commande:new",
-        handleNewOrder
-      );
-
-      socket.off(
-        "commande:nouvelle",
-        handleNewOrder
-      );
+      socket.off("order:new", handleNewOrder);
+      socket.off("new-order", handleNewOrder);
+      socket.off("new_order", handleNewOrder);
+      socket.off("commande:new", handleNewOrder);
+      socket.off("commande:nouvelle", handleNewOrder);
 
       socket.disconnect();
 
@@ -512,11 +466,7 @@ export default function AdminShell({
 
       setSocketConnected(false);
     };
-  }, [
-    normalizedPath,
-    ready,
-    user,
-  ]);
+  }, [normalizedPath, ready, user]);
 
   /* =========================================================
      RESET COUNTER WHEN OPENING ORDERS
@@ -525,13 +475,66 @@ export default function AdminShell({
   useEffect(() => {
     if (
       normalizedPath === "/admin/commandes" ||
-      normalizedPath.startsWith(
-        "/admin/commandes/"
-      )
+      normalizedPath.startsWith("/admin/commandes/")
     ) {
       setNewOrdersCount(0);
     }
   }, [normalizedPath]);
+
+  /* =========================================================
+     PERMISSIONS
+  ========================================================= */
+
+  const permissionSet = useMemo(
+    () => new Set(user?.permissions ?? []),
+    [user]
+  );
+
+  const isAdmin = user?.role?.code === "ADMIN";
+
+  function can(permission?: string) {
+    if (!permission) return true;
+    if (isAdmin) return true;
+    return permissionSet.has(permission);
+  }
+
+  /* =========================================================
+     GROUPS (FILTRÉS PAR PERMISSIONS)
+  ========================================================= */
+
+  const groups = useMemo(() => {
+    const allowedNav = nav.filter((item) =>
+      can(item.permission)
+    );
+
+    return allowedNav.reduce<
+      Record<string, NavItem[]>
+    >((acc, item) => {
+      (acc[item.group] ||= []).push(item);
+      return acc;
+    }, {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permissionSet, isAdmin]);
+
+  /* =========================================================
+     GARDE : REDIRECTION SI ACCÈS DIRECT PAR URL
+  ========================================================= */
+
+  useEffect(() => {
+    if (!ready || !user) return;
+    if (normalizedPath === "/admin/connexion") return;
+
+    const match = nav.find(
+      (item) =>
+        normalizedPath === item.href ||
+        normalizedPath.startsWith(item.href + "/")
+    );
+
+    if (match && !can(match.permission)) {
+      router.replace("/admin/dashboard");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, user, normalizedPath, permissionSet, isAdmin]);
 
   /* =========================================================
      CLOSE TOAST
@@ -541,10 +544,7 @@ export default function AdminShell({
     setNotification(null);
 
     if (notificationTimerRef.current) {
-      clearTimeout(
-        notificationTimerRef.current
-      );
-
+      clearTimeout(notificationTimerRef.current);
       notificationTimerRef.current = null;
     }
   }
@@ -555,7 +555,6 @@ export default function AdminShell({
 
   function openOrders() {
     closeNotification();
-
     router.push("/admin/commandes");
   }
 
@@ -570,21 +569,6 @@ export default function AdminShell({
       router.replace("/admin/connexion");
     }
   }
-
-  /* =========================================================
-     GROUPS
-  ========================================================= */
-
-  const groups = useMemo(() => {
-    return nav.reduce<Record<string, NavItem[]>>(
-      (acc, item) => {
-        (acc[item.group] ||= []).push(item);
-
-        return acc;
-      },
-      {}
-    );
-  }, []);
 
   /* =========================================================
      LOGIN PAGE
@@ -616,7 +600,6 @@ export default function AdminShell({
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] text-slate-950">
-
       {/* =======================================================
           GLOBAL ORDER TOAST
       ======================================================= */}
@@ -627,35 +610,22 @@ export default function AdminShell({
           dir="auto"
         >
           <div className="relative overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_25px_80px_rgba(15,23,42,.20)]">
-
-            {/* Top accent */}
-
             <div className="h-1.5 bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-[#FE5737]" />
 
             <div className="p-4">
-
-              {/* Header */}
-
               <div className="flex items-start gap-3">
-
                 <div className="relative shrink-0">
-
                   <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
-
                     <ShoppingBag size={22} />
-
                   </div>
 
                   <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-[#FE5737] text-[10px] font-black text-white ring-2 ring-white">
                     !
                   </span>
-
                 </div>
 
                 <div className="min-w-0 flex-1">
-
                   <div className="flex items-start justify-between gap-2">
-
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[.14em] text-[#2563EB]">
                         Nouvelle commande
@@ -673,25 +643,17 @@ export default function AdminShell({
                     >
                       <X size={15} />
                     </button>
-
                   </div>
-
                 </div>
-
               </div>
 
-              {/* Customer */}
-
               <div className="mt-4 rounded-2xl bg-slate-50 p-3">
-
                 <div className="flex items-center gap-3">
-
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-slate-500 shadow-sm">
                     <CircleUserRound size={17} />
                   </div>
 
                   <div className="min-w-0 flex-1">
-
                     <p className="truncate text-xs font-black text-slate-800">
                       {notification.clientName}
                     </p>
@@ -711,46 +673,32 @@ export default function AdminShell({
                         </span>
                       </div>
                     )}
-
                   </div>
 
                   <div className="text-right">
-
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                       Total
                     </p>
 
                     <p className="text-sm font-black text-[#2563EB]">
-                      {formatDZD(
-                        notification.total
-                      )}
+                      {formatDZD(notification.total)}
                     </p>
-
                   </div>
-
                 </div>
-
               </div>
-
-              {/* Button */}
 
               <button
                 onClick={openOrders}
                 className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] text-[11px] font-black text-white shadow-lg shadow-[#2563EB]/20 transition hover:bg-[#1D4ED8] active:scale-[.98]"
               >
                 Voir la commande
-
                 <ExternalLink size={14} />
               </button>
-
             </div>
-
-            {/* Progress */}
 
             <div className="absolute bottom-0 left-0 h-1 w-full overflow-hidden bg-slate-100">
               <div className="h-full w-full origin-left animate-[toastProgress_8s_linear] bg-[#FE5737]" />
             </div>
-
           </div>
         </div>
       )}
@@ -766,27 +714,19 @@ export default function AdminShell({
             : "-translate-x-full rtl:translate-x-full lg:rtl:translate-x-0"
         }`}
       >
-
-        {/* Background decorations */}
-
         <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[#60A5FA]/15 blur-3xl" />
 
         <div className="absolute -left-24 bottom-32 h-64 w-64 rounded-full bg-[#FE5737]/10 blur-3xl" />
 
-        {/* =======================================================
-            SIDEBAR HEADER
-        ======================================================= */}
+        {/* SIDEBAR HEADER */}
 
         <div className="relative flex h-[78px] shrink-0 items-center justify-between border-b border-white/10 px-5">
-
           <Link
             href="/admin/dashboard"
             className="flex items-center gap-3"
             onClick={() => setOpen(false)}
           >
-
             <span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white shadow-lg shadow-black/10">
-
               <Image
                 src="/images/logo-doctech.webp"
                 alt="DOCTECH"
@@ -795,22 +735,18 @@ export default function AdminShell({
                 priority
                 className="h-10 w-10 object-contain"
               />
-
             </span>
 
             <span>
               <span className="block text-[19px] font-black tracking-tight">
                 DOC
-                <span className="text-[#60A5FA]">
-                  TECH
-                </span>
+                <span className="text-[#60A5FA]">TECH</span>
               </span>
 
               <span className="block text-[9px] font-bold uppercase tracking-[.25em] text-slate-500">
                 Administration
               </span>
             </span>
-
           </Link>
 
           <button
@@ -820,148 +756,104 @@ export default function AdminShell({
           >
             <X size={18} />
           </button>
-
         </div>
 
-        {/* =======================================================
-            NAVIGATION
-        ======================================================= */}
+        {/* NAVIGATION */}
 
         <div className="relative flex-1 overflow-y-auto px-3 py-5 [scrollbar-width:none]">
+          {Object.entries(groups).map(([group, items]) => (
+            <div key={group} className="mb-6">
+              <p className="px-3 pb-2 text-[9px] font-black uppercase tracking-[.2em] text-slate-600">
+                {group}
+              </p>
 
-          {Object.entries(groups).map(
-            ([group, items]) => (
-              <div
-                key={group}
-                className="mb-6"
-              >
+              <div className="space-y-1">
+                {items.map(
+                  ({ label, ar, href, icon: Icon }) => {
+                    const active =
+                      normalizedPath === href ||
+                      (href !== "/admin/dashboard" &&
+                        normalizedPath.startsWith(href + "/"));
 
-                <p className="px-3 pb-2 text-[9px] font-black uppercase tracking-[.2em] text-slate-600">
-                  {group}
-                </p>
+                    const isOrders =
+                      href === "/admin/commandes";
 
-                <div className="space-y-1">
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setOpen(false)}
+                        className={`group relative flex min-h-11 items-center gap-3 rounded-2xl px-3.5 py-2.5 text-[12px] font-extrabold transition-all ${
+                          active
+                            ? "bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white shadow-lg shadow-black/20"
+                            : "text-slate-400 hover:bg-white/[.055] hover:text-white"
+                        }`}
+                      >
+                        {active && (
+                          <span className="absolute inset-y-2 start-0 w-1 rounded-e-full bg-[#60A5FA]" />
+                        )}
 
-                  {items.map(
-                    ({
-                      label,
-                      ar,
-                      href,
-                      icon: Icon,
-                    }) => {
-
-                      const active =
-                        normalizedPath ===
-                          href ||
-                        (href !==
-                          "/admin/dashboard" &&
-                          normalizedPath.startsWith(
-                            href + "/"
-                          ));
-
-                      const isOrders =
-                        href ===
-                        "/admin/commandes";
-
-                      return (
-                        <Link
-                          key={href}
-                          href={href}
-                          onClick={() =>
-                            setOpen(false)
-                          }
-                          className={`group relative flex min-h-11 items-center gap-3 rounded-2xl px-3.5 py-2.5 text-[12px] font-extrabold transition-all ${
+                        <span
+                          className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl transition ${
                             active
-                              ? "bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] text-white shadow-lg shadow-black/20"
-                              : "text-slate-400 hover:bg-white/[.055] hover:text-white"
+                              ? "bg-[#60A5FA]/20 text-[#93C5FD]"
+                              : "bg-white/[.035] text-slate-500 group-hover:text-slate-200"
                           }`}
                         >
+                          <Icon size={16} />
+                        </span>
 
-                          {active && (
-                            <span className="absolute inset-y-2 start-0 w-1 rounded-e-full bg-[#60A5FA]" />
-                          )}
+                        <span className="flex-1">
+                          {text(label, ar)}
+                        </span>
 
-                          <span
-                            className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl transition ${
-                              active
-                                ? "bg-[#60A5FA]/20 text-[#93C5FD]"
-                                : "bg-white/[.035] text-slate-500 group-hover:text-slate-200"
-                            }`}
-                          >
-                            <Icon size={16} />
+                        {/* COMMANDES BADGE */}
+
+                        {isOrders && newOrdersCount > 0 && (
+                          <span className="relative flex min-w-6 h-6 items-center justify-center rounded-full bg-[#FE5737] px-1.5 text-[10px] font-black text-white shadow-lg shadow-[#FE5737]/30 ring-2 ring-[#071821]">
+                            {newOrdersCount > 99
+                              ? "99+"
+                              : newOrdersCount}
+
+                            <span className="absolute inset-0 animate-ping rounded-full bg-[#FE5737] opacity-30" />
                           </span>
+                        )}
 
-                          <span className="flex-1">
-                            {text(label, ar)}
-                          </span>
-
-                          {/* COMMANDES BADGE */}
-
-                          {isOrders &&
-                            newOrdersCount >
-                              0 && (
-                              <span className="relative flex min-w-6 h-6 items-center justify-center rounded-full bg-[#FE5737] px-1.5 text-[10px] font-black text-white shadow-lg shadow-[#FE5737]/30 ring-2 ring-[#071821]">
-
-                                {newOrdersCount >
-                                99
-                                  ? "99+"
-                                  : newOrdersCount}
-
-                                <span className="absolute inset-0 animate-ping rounded-full bg-[#FE5737] opacity-30" />
-
-                              </span>
-                            )}
-
-                          <ChevronRight
-                            size={14}
-                            className={`opacity-30 transition-transform rtl-flip ${
-                              active
-                                ? "opacity-80"
-                                : "group-hover:translate-x-0.5"
-                            }`}
-                          />
-
-                        </Link>
-                      );
-                    }
-                  )}
-
-                </div>
-
+                        <ChevronRight
+                          size={14}
+                          className={`opacity-30 transition-transform rtl-flip ${
+                            active
+                              ? "opacity-80"
+                              : "group-hover:translate-x-0.5"
+                          }`}
+                        />
+                      </Link>
+                    );
+                  }
+                )}
               </div>
-            )
-          )}
-
+            </div>
+          ))}
         </div>
 
-        {/* =======================================================
-            USER CARD
-        ======================================================= */}
+        {/* USER CARD */}
 
         <div className="relative shrink-0 p-3">
-
           <div className="rounded-[22px] border border-white/10 bg-white/[.045] p-3">
-
             <div className="flex items-center gap-3">
-
               <span className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-[#FE5737] to-orange-300 text-white">
                 <CircleUserRound size={18} />
               </span>
 
               <div className="min-w-0 flex-1">
-
                 <p className="truncate text-xs font-black">
-                  {user?.firstName}{" "}
-                  {user?.lastName}
+                  {user?.firstName} {user?.lastName}
                 </p>
 
                 <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-500">
-                  {user?.role?.name ||
-                    "Administrateur"}
+                  {user?.role?.name || "Administrateur"}
                 </p>
-
               </div>
-
             </div>
 
             <button
@@ -970,21 +862,13 @@ export default function AdminShell({
             >
               <LogOut size={14} />
 
-              {text(
-                "Déconnexion",
-                "تسجيل الخروج"
-              )}
+              {text("Déconnexion", "تسجيل الخروج")}
             </button>
-
           </div>
-
         </div>
-
       </aside>
 
-      {/* =========================================================
-          MOBILE OVERLAY
-      ========================================================= */}
+      {/* MOBILE OVERLAY */}
 
       {open && (
         <button
@@ -999,15 +883,10 @@ export default function AdminShell({
       ========================================================= */}
 
       <div className="lg:ps-[292px]">
-
-        {/* =======================================================
-            TOP HEADER
-        ======================================================= */}
+        {/* TOP HEADER */}
 
         <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
-
           <div className="flex h-[72px] items-center gap-3 px-4 sm:px-6 lg:px-8">
-
             <button
               onClick={() => setOpen(true)}
               className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm lg:hidden"
@@ -1018,33 +897,21 @@ export default function AdminShell({
             {/* Breadcrumb */}
 
             <div className="hidden min-w-0 sm:block">
-
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.16em] text-slate-400">
-
-                <span>
-                  DOCTECH
-                </span>
-
+                <span>DOCTECH</span>
                 <ChevronRight size={11} />
-
-                <span className="text-[#2563EB]">
-                  Admin
-                </span>
-
+                <span className="text-[#2563EB]">Admin</span>
               </div>
 
               <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
                 Gestion intelligente de votre boutique
               </p>
-
             </div>
 
             {/* Search */}
 
             <div className="mx-auto hidden max-w-xl flex-1 md:block md:px-8">
-
               <div className="flex h-10 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/80 px-3 text-slate-400 transition focus-within:border-[#60A5FA]/40 focus-within:bg-white">
-
                 <Search size={15} />
 
                 <input
@@ -1056,19 +923,12 @@ export default function AdminShell({
                 <kbd className="hidden rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[9px] font-black text-slate-400 lg:block">
                   ⌘ K
                 </kbd>
-
               </div>
-
             </div>
 
-            {/* ===================================================
-                RIGHT ACTIONS
-            =================================================== */}
+            {/* RIGHT ACTIONS */}
 
             <div className="ms-auto flex items-center gap-2">
-
-              {/* Connection indicator */}
-
               <div
                 title={
                   socketConnected
@@ -1081,7 +941,6 @@ export default function AdminShell({
                     : "border-slate-200 bg-slate-50 text-slate-400"
                 }`}
               >
-
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${
                     socketConnected
@@ -1093,69 +952,46 @@ export default function AdminShell({
                 {socketConnected
                   ? "Temps réel"
                   : "Connexion"}
-
               </div>
-
-              {/* Bell */}
 
               <button
                 onClick={() => {
-                  if (
-                    newOrdersCount > 0
-                  ) {
+                  if (newOrdersCount > 0) {
                     openOrders();
                   }
                 }}
                 className="relative grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:text-[#2563EB]"
                 aria-label="Notifications"
               >
-
                 <Bell size={17} />
 
-                {newOrdersCount >
-                0 ? (
+                {newOrdersCount > 0 ? (
                   <span className="absolute -right-1 -top-1 flex min-w-5 h-5 items-center justify-center rounded-full bg-[#FE5737] px-1 text-[9px] font-black text-white shadow-md ring-2 ring-white">
-
-                    {newOrdersCount >
-                    99
+                    {newOrdersCount > 99
                       ? "99+"
                       : newOrdersCount}
-
                   </span>
                 ) : (
                   <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#FE5737] ring-2 ring-white" />
                 )}
-
               </button>
 
               <button className="hidden h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 shadow-sm lg:flex">
-
                 <Settings2 size={15} />
-
-                <span>
-                  Admin
-                </span>
-
+                <span>Admin</span>
                 <ChevronDown size={13} />
-
               </button>
 
               <LanguageSwitcher compact />
-
             </div>
-
           </div>
-
         </header>
 
-        {/* =======================================================
-            PAGE CONTENT
-        ======================================================= */}
+        {/* PAGE CONTENT */}
 
         <main className="min-h-[calc(100vh-72px)] p-3 sm:p-5 lg:p-8">
           {children}
         </main>
-
       </div>
 
       {/* =========================================================
@@ -1163,7 +999,6 @@ export default function AdminShell({
       ========================================================= */}
 
       <style jsx global>{`
-
         @keyframes slideIn {
           from {
             opacity: 0;
@@ -1232,10 +1067,7 @@ export default function AdminShell({
         .admin-page a {
           -webkit-tap-highlight-color: transparent;
         }
-
       `}</style>
-
     </div>
   );
 }
-

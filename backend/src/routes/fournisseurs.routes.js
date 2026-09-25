@@ -8,10 +8,15 @@ const router = express.Router();
 
 router.use(auth);
 
-// Liste des fournisseurs
+/* =========================================================
+   LISTE — accessible depuis :
+   - /admin/fournisseurs  → fournisseurs.view
+   - /admin/stock         → stock.view (select fournisseur)
+   - /admin/articles      → articles.view (select fournisseur)
+========================================================= */
 router.get(
   "/",
-  authorize("fournisseurs.view"),
+  authorize("fournisseurs.view", "stock.view", "articles.view"),
   asyncHandler(fournisseursController.list),
 );
 
