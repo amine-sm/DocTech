@@ -1,16 +1,28 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
 import type { Product } from "@/lib/catalog";
 
-const FAVORITES_KEY = "doctech-favorites-session-v1";
+/* =========================================================
+   CONSTANTES
+========================================================= */
+const FAVORITES_KEY = "doctech-favorites-v1";
 export const FAVORITES_EVENT = "doctech-favorites-updated";
 
-function hasSessionStorage() {
-  return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
+/* =========================================================
+   HELPERS INTERNES
+========================================================= */
+function hasLocalStorage() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.localStorage !== "undefined"
+  );
 }
 
-export function getFavorites(): Product[] {
-  if (!hasSessionStorage()) return [];
+function readFavorites(): Product[] {
+  if (!hasLocalStorage()) return [];
   try {
-    const raw = window.sessionStorage.getItem(FAVORITES_KEY);
+    const raw = window.localStorage.getItem(FAVORITES_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Product[];
     return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
@@ -19,36 +31,112 @@ export function getFavorites(): Product[] {
   }
 }
 
+function writeFavorites(products: Product[]) {
+  if (!hasLocalStorage()) return;
+  try {
+    window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(products));
+    window.dispatchEvent(new CustomEvent(FAVORITES_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
+
+/* =========================================================
+   API IMPÉRATIVE (hors React)
+========================================================= */
+
+/** Récupère tous les favoris */
+export function getFavorites(): Product[] {
+  return readFavorites();
+}
+
+/** Écrase la liste complète */
 export function saveFavorites(products: Product[]) {
-  if (!hasSessionStorage()) return;
-  window.sessionStorage.setItem(FAVORITES_KEY, JSON.stringify(products));
-  window.dispatchEvent(new CustomEvent(FAVORITES_EVENT));
+  writeFavorites(products);
 }
 
-export function isFavorite(productId: number) {
-  return getFavorites().some((product) => product.id === productId);
+/** Vérifie si un produit est en favori */
+export function isFavorite(productId: number): boolean {
+  return readFavorites().some((p) => p.id === productId);
 }
 
-export function addFavorite(product: Product) {
-  const current = getFavorites();
-  if (!current.some((item) => item.id === product.id)) current.unshift(product);
-  saveFavorites(current);
+/** Ajoute un produit aux favoris */
+export function addFavorite(product: Product): Product[] {
+  const current = readFavorites();
+  if (!current.some((item) => item.id === product.id)) {
+    current.unshift(product);
+  }
+  writeFavorites(current);
   return current;
 }
 
-export function removeFavorite(productId: number) {
-  const next = getFavorites().filter((product) => product.id !== productId);
-  saveFavorites(next);
+/** Retire un produit des favoris */
+export function removeFavorite(productId: number): Product[] {
+  const next = readFavorites().filter((p) => p.id !== productId);
+  writeFavorites(next);
   return next;
 }
 
-export function toggleFavorite(product: Product) {
+/** Bascule un produit (ajoute ou retire) */
+export function toggleFavorite(product: Product): {
+  favorite: boolean;
+  products: Product[];
+} {
   if (isFavorite(product.id)) {
     return { favorite: false, products: removeFavorite(product.id) };
   }
   return { favorite: true, products: addFavorite(product) };
 }
 
-export function getFavoritesCount() {
-  return getFavorites().length;
+/** Compte le nombre de favoris */
+export function getFavoritesCount(): number {
+  return readFavorites().length;
+}
+
+/* =========================================================
+   HOOK REACT
+========================================================= */
+export function useFavorites() {
+  const [favorites, setFavorites] = useState<Product[]>([]);
+
+  /* -------------------------------------------------------
+     INITIALISATION + ÉCOUTE DES CHANGEMENTS
+  ------------------------------------------------------- */
+  useEffect(() => {
+    setFavorites(readFavorites());
+
+    const onChange = () => setFavorites(readFavorites());
+
+    window.addEventListener(FAVORITES_EVENT, onChange);
+    window.addEventListener("storage", onChange);
+
+    return () => {
+      window.removeEventListener(FAVORITES_EVENT, onChange);
+      window.removeEventListener("storage", onChange);
+    };
+  }, []);
+
+  /* -------------------------------------------------------
+     TOGGLE
+  ------------------------------------------------------- */
+  const toggle = useCallback((product: Product) => {
+    const result = toggleFavorite(product);
+    setFavorites(result.products);
+    return result.favorite;
+  }, []);
+
+  /* -------------------------------------------------------
+     IS FAVORITE
+  ------------------------------------------------------- */
+  const isFav = useCallback(
+    (id: number) => favorites.some((p) => p.id === id),
+    [favorites]
+  );
+
+  return {
+    favorites,
+    count: favorites.length,
+    isFavorite: isFav,
+    toggle,
+  };
 }

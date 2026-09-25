@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 
 import {
   Cable,
@@ -697,9 +698,9 @@ export default function Header() {
             HEADER PRINCIPAL
         =================================================== */}
 
-        <div className="mx-auto flex min-h-[64px] max-w-[1450px] items-center gap-2 px-3 sm:min-h-[72px] sm:gap-3 sm:px-4 lg:px-8">
+        <div className="relative mx-auto flex min-h-[64px] max-w-[1450px] items-center gap-2 px-3 sm:min-h-[72px] sm:gap-3 sm:px-4 lg:px-8">
 
-          {/* LOGO */}
+          {/* LOGO - centré sur mobile, à gauche sur desktop */}
 
           <Link
             href="/"
@@ -707,7 +708,7 @@ export default function Header() {
               "DOCTECH - Accueil",
               "DOCTECH - الرئيسية"
             )}
-            className="relative h-11 w-[104px] shrink-0 sm:h-12 sm:w-[128px] lg:w-[150px]"
+            className="absolute left-1/2 top-1/2 h-11 w-[104px] -translate-x-1/2 -translate-y-1/2 sm:h-12 sm:w-[128px] lg:static lg:left-auto lg:top-auto lg:translate-x-0 lg:translate-y-0 lg:w-[150px] lg:shrink-0"
           >
             <Image
               src="/images/logo-doctech.webp"
@@ -715,7 +716,7 @@ export default function Header() {
               fill
               priority
               sizes="150px"
-              className="object-contain object-start rtl:object-end"
+              className="object-contain object-center lg:object-start"
             />
           </Link>
 
@@ -1508,238 +1509,149 @@ export default function Header() {
       </header>
 
       {/* =======================================================
-          MOBILE MENU
+          MOBILE MENU — DRAWER ANIMÉ
       ======================================================= */}
 
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[70] lg:hidden">
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-[70] lg:hidden">
+            <motion.button
+              type="button"
+              aria-label={text("Fermer le menu", "إغلاق القائمة")}
+              onClick={() => setMobileMenuOpen(false)}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="absolute inset-0 bg-slate-950/45 backdrop-blur-[3px]"
+            />
 
-          <button
-            type="button"
-            aria-label={text(
-              "Fermer le menu",
-              "إغلاق القائمة"
-            )}
-            onClick={() =>
-              setMobileMenuOpen(
-                false
-              )
-            }
-            className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-          />
+            <motion.aside
+              initial={{ x: isArabic ? "-100%" : "100%", opacity: 0.8 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: isArabic ? "-100%" : "100%", opacity: 0.8 }}
+              transition={{ type: "spring", stiffness: 320, damping: 32, mass: 0.8 }}
+              className={`absolute inset-y-0 w-[min(90vw,390px)] overflow-y-auto bg-white shadow-2xl ${
+                isArabic ? "start-0" : "end-0"
+              }`}
+            >
+              <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl">
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+                  <div className="relative h-11 w-[125px]">
+                    <Image
+                      src="/images/logo-doctech.webp"
+                      alt="DOCTECH"
+                      fill
+                      sizes="125px"
+                      className="object-contain object-start rtl:object-end"
+                    />
+                  </div>
 
-          <aside
-            className={`absolute inset-y-0 w-[min(90vw,390px)] overflow-y-auto bg-white p-4 shadow-2xl ${
-              isArabic
-                ? "start-0"
-                : "end-0"
-            }`}
-          >
-
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-
-              <div className="relative h-11 w-[125px]">
-
-                <Image
-                  src="/images/logo-doctech.webp"
-                  alt="DOCTECH"
-                  fill
-                  sizes="125px"
-                  className="object-contain object-start rtl:object-end"
-                />
-
+                  <motion.button
+                    type="button"
+                    onClick={() => setMobileMenuOpen(false)}
+                    whileTap={{ scale: 0.9 }}
+                    whileHover={{ rotate: 90 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition-colors hover:bg-red-50 hover:text-red-500"
+                  >
+                    <X size={18} />
+                  </motion.button>
+                </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setMobileMenuOpen(
-                    false
-                  )
-                }
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700"
-              >
-                <X size={18} />
-              </button>
+              <div className="px-4 pb-8">
+                <div className="mt-4">
+                  <LanguageSwitcher />
+                </div>
 
-            </div>
+                <motion.div
+                  initial="hidden"
+                  animate="show"
+                  variants={{
+                    hidden: {},
+                    show: { transition: { staggerChildren: 0.055, delayChildren: 0.08 } },
+                  }}
+                  className="mt-5 space-y-2"
+                >
+                  {[
+                    { href: "/", active: pathname === "/", icon: <Home size={18} />, label: text("Accueil", "الرئيسية") },
+                    { href: "/articles", active: catalogActive && !currentCategory && !currentBrand, icon: <Laptop size={18} />, label: text("Tout le catalogue", "كل الكتالوج") },
+                    { href: "/promotions", active: promoActive, icon: <Sparkles size={18} />, label: text("Promotions", "العروض") },
+                    { href: "/favoris", active: favoriteActive, icon: <Heart size={18} />, label: `${text("Favoris", "المفضلة")} ${favoritesCount ? `(${favoritesCount})` : ""}` },
+                  ].map((item) => (
+                    <motion.div
+                      key={item.href}
+                      variants={{
+                        hidden: { opacity: 0, x: isArabic ? 15 : -15 },
+                        show: { opacity: 1, x: 0 },
+                      }}
+                    >
+                      <MobileLink {...item} />
+                    </motion.div>
+                  ))}
+                </motion.div>
 
-            <div className="mt-4">
-              <LanguageSwitcher />
-            </div>
+                {categories.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25, duration: 0.3 }}
+                    className="mt-6"
+                  >
+                    <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">
+                      {text("Catégories", "الفئات")}
+                    </p>
 
-            <div className="mt-5 space-y-2">
-
-              <MobileLink
-                href="/"
-                active={
-                  pathname === "/"
-                }
-                icon={
-                  <Home size={18} />
-                }
-                label={text(
-                  "Accueil",
-                  "الرئيسية"
-                )}
-              />
-
-              <MobileLink
-                href="/articles"
-                active={
-                  catalogActive &&
-                  !currentCategory &&
-                  !currentBrand
-                }
-                icon={
-                  <Laptop size={18} />
-                }
-                label={text(
-                  "Tout le catalogue",
-                  "كل الكتالوج"
-                )}
-              />
-
-              <MobileLink
-                href="/promotions"
-                active={
-                  promoActive
-                }
-                icon={
-                  <Sparkles size={18} />
-                }
-                label={text(
-                  "Promotions",
-                  "العروض"
-                )}
-              />
-
-              <MobileLink
-                href="/favoris"
-                active={
-                  favoriteActive
-                }
-                icon={
-                  <Heart size={18} />
-                }
-                label={`${text(
-                  "Favoris",
-                  "المفضلة"
-                )} ${
-                  favoritesCount
-                    ? `(${favoritesCount})`
-                    : ""
-                }`}
-              />
-
-            </div>
-
-            {/* CATEGORIES */}
-
-            {categories.length >
-              0 && (
-              <div className="mt-6">
-
-                <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">
-                  {text(
-                    "Catégories",
-                    "الفئات"
-                  )}
-                </p>
-
-                <div className="grid grid-cols-2 gap-2">
-
-                  {categories.map(
-                    (category) => {
-                      const Icon =
-                        getCategoryIcon(
-                          category.slug
+                    <div className="grid grid-cols-2 gap-2">
+                      {categories.map((category) => {
+                        const Icon = getCategoryIcon(category.slug);
+                        return (
+                          <Link
+                            key={category.id ?? category.slug}
+                            href={`/articles?categorie=${encodeURIComponent(category.slug)}`}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-[11px] font-bold text-slate-700 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98]"
+                          >
+                            <Icon size={15} className="shrink-0 text-blue-600" />
+                            <span className="truncate">{category.label}</span>
+                          </Link>
                         );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
 
-                      return (
+                {visibleBrands.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.32, duration: 0.3 }}
+                    className="mt-6 pb-6"
+                  >
+                    <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">
+                      {text("Marques", "العلامات")}
+                    </p>
+
+                    <div className="flex flex-wrap gap-2">
+                      {visibleBrands.map((brand) => (
                         <Link
-                          key={
-                            category.id ??
-                            category.slug
-                          }
-                          href={`/articles?categorie=${encodeURIComponent(
-                            category.slug
-                          )}`}
-                          onClick={() =>
-                            setMobileMenuOpen(
-                              false
-                            )
-                          }
-                          className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-[11px] font-bold text-slate-700"
+                          key={brand.id ?? brand.slug}
+                          href={`/articles?marque=${encodeURIComponent(brand.slug)}`}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-slate-700 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
                         >
-
-                          <Icon
-                            size={15}
-                            className="shrink-0 text-blue-600"
-                          />
-
-                          <span className="truncate">
-                            {
-                              category.label
-                            }
-                          </span>
-
+                          {brand.name}
                         </Link>
-                      );
-                    }
-                  )}
-
-                </div>
-
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
               </div>
-            )}
-
-            {/* MARQUES */}
-
-            {visibleBrands.length >
-              0 && (
-              <div className="mt-6 pb-6">
-
-                <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">
-                  {text(
-                    "Marques",
-                    "العلامات"
-                  )}
-                </p>
-
-                <div className="flex flex-wrap gap-2">
-
-                  {visibleBrands.map(
-                    (brand) => (
-                      <Link
-                        key={
-                          brand.id ??
-                          brand.slug
-                        }
-                        href={`/articles?marque=${encodeURIComponent(
-                          brand.slug
-                        )}`}
-                        onClick={() =>
-                          setMobileMenuOpen(
-                            false
-                          )
-                        }
-                        className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-slate-700"
-                      >
-                        {brand.name}
-                      </Link>
-                    )
-                  )}
-
-                </div>
-
-              </div>
-            )}
-
-          </aside>
-
-        </div>
-      )}
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* =======================================================
           BOTTOM NAV MOBILE
