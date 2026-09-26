@@ -18,24 +18,43 @@ const API_URL =
 export function backendUrl(path?: string | null): string {
   if (!path) return "";
 
+  let cleanPath = path;
+
+  // 1. Nettoyer si l'URL contient localhost
+  if (cleanPath.includes("localhost:4000") || cleanPath.includes("127.0.0.1:4000")) {
+    cleanPath = cleanPath.replace(/https?:\/\/(localhost|127\.0\.0\.1):4000/, "");
+  }
+
   if (
-    path.startsWith("http://") ||
-    path.startsWith("https://") ||
-    path.startsWith("data:") ||
-    path.startsWith("blob:")
+    cleanPath.startsWith("data:") ||
+    cleanPath.startsWith("blob:")
   ) {
-    return path;
+    return cleanPath;
   }
 
   const backendBase = API_URL.replace(/\/api\/?$/, "");
 
-  const cleanPath = path.startsWith("/")
-    ? path
-    : `/${path}`;
+  // 2. Si l'URL est déjà une URL absolue externe (ou déjà avec /api/uploads-file)
+  if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
+    // Si c'est notre propre domaine mais avec /uploads/ au lieu de /api/uploads-file/
+    if (cleanPath.includes("/uploads/") && !cleanPath.includes("/api/uploads-file/")) {
+      return cleanPath.replace("/uploads/", "/api/uploads-file/");
+    }
+    return cleanPath;
+  }
 
-  return `${backendBase}${cleanPath}`;
+  const formattedPath = cleanPath.startsWith("/")
+    ? cleanPath
+    : `/${cleanPath}`;
+
+  // 3. Redirection des chemins /uploads/ vers /api/uploads-file/ pour cPanel
+  if (formattedPath.startsWith("/uploads/")) {
+    const relativePart = formattedPath.replace("/uploads/", "");
+    return `${backendBase}/api/uploads-file/${relativePart}`;
+  }
+
+  return `${backendBase}${formattedPath}`;
 }
-
 /**
  * URL complète de l'API.
  *
