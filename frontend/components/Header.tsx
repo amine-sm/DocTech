@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 
 import {
   Cable,
@@ -28,6 +27,11 @@ import {
   useRef,
   useState,
 } from "react";
+
+import {
+  AnimatePresence,
+  motion,
+} from "framer-motion";
 
 import {
   CART_EVENT,
@@ -185,6 +189,16 @@ export default function Header() {
   ] = useState(0);
 
   /* =======================================================
+     MOBILE PRODUCT HEARTS / SCROLL DIRECTION
+     - Descente : les coeurs des cartes produits se cachent
+     - Remontée : ils réapparaissent
+     - La bottom nav et le bouton filtre ne sont PAS touchés
+  ======================================================= */
+
+  const lastScrollYRef =
+    useRef(0);
+
+  /* =======================================================
      REFS
   ======================================================= */
 
@@ -213,7 +227,6 @@ export default function Header() {
         ] = await Promise.all([
           fetchCategories(locale),
           fetchBrands(locale),
-
           fetchCatalog(
             {
               limit: 100,
@@ -242,10 +255,6 @@ export default function Header() {
             ? catalogResult.products
             : [];
 
-        /*
-         * On affiche uniquement les catégories
-         * principales dans le menu.
-         */
         const roots =
           safeCategories.filter(
             (item) =>
@@ -259,15 +268,6 @@ export default function Header() {
         );
 
         setBrands(safeBrands);
-
-        /*
-         * IMPORTANT :
-         * Aucun fallbackProducts ici.
-         *
-         * Le Header utilise directement
-         * les produits retournés par
-         * /public/articles.
-         */
         setProducts(safeProducts);
       } catch (error) {
         console.error(
@@ -277,11 +277,6 @@ export default function Header() {
 
         if (!active) return;
 
-        /*
-         * Pas de faux produits.
-         * Si l'API est indisponible,
-         * on laisse les listes vides.
-         */
         setCategories([]);
         setBrands([]);
         setProducts([]);
@@ -349,7 +344,59 @@ export default function Header() {
   }, []);
 
   /* =========================================================
-     FERMETURE MENUS SUR CHANGEMENT PAGE
+     SCROLL MOBILE
+     Les coeurs présents dans <main> sont masqués uniquement
+     pendant la descente. Header / bottom nav / filtre restent
+     visibles.
+  ========================================================= */
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const root = document.documentElement;
+
+    const applyScrollState = (down: boolean) => {
+      root.dataset.doctechScroll = down
+        ? "down"
+        : "up";
+    };
+
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      const previousY = lastScrollYRef.current;
+
+      if (currentY <= 20) {
+        applyScrollState(false);
+        lastScrollYRef.current = currentY;
+        return;
+      }
+
+      if (currentY > previousY + 8) {
+        applyScrollState(true);
+      } else if (currentY < previousY - 8) {
+        applyScrollState(false);
+      }
+
+      lastScrollYRef.current = currentY;
+
+    };
+
+    lastScrollYRef.current = window.scrollY;
+    root.dataset.doctechScroll = "up";
+
+    window.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+
+      delete root.dataset.doctechScroll;
+    };
+  }, []);
+
+  /* =========================================================
+     FERMER MENUS SUR CHANGEMENT PAGE
   ========================================================= */
 
   useEffect(() => {
@@ -447,21 +494,18 @@ export default function Header() {
         .filter((product) => {
           const name =
             String(
-              product?.name ??
-                ""
+              product?.name ?? ""
             ).toLowerCase();
 
           const shortName =
             String(
               (product as any)
-                ?.shortName ??
-                ""
+                ?.shortName ?? ""
             ).toLowerCase();
 
           const slug =
             String(
-              product?.slug ??
-                ""
+              product?.slug ?? ""
             ).toLowerCase();
 
           const brand =
@@ -520,31 +564,19 @@ export default function Header() {
   ========================================================= */
 
   const catalogActive =
-    pathname.startsWith(
-      "/articles"
-    ) ||
-    pathname.startsWith(
-      "/article"
-    );
+    pathname.startsWith("/articles") ||
+    pathname.startsWith("/article");
 
   const promoActive =
-    pathname.startsWith(
-      "/promotions"
-    );
+    pathname.startsWith("/promotions");
 
   const favoriteActive =
-    pathname.startsWith(
-      "/favoris"
-    );
+    pathname.startsWith("/favoris");
 
   const cartActive =
     cartDrawerOpen ||
-    pathname.startsWith(
-      "/panier"
-    ) ||
-    pathname.startsWith(
-      "/commande"
-    );
+    pathname.startsWith("/panier") ||
+    pathname.startsWith("/commande");
 
   /* =========================================================
      MARQUES VISIBLES
@@ -553,10 +585,7 @@ export default function Header() {
   const visibleBrands =
     useMemo(
       () =>
-        brands.slice(
-          0,
-          12
-        ),
+        brands.slice(0, 12),
       [brands]
     );
 
@@ -583,12 +612,9 @@ export default function Header() {
   ) {
     const value =
       product.image ??
-      (product as any)
-        ?.imageUrl ??
-      (product as any)
-        ?.image_url ??
-      (product as any)
-        ?.images?.[0];
+      (product as any)?.imageUrl ??
+      (product as any)?.image_url ??
+      (product as any)?.images?.[0];
 
     return (
       value ||
@@ -662,8 +688,42 @@ export default function Header() {
     setSuggestions([]);
   }
 
+  /* =========================================================
+     FERMER MENU MOBILE
+  ========================================================= */
+
+  function closeMobileMenu() {
+    setMobileMenuOpen(false);
+  }
+
   return (
     <>
+      {/* =======================================================
+          MOBILE PRODUCT FAVORITE SCROLL STYLE
+          Ne touche ni au menu, ni au filtre, ni à la bottom nav.
+      ======================================================= */}
+      <style jsx global>{`
+        @media (max-width: 767px) {
+          html[data-doctech-scroll="down"] main button:has(svg.lucide-heart),
+          html[data-doctech-scroll="down"] main a:has(svg.lucide-heart) {
+            opacity: 0 !important;
+            transform: scale(0.72) !important;
+            pointer-events: none !important;
+            transition:
+              opacity 180ms ease,
+              transform 180ms ease !important;
+          }
+
+          html[data-doctech-scroll="up"] main button:has(svg.lucide-heart),
+          html[data-doctech-scroll="up"] main a:has(svg.lucide-heart) {
+            opacity: 1;
+            transform: scale(1);
+            transition:
+              opacity 220ms ease,
+              transform 220ms ease;
+          }
+        }
+      `}</style>
       {/* =====================================================
           HEADER
       ===================================================== */}
@@ -700,7 +760,10 @@ export default function Header() {
 
         <div className="relative mx-auto flex min-h-[64px] max-w-[1450px] items-center gap-2 px-3 sm:min-h-[72px] sm:gap-3 sm:px-4 lg:px-8">
 
-          {/* LOGO - centré sur mobile, à gauche sur desktop */}
+          {/* =================================================
+              LOGO
+              MOBILE = CENTRE PARFAIT
+          ================================================= */}
 
           <Link
             href="/"
@@ -708,7 +771,23 @@ export default function Header() {
               "DOCTECH - Accueil",
               "DOCTECH - الرئيسية"
             )}
-            className="absolute left-1/2 top-1/2 h-11 w-[104px] -translate-x-1/2 -translate-y-1/2 sm:h-12 sm:w-[128px] lg:static lg:left-auto lg:top-auto lg:translate-x-0 lg:translate-y-0 lg:w-[150px] lg:shrink-0"
+            className="
+              absolute
+              left-1/2
+              top-1/2
+              z-10
+              h-11
+              w-[125px]
+              -translate-x-1/2
+              -translate-y-1/2
+              sm:h-12
+              sm:w-[140px]
+              lg:static
+              lg:h-12
+              lg:w-[150px]
+              lg:translate-x-0
+              lg:translate-y-0
+            "
           >
             <Image
               src="/images/logo-doctech.webp"
@@ -716,7 +795,7 @@ export default function Header() {
               fill
               priority
               sizes="150px"
-              className="object-contain object-center lg:object-start"
+              className="object-contain"
             />
           </Link>
 
@@ -779,9 +858,7 @@ export default function Header() {
               </div>
             </form>
 
-            {/* =================================================
-                SUGGESTIONS DESKTOP
-            ================================================= */}
+            {/* SUGGESTIONS DESKTOP */}
 
             {searchFocused &&
               search.trim() &&
@@ -908,8 +985,6 @@ export default function Header() {
                 </div>
               )}
 
-            {/* AUCUN RESULTAT */}
-
             {searchFocused &&
               search.trim() &&
               suggestions.length === 0 &&
@@ -958,7 +1033,6 @@ export default function Header() {
                   : "border-slate-200 bg-white text-slate-600 hover:border-rose-200 hover:text-rose-500"
               }`}
             >
-
               <Heart
                 size={18}
                 className={
@@ -975,7 +1049,6 @@ export default function Header() {
                     : favoritesCount}
                 </span>
               )}
-
             </Link>
 
             {/* PANIER */}
@@ -983,9 +1056,7 @@ export default function Header() {
             <button
               type="button"
               onClick={() =>
-                setCartDrawerOpen(
-                  true
-                )
+                setCartDrawerOpen(true)
               }
               aria-label={text(
                 "Ouvrir le panier",
@@ -997,7 +1068,6 @@ export default function Header() {
                   : "border-blue-100 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white"
               }`}
             >
-
               <ShoppingBag size={19} />
 
               {cartCount > 0 && (
@@ -1007,17 +1077,15 @@ export default function Header() {
                     : cartCount}
                 </span>
               )}
-
             </button>
 
             {/* MENU MOBILE */}
 
-            <button
+            <motion.button
               type="button"
               onClick={() =>
                 setMobileMenuOpen(
-                  (value) =>
-                    !value
+                  (value) => !value
                 )
               }
               aria-expanded={
@@ -1034,18 +1102,70 @@ export default function Header() {
                       "فتح القائمة"
                     )
               }
+              whileTap={{
+                scale: 0.9,
+              }}
               className={`flex h-11 w-11 items-center justify-center rounded-2xl border transition lg:hidden ${
                 mobileMenuOpen
                   ? "border-blue-600 bg-blue-600 text-white"
                   : "border-slate-200 bg-white text-slate-700"
               }`}
             >
-              {mobileMenuOpen ? (
-                <X size={20} />
-              ) : (
-                <Menu size={20} />
-              )}
-            </button>
+              <AnimatePresence
+                mode="wait"
+                initial={false}
+              >
+                {mobileMenuOpen ? (
+                  <motion.span
+                    key="close"
+                    initial={{
+                      rotate: -90,
+                      opacity: 0,
+                      scale: 0.7,
+                    }}
+                    animate={{
+                      rotate: 0,
+                      opacity: 1,
+                      scale: 1,
+                    }}
+                    exit={{
+                      rotate: 90,
+                      opacity: 0,
+                      scale: 0.7,
+                    }}
+                    transition={{
+                      duration: 0.18,
+                    }}
+                  >
+                    <X size={20} />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="menu"
+                    initial={{
+                      rotate: 90,
+                      opacity: 0,
+                      scale: 0.7,
+                    }}
+                    animate={{
+                      rotate: 0,
+                      opacity: 1,
+                      scale: 1,
+                    }}
+                    exit={{
+                      rotate: -90,
+                      opacity: 0,
+                      scale: 0.7,
+                    }}
+                    transition={{
+                      duration: 0.18,
+                    }}
+                  >
+                    <Menu size={20} />
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </motion.button>
 
           </div>
 
@@ -1074,9 +1194,7 @@ export default function Header() {
               type="search"
               value={search}
               onFocus={() =>
-                setSearchFocused(
-                  true
-                )
+                setSearchFocused(true)
               }
               onChange={(event) =>
                 setSearch(
@@ -1306,7 +1424,9 @@ export default function Header() {
 
               {categoriesOpen && (
                 <div
-                  onMouseEnter={() => setCategoriesOpen(true)}
+                  onMouseEnter={() =>
+                    setCategoriesOpen(true)
+                  }
                   className="absolute start-1/2 top-[calc(100%+4px)] z-50 w-[560px] -translate-x-1/2 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.18)]"
                 >
 
@@ -1354,7 +1474,9 @@ export default function Header() {
                             <Icon size={14} />
 
                             <span className="whitespace-nowrap text-slate-700">
-                              {category.label}
+                              {
+                                category.label
+                              }
                             </span>
 
                           </Link>
@@ -1421,7 +1543,9 @@ export default function Header() {
 
               {brandsOpen && (
                 <div
-                  onMouseEnter={() => setBrandsOpen(true)}
+                  onMouseEnter={() =>
+                    setBrandsOpen(true)
+                  }
                   className="absolute start-1/2 top-[calc(100%+4px)] z-50 w-[560px] -translate-x-1/2 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.18)]"
                 >
 
@@ -1459,11 +1583,15 @@ export default function Header() {
                               : "border-slate-100 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:shadow-sm"
                           }`}
                         >
+
                           {brand.logo ? (
                             <div className="relative mb-2 h-9 w-20 shrink-0">
                               <Image
                                 src={brand.logo}
-                                alt={brand.name || ""}
+                                alt={
+                                  brand.name ||
+                                  ""
+                                }
                                 fill
                                 sizes="80px"
                                 className="object-contain transition-transform duration-200 group-hover:scale-105"
@@ -1471,13 +1599,17 @@ export default function Header() {
                             </div>
                           ) : (
                             <div className="mb-2 flex h-9 w-20 items-center justify-center rounded-xl bg-slate-50 text-[10px] font-black text-slate-400">
-                              {brand.name?.slice(0, 10)}
+                              {brand.name?.slice(
+                                0,
+                                10
+                              )}
                             </div>
                           )}
 
                           <span className="whitespace-nowrap text-[10px] font-black">
                             {brand.name}
                           </span>
+
                         </Link>
                       )
                     )}
@@ -1509,144 +1641,395 @@ export default function Header() {
       </header>
 
       {/* =======================================================
-          MOBILE MENU — DRAWER ANIMÉ
+          MOBILE DRAWER — PREMIUM APP STYLE
       ======================================================= */}
 
       <AnimatePresence>
         {mobileMenuOpen && (
-          <div className="fixed inset-0 z-[70] lg:hidden">
+          <div className="fixed inset-0 z-[9999] lg:hidden">
+
+            {/* BACKDROP */}
             <motion.button
               type="button"
-              aria-label={text("Fermer le menu", "إغلاق القائمة")}
-              onClick={() => setMobileMenuOpen(false)}
+              aria-label={text(
+                "Fermer le menu",
+                "إغلاق القائمة"
+              )}
+              onClick={closeMobileMenu}
+              className="absolute inset-0 bg-slate-950/55 backdrop-blur-md"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              className="absolute inset-0 bg-slate-950/45 backdrop-blur-[3px]"
+              transition={{ duration: 0.22 }}
             />
 
+            {/* PREMIUM DRAWER */}
             <motion.aside
-              initial={{ x: isArabic ? "-100%" : "100%", opacity: 0.8 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: isArabic ? "-100%" : "100%", opacity: 0.8 }}
-              transition={{ type: "spring", stiffness: 320, damping: 32, mass: 0.8 }}
-              className={`absolute inset-y-0 w-[min(90vw,390px)] overflow-y-auto bg-white shadow-2xl ${
-                isArabic ? "start-0" : "end-0"
-              }`}
+              data-mobile-menu="open"
+              initial={{
+                x: isArabic ? "-105%" : "105%",
+                opacity: 0,
+              }}
+              animate={{
+                x: 0,
+                opacity: 1,
+              }}
+              exit={{
+                x: isArabic ? "-105%" : "105%",
+                opacity: 0,
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 360,
+                damping: 34,
+                mass: 0.75,
+              }}
+              className={`
+                absolute inset-y-0
+                ${isArabic ? "start-0" : "end-0"}
+                flex w-[min(92vw,410px)] flex-col overflow-hidden
+                bg-[#f8fafc]
+                shadow-[0_0_80px_rgba(15,23,42,0.30)]
+              `}
             >
-              <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
-                  <div className="relative h-11 w-[125px]">
-                    <Image
-                      src="/images/logo-doctech.webp"
-                      alt="DOCTECH"
-                      fill
-                      sizes="125px"
-                      className="object-contain object-start rtl:object-end"
-                    />
-                  </div>
+
+              {/* TOP AREA */}
+              <div className="relative shrink-0 overflow-hidden bg-[#06152b] px-5 pb-6 pt-5 text-white">
+                <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-blue-500/20 blur-3xl" />
+                <div className="pointer-events-none absolute -left-20 bottom-[-70px] h-44 w-44 rounded-full bg-cyan-400/10 blur-3xl" />
+
+                <div className="relative flex items-center justify-between gap-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.92 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{
+                      duration: 0.32,
+                      ease: "easeOut",
+                    }}
+                    className="relative flex h-11 w-[132px] shrink-0 items-center rounded-[15px] bg-white px-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+                  >
+                    <div className="relative h-8 w-full overflow-visible">
+                      <Image
+                        src="/images/logo-doctech.webp"
+                        alt="DOCTECH"
+                        fill
+                        priority
+                        sizes="132px"
+                        className="object-contain object-left scale-[1.45] origin-left"
+                      />
+                    </div>
+                  </motion.div>
 
                   <motion.button
                     type="button"
-                    onClick={() => setMobileMenuOpen(false)}
-                    whileTap={{ scale: 0.9 }}
-                    whileHover={{ rotate: 90 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition-colors hover:bg-red-50 hover:text-red-500"
+                    onClick={closeMobileMenu}
+                    whileTap={{ scale: 0.88, rotate: 8 }}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-xl transition hover:bg-white/15 active:bg-white/20"
+                    aria-label={text(
+                      "Fermer le menu",
+                      "إغلاق القائمة"
+                    )}
                   >
-                    <X size={18} />
+                    <X size={20} strokeWidth={2.2} />
                   </motion.button>
-                </div>
-              </div>
-
-              <div className="px-4 pb-8">
-                <div className="mt-4">
-                  <LanguageSwitcher />
                 </div>
 
                 <motion.div
-                  initial="hidden"
-                  animate="show"
-                  variants={{
-                    hidden: {},
-                    show: { transition: { staggerChildren: 0.055, delayChildren: 0.08 } },
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    delay: 0.08,
+                    duration: 0.3,
+                    ease: "easeOut",
                   }}
-                  className="mt-5 space-y-2"
+                  className="relative mt-5"
                 >
-                  {[
-                    { href: "/", active: pathname === "/", icon: <Home size={18} />, label: text("Accueil", "الرئيسية") },
-                    { href: "/articles", active: catalogActive && !currentCategory && !currentBrand, icon: <Laptop size={18} />, label: text("Tout le catalogue", "كل الكتالوج") },
-                    { href: "/promotions", active: promoActive, icon: <Sparkles size={18} />, label: text("Promotions", "العروض") },
-                    { href: "/favoris", active: favoriteActive, icon: <Heart size={18} />, label: `${text("Favoris", "المفضلة")} ${favoritesCount ? `(${favoritesCount})` : ""}` },
-                  ].map((item) => (
-                    <motion.div
-                      key={item.href}
-                      variants={{
-                        hidden: { opacity: 0, x: isArabic ? 15 : -15 },
-                        show: { opacity: 1, x: 0 },
-                      }}
-                    >
-                      <MobileLink {...item} />
-                    </motion.div>
-                  ))}
+                  <h2 className="text-[21px] font-black leading-[1.15] tracking-tight">
+                    {text(
+                      "Votre technologie, simplement.",
+                      "تقنيتك، بكل بساطة."
+                    )}
+                  </h2>
+
+                  <p className="mt-2 text-[10px] font-semibold text-slate-300">
+                    {text(
+                      "Informatique & High-Tech",
+                      "الإعلام الآلي والتقنية"
+                    )}
+                  </p>
+                </motion.div>
+              </div>
+
+              {/* SCROLL CONTENT */}
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-28 pt-4">
+
+                {/* LANGUAGE */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="mb-4 rounded-2xl bg-white p-2 shadow-[0_8px_30px_rgba(15,23,42,0.06)] ring-1 ring-slate-100"
+                >
+                  <LanguageSwitcher />
                 </motion.div>
 
+                {/* MAIN NAV */}
+                <div className="space-y-2">
+                  <DrawerItem delay={0.12}>
+                    <MobileLink
+                      href="/"
+                      active={pathname === "/"}
+                      icon={<Home size={19} strokeWidth={2.4} />}
+                      label={text("Accueil", "الرئيسية")}
+                    />
+                  </DrawerItem>
+
+                  <DrawerItem delay={0.15}>
+                    <MobileLink
+                      href="/articles"
+                      active={
+                        catalogActive &&
+                        !currentCategory &&
+                        !currentBrand
+                      }
+                      icon={<Laptop size={19} strokeWidth={2.4} />}
+                      label={text(
+                        "Tout le catalogue",
+                        "كل الكتالوج"
+                      )}
+                    />
+                  </DrawerItem>
+
+                  <DrawerItem delay={0.18}>
+                    <MobileLink
+                      href="/promotions"
+                      active={promoActive}
+                      icon={<Sparkles size={19} strokeWidth={2.4} />}
+                      label={text("Promotions", "العروض")}
+                      accent
+                    />
+                  </DrawerItem>
+
+                  <DrawerItem delay={0.21}>
+                    <MobileLink
+                      href="/favoris"
+                      active={favoriteActive}
+                      icon={<Heart size={19} strokeWidth={2.4} />}
+                      label={`${text(
+                        "Favoris",
+                        "المفضلة"
+                      )}${favoritesCount ? ` · ${favoritesCount}` : ""}`}
+                    />
+                  </DrawerItem>
+
+                  <DrawerItem delay={0.24}>
+                    <motion.button
+                      type="button"
+                      whileTap={{ scale: 0.985 }}
+                      onClick={() => {
+                        closeMobileMenu();
+                        setCartDrawerOpen(true);
+                      }}
+                      className={`relative flex w-full items-center gap-3 overflow-hidden rounded-[20px] px-4 py-4 text-sm font-black transition ${
+                        cartActive
+                          ? "bg-blue-600 text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)]"
+                          : "bg-white text-slate-800 shadow-[0_8px_25px_rgba(15,23,42,0.05)] ring-1 ring-slate-100 active:bg-blue-50"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                          cartActive
+                            ? "bg-white/15"
+                            : "bg-blue-50 text-blue-600"
+                        }`}
+                      >
+                        <ShoppingBag size={19} strokeWidth={2.4} />
+                      </span>
+
+                      <span className="flex min-w-0 flex-1 flex-col text-start">
+                        <span>{text("Mon panier", "سلتي")}</span>
+                        <span
+                          className={`mt-0.5 text-[10px] font-semibold ${
+                            cartActive
+                              ? "text-blue-100"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {cartCount
+                            ? `${cartCount} ${text(
+                                "article(s)",
+                                "منتج"
+                              )}`
+                            : text(
+                                "Votre panier est vide",
+                                "سلتك فارغة"
+                              )}
+                        </span>
+                      </span>
+
+                      {cartCount > 0 && (
+                        <span
+                          className={`flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-[9px] font-black ${
+                            cartActive
+                              ? "bg-white text-blue-600"
+                              : "bg-slate-950 text-white"
+                          }`}
+                        >
+                          {cartCount > 99 ? "99+" : cartCount}
+                        </span>
+                      )}
+                    </motion.button>
+                  </DrawerItem>
+                </div>
+
+                {/* CATEGORIES */}
                 {categories.length > 0 && (
-                  <motion.div
+                  <motion.section
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.25, duration: 0.3 }}
-                    className="mt-6"
+                    transition={{ delay: 0.28 }}
+                    className="mt-7"
                   >
-                    <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">
-                      {text("Catégories", "الفئات")}
-                    </p>
+                    <div className="mb-3 flex items-center justify-between px-1">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                          {text("Explorer", "استكشف")}
+                        </p>
+                        <h3 className="mt-0.5 text-sm font-black text-slate-900">
+                          {text("Catégories", "الفئات")}
+                        </h3>
+                      </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      {categories.map((category) => {
+                      <Link
+                        href="/articles"
+                        onClick={closeMobileMenu}
+                        className="rounded-full bg-blue-50 px-3 py-1.5 text-[9px] font-black text-blue-600 active:scale-95"
+                      >
+                        {text("Voir tout", "عرض الكل")}
+                      </Link>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {categories.map((category, index) => {
                         const Icon = getCategoryIcon(category.slug);
+
                         return (
-                          <Link
+                          <motion.div
                             key={category.id ?? category.slug}
-                            href={`/articles?categorie=${encodeURIComponent(category.slug)}`}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-[11px] font-bold text-slate-700 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-[0.98]"
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{
+                              delay: 0.3 + index * 0.025,
+                            }}
                           >
-                            <Icon size={15} className="shrink-0 text-blue-600" />
-                            <span className="truncate">{category.label}</span>
-                          </Link>
+                            <Link
+                              href={`/articles?categorie=${encodeURIComponent(
+                                category.slug
+                              )}`}
+                              onClick={closeMobileMenu}
+                              className={`group flex min-h-[72px] items-center gap-3 rounded-[20px] p-3 transition active:scale-[0.98] ${
+                                currentCategory === category.slug
+                                  ? "bg-blue-600 text-white shadow-[0_12px_25px_rgba(37,99,235,0.22)]"
+                                  : "bg-white text-slate-700 shadow-[0_7px_24px_rgba(15,23,42,0.05)] ring-1 ring-slate-100"
+                              }`}
+                            >
+                              <span
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                                  currentCategory === category.slug
+                                    ? "bg-white/15 text-white"
+                                    : "bg-slate-50 text-blue-600 group-active:bg-blue-50"
+                                }`}
+                              >
+                                <Icon size={17} strokeWidth={2.3} />
+                              </span>
+
+                              <span className="min-w-0 truncate text-[10px] font-black leading-tight">
+                                {category.label}
+                              </span>
+                            </Link>
+                          </motion.div>
                         );
                       })}
                     </div>
-                  </motion.div>
+                  </motion.section>
                 )}
 
+                {/* BRANDS */}
                 {visibleBrands.length > 0 && (
-                  <motion.div
+                  <motion.section
                     initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.32, duration: 0.3 }}
-                    className="mt-6 pb-6"
+                    transition={{ delay: 0.4 }}
+                    className="mt-7"
                   >
-                    <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[.14em] text-slate-400">
-                      {text("Marques", "العلامات")}
-                    </p>
+                    <div className="mb-3 px-1">
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                        {text("Les marques", "العلامات")}
+                      </p>
+                      <h3 className="mt-0.5 text-sm font-black text-slate-900">
+                        {text("Choisir une marque", "اختر علامة")}
+                      </h3>
+                    </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {visibleBrands.map((brand) => (
-                        <Link
+                      {visibleBrands.map((brand, index) => (
+                        <motion.div
                           key={brand.id ?? brand.slug}
-                          href={`/articles?marque=${encodeURIComponent(brand.slug)}`}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[10px] font-black text-slate-700 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
+                          initial={{ opacity: 0, scale: 0.92 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{
+                            delay: 0.42 + index * 0.025,
+                          }}
                         >
-                          {brand.name}
-                        </Link>
+                          <Link
+                            href={`/articles?marque=${encodeURIComponent(
+                              brand.slug
+                            )}`}
+                            onClick={closeMobileMenu}
+                            className={`inline-flex items-center gap-2 rounded-full px-3 py-2.5 text-[10px] font-black transition active:scale-95 ${
+                              currentBrand === brand.slug
+                                ? "bg-slate-950 text-white shadow-lg"
+                                : "bg-white text-slate-700 ring-1 ring-slate-200 active:bg-blue-50"
+                            }`}
+                          >
+                            {brand.logo && (
+                              <span className="relative h-5 w-8 shrink-0">
+                                <Image
+                                  src={brand.logo}
+                                  alt={brand.name || ""}
+                                  fill
+                                  sizes="32px"
+                                  className="object-contain"
+                                />
+                              </span>
+                            )}
+                            <span className="max-w-[100px] truncate">
+                              {brand.name}
+                            </span>
+                          </Link>
+                        </motion.div>
                       ))}
                     </div>
-                  </motion.div>
+                  </motion.section>
                 )}
+
+                {/* FOOTER MINI CARD */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.55 }}
+                  className="mt-8 rounded-[24px] bg-gradient-to-br from-[#06152b] to-[#0d2948] p-4 text-white shadow-[0_15px_40px_rgba(6,21,43,0.18)]"
+                >
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-blue-200">
+                    DOCTECH
+                  </p>
+                  <p className="mt-1 text-xs font-bold leading-relaxed text-slate-200">
+                    {text(
+                      "Informatique & High-Tech · Livraison disponible",
+                      "الإعلام الآلي والتقنية · التوصيل متوفر"
+                    )}
+                  </p>
+                </motion.div>
               </div>
             </motion.aside>
           </div>
@@ -1654,97 +2037,110 @@ export default function Header() {
       </AnimatePresence>
 
       {/* =======================================================
-          BOTTOM NAV MOBILE
+          MOBILE BOTTOM NAV — APP STYLE
       ======================================================= */}
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-2 pb-[max(7px,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 md:hidden">
+        <div className="mx-auto max-w-md rounded-[26px] border border-white/80 bg-white/92 p-1.5 shadow-[0_-8px_35px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
 
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+          <div className="grid grid-cols-5 items-center gap-1">
 
-          <BottomLink
-            href="/"
-            active={
-              pathname === "/"
-            }
-            icon={
-              <Home size={18} />
-            }
-            label={text(
-              "Accueil",
-              "الرئيسية"
-            )}
-          />
+            <BottomLink
+              href="/"
+              active={pathname === "/"}
+              icon={<Home size={19} strokeWidth={2.2} />}
+              label={text("Accueil", "الرئيسية")}
+            />
 
-          <BottomLink
-            href="/articles"
-            active={
-              catalogActive
-            }
-            icon={
-              <Laptop size={18} />
-            }
-            label={text(
-              "Catalogue",
-              "الكتالوج"
-            )}
-          />
+            <BottomLink
+              href="/articles"
+              active={catalogActive}
+              icon={<Laptop size={19} strokeWidth={2.2} />}
+              label={text("Catalogue", "الكتالوج")}
+            />
 
-          <BottomLink
-            href="/favoris"
-            active={
-              favoriteActive
-            }
-            icon={
-              <Heart size={18} />
-            }
-            label={text(
-              "Favoris",
-              "المفضلة"
-            )}
-            badge={
-              favoritesCount
-            }
-          />
-
-          <button
-            type="button"
-            onClick={() =>
-              setCartDrawerOpen(
-                true
-              )
-            }
-            className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-[9px] font-black transition ${
-              cartActive
-                ? "bg-blue-50 text-blue-600"
-                : "text-slate-500"
-            }`}
-          >
-
-            <span className="relative">
-
-              <ShoppingBag size={18} />
+            {/* CENTRAL CART */}
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.88 }}
+              onClick={() => setCartDrawerOpen(true)}
+              aria-label={text(
+                "Ouvrir le panier",
+                "فتح السلة"
+              )}
+              className="relative -mt-6 flex flex-col items-center justify-center"
+            >
+              <span
+                className={`flex h-14 w-14 items-center justify-center rounded-full border-[5px] border-white shadow-[0_10px_28px_rgba(37,99,235,0.28)] ${
+                  cartActive
+                    ? "bg-slate-950 text-white"
+                    : "bg-blue-600 text-white"
+                }`}
+              >
+                <ShoppingBag size={21} strokeWidth={2.3} />
+              </span>
 
               {cartCount > 0 && (
-                <b className="absolute -end-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-950 px-1 text-[7px] text-white">
-                  {cartCount > 99
-                    ? "99+"
-                    : cartCount}
-                </b>
+                <span className="absolute right-[-2px] top-[-2px] flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[7px] font-black text-white">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
               )}
 
-            </span>
+              <span className="mt-1 text-[10px] font-extrabold leading-none tracking-[-0.01em] text-slate-600">
+                {text("Panier", "السلة")}
+              </span>
+            </motion.button>
 
-            <span className="truncate">
-              {text(
-                "Panier",
-                "السلة"
-              )}
-            </span>
+            <BottomLink
+              href="/favoris"
+              active={favoriteActive}
+              icon={<Heart size={19} strokeWidth={2.2} />}
+              label={text("Favoris", "المفضلة")}
+              badge={favoritesCount}
+            />
 
-          </button>
+            {/* MENU */}
+            <motion.button
+              type="button"
+              whileTap={{ scale: 0.92 }}
+              onClick={() => setMobileMenuOpen((value) => !value)}
+              aria-expanded={mobileMenuOpen}
+              aria-label={mobileMenuOpen
+                ? text("Fermer", "إغلاق")
+                : text("Menu", "القائمة")}
+              className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl py-2 text-[10px] font-extrabold leading-none tracking-[-0.01em] transition ${
+                mobileMenuOpen
+                  ? "bg-slate-950 text-white"
+                  : "text-slate-500 active:bg-slate-100"
+              }`}
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {mobileMenuOpen ? (
+                  <motion.span
+                    key="close-bottom"
+                    initial={{ rotate: -90, opacity: 0, scale: 0.7 }}
+                    animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                    exit={{ rotate: 90, opacity: 0, scale: 0.7 }}
+                  >
+                    <X size={19} />
+                  </motion.span>
+                ) : (
+                  <motion.span
+                    key="menu-bottom"
+                    initial={{ rotate: 90, opacity: 0, scale: 0.7 }}
+                    animate={{ rotate: 0, opacity: 1, scale: 1 }}
+                    exit={{ rotate: -90, opacity: 0, scale: 0.7 }}
+                  >
+                    <Menu size={19} />
+                  </motion.span>
+                )}
+              </AnimatePresence>
 
+              <span className="text-[10px] font-extrabold leading-none tracking-[-0.01em]">{text("Menu", "القائمة")}</span>
+            </motion.button>
+
+          </div>
         </div>
-
       </nav>
 
       {/* =======================================================
@@ -1761,8 +2157,39 @@ export default function Header() {
           )
         }
       />
-
     </>
+  );
+}
+
+/* =============================================================
+   DRAWER ITEM ANIMATION
+============================================================= */
+
+function DrawerItem({
+  children,
+  delay = 0,
+}: {
+  children: ReactNode;
+  delay?: number;
+}) {
+  return (
+    <motion.div
+      initial={{
+        opacity: 0,
+        x: 20,
+      }}
+      animate={{
+        opacity: 1,
+        x: 0,
+      }}
+      transition={{
+        delay,
+        duration: 0.25,
+        ease: "easeOut",
+      }}
+    >
+      {children}
+    </motion.div>
   );
 }
 
@@ -1811,23 +2238,43 @@ function MobileLink({
   active,
   icon,
   label,
+  accent = false,
 }: {
   href: string;
   active: boolean;
   icon: ReactNode;
   label: string;
+  accent?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm font-black transition ${
+      className={`group flex items-center gap-3 rounded-[20px] px-4 py-3.5 text-sm font-black transition active:scale-[0.985] ${
         active
-          ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-          : "bg-slate-50 text-slate-700"
+          ? accent
+            ? "bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[0_12px_30px_rgba(249,115,22,0.22)]"
+            : "bg-blue-600 text-white shadow-[0_12px_30px_rgba(37,99,235,0.22)]"
+          : "bg-white text-slate-800 shadow-[0_7px_24px_rgba(15,23,42,0.05)] ring-1 ring-slate-100 active:bg-blue-50"
       }`}
     >
-      {icon}
-      <span>{label}</span>
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition ${
+          active
+            ? "bg-white/15 text-white"
+            : accent
+              ? "bg-orange-50 text-orange-500"
+              : "bg-slate-50 text-blue-600"
+        }`}
+      >
+        {icon}
+      </span>
+      <span className="flex-1 text-start">{label}</span>
+      <ChevronDown
+        size={15}
+        className={`-rotate-90 transition ${
+          active ? "text-white/70" : "text-slate-300"
+        }`}
+      />
     </Link>
   );
 }
@@ -1852,7 +2299,7 @@ function BottomLink({
   return (
     <Link
       href={href}
-      className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-[9px] font-black transition ${
+      className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-[10px] font-extrabold leading-none tracking-[-0.01em] transition ${
         active
           ? "bg-blue-50 text-blue-600"
           : "text-slate-500"
@@ -1873,7 +2320,7 @@ function BottomLink({
 
       </span>
 
-      <span className="max-w-full truncate">
+      <span className="max-w-full truncate text-[10px] font-extrabold leading-none tracking-[-0.01em]">
         {label}
       </span>
 

@@ -1,40 +1,54 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { io, type Socket } from "socket.io-client";
-
 import {
   Bell,
   Boxes,
-  Building2,
-  CheckCircle2,
-  ChevronDown,
+  ChevronLeft,
   ChevronRight,
-  CircleUserRound,
-  ClipboardList,
+  FolderTree,
+  Gauge,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
-  PackageCheck,
-  Percent,
-  Search,
-  Settings2,
-  ShieldCheck,
+  Package,
+  Shield,
+  ShoppingCart,
   Tags,
+  Truck,
   Users,
   X,
-  ShoppingBag,
-  MapPin,
-  ExternalLink,
 } from "lucide-react";
 
-import { getMe, logout, type SessionUser } from "@/lib/auth";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+import { usePathname, useRouter } from "next/navigation";
+
+import {
+  getMe,
+  logout,
+  type SessionPermission,
+  type SessionUser,
+} from "@/lib/auth";
+
 import { useLocale } from "@/components/LocaleProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { backendUrl } from "@/lib/api";
+
+import {
+  io,
+  type Socket,
+} from "socket.io-client";
+
+/* =========================================================
+   TYPES
+========================================================= */
 
 type NavItem = {
   label: string;
@@ -45,51 +59,43 @@ type NavItem = {
   permission?: string;
 };
 
-type NewOrderPayload = {
-  id?: number | string;
-  orderId?: number | string;
-  code?: string;
-  reference?: string;
-
-  clientName?: string;
-  customerName?: string;
-  name?: string;
-
-  wilaya?: string;
-  commune?: string;
-
-  total?: number | string;
-  totalAmount?: number | string;
-  amount?: number | string;
-
+type NotificationItem = {
+  id: string | number;
+  type?: string;
+  title?: string;
+  message?: string;
   createdAt?: string;
-  created_at?: string;
-
-  [key: string]: any;
+  read?: boolean;
 };
 
-type OrderNotification = {
-  id: string;
-  orderId?: number | string;
-  code: string;
-  clientName: string;
-  wilaya: string;
-  commune: string;
-  total: number;
+type AdminShellProps = {
+  children: ReactNode;
 };
 
 /* =========================================================
-   HELPERS
+   NAVIGATION
 ========================================================= */
 
-function getSocketUrl() {
-  if (typeof window === "undefined") {
-    return "";
-  }
+const nav: NavItem[] = [
+  {
+    label: "Dashboard",
+    ar: "لوحة التحكم",
+    href: "/admin/dashboard",
+    icon: LayoutDashboard,
+    group: "Général",
+    permission: "dashboard.view",
+  },
 
-  const rawApiUrl =
-    process.env.NEXT_PUBLIC_API_URL || "/api";
+  {
+    label: "Articles",
+    ar: "المقالات",
+    href: "/admin/articles",
+    icon: Package,
+    group: "Catalogue",
+    permission: "articles.view",
+  },
 
+<<<<<<< HEAD
   return (
     rawApiUrl.replace(/\/api\/?$/, "") ||
     window.location.origin
@@ -98,71 +104,89 @@ function getSocketUrl() {
 
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
+=======
+  {
+    label: "Catégories",
+    ar: "الفئات",
+    href: "/admin/categories",
+    icon: FolderTree,
+    group: "Catalogue",
+    permission: "categories.view",
+  },
+>>>>>>> 41782b4 (new)
 
-  return Number.isFinite(n) ? n : fallback;
-}
+  {
+    label: "Marques",
+    ar: "العلامات التجارية",
+    href: "/admin/marques",
+    icon: Tags,
+    group: "Catalogue",
+    permission: "marques.view",
+  },
 
-function formatDZD(value: number) {
-  return new Intl.NumberFormat("fr-DZ", {
-    maximumFractionDigits: 0,
-  }).format(value) + " DA";
-}
+  {
+    label: "Fournisseurs",
+    ar: "الموردون",
+    href: "/admin/fournisseurs",
+    icon: Truck,
+    group: "Achats",
+    permission: "fournisseurs.view",
+  },
 
-function normalizeOrder(
-  payload: NewOrderPayload
-): OrderNotification {
-  const orderId =
-    payload.orderId ??
-    payload.id ??
-    payload.order_id ??
-    payload.commandeId ??
-    payload.commande_id;
+  {
+    label: "Stock",
+    ar: "المخزون",
+    href: "/admin/stock",
+    icon: Boxes,
+    group: "Achats",
+    permission: "stock.view",
+  },
 
-  const code =
-    payload.code ??
-    payload.reference ??
-    payload.orderCode ??
-    (orderId ? `CMD-${orderId}` : "Nouvelle commande");
+  {
+    label: "Promotions",
+    ar: "العروض",
+    href: "/admin/promotions",
+    icon: Tags,
+    group: "Ventes",
+    permission: "promotions.view",
+  },
 
-  const clientName =
-    payload.clientName ??
-    payload.customerName ??
-    payload.name ??
-    payload.client?.name ??
-    payload.customer?.name ??
-    "Nouveau client";
+  {
+    label: "Commandes",
+    ar: "الطلبات",
+    href: "/admin/commandes",
+    icon: ShoppingCart,
+    group: "Ventes",
+    permission: "commandes.view",
+  },
 
-  const wilaya =
-    payload.wilaya ??
-    payload.client?.wilaya ??
-    payload.customer?.wilaya ??
-    "";
+  {
+    label: "Utilisateurs",
+    ar: "المستخدمون",
+    href: "/admin/users",
+    icon: Users,
+    group: "Administration",
+    permission: "users.view",
+  },
 
-  const commune =
-    payload.commune ??
-    payload.client?.commune ??
-    payload.customer?.commune ??
-    "";
+  {
+    label: "Rôles",
+    ar: "الأدوار",
+    href: "/admin/roles",
+    icon: Shield,
+    group: "Administration",
+    permission: "roles.view",
+  },
 
-  const total = toNumber(
-    payload.total ??
-      payload.totalAmount ??
-      payload.amount ??
-      payload.total_price ??
-      payload.prix_total,
-    0
-  );
-
-  return {
-    id: `${orderId ?? code}-${Date.now()}`,
-    orderId,
-    code: String(code),
-    clientName: String(clientName),
-    wilaya: String(wilaya || ""),
-    commune: String(commune || ""),
-    total,
-  };
-}
+  {
+    label: "Permissions",
+    ar: "الصلاحيات",
+    href: "/admin/permissions",
+    icon: KeyRound,
+    group: "Administration",
+    permission: "permissions.view",
+  },
+];
 
 /* =========================================================
    COMPONENT
@@ -170,40 +194,33 @@ function normalizeOrder(
 
 export default function AdminShell({
   children,
-}: {
-  children: React.ReactNode;
-}) {
-  const path = usePathname();
+}: AdminShellProps) {
   const router = useRouter();
-  const { text } = useLocale();
+  const pathname = usePathname();
 
-  const normalizedPath = path.replace(/\/+$/, "") || "/";
-
-  const [open, setOpen] = useState(false);
-  const [user, setUser] = useState<SessionUser | null>(null);
-  const [ready, setReady] = useState(false);
+  const { locale } = useLocale();
 
   /* =======================================================
-     REALTIME ORDERS
+     USER
   ======================================================= */
 
-  const socketRef = useRef<Socket | null>(null);
+  const [user, setUser] =
+    useState<SessionUser | null>(null);
 
-  const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const [loadingUser, setLoadingUser] =
+    useState(true);
 
-  const [notification, setNotification] =
-    useState<OrderNotification | null>(null);
+  /* =======================================================
+     SIDEBAR
+  ======================================================= */
 
-  const notificationTimerRef =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [socketConnected, setSocketConnected] =
+  const [sidebarOpen, setSidebarOpen] =
     useState(false);
 
-  /* =========================================================
-     NAVIGATION
-  ========================================================= */
+  const [sidebarCollapsed, setSidebarCollapsed] =
+    useState(false);
 
+<<<<<<< HEAD
   const nav: NavItem[] = [
     {
       label: "Dashboard",
@@ -294,11 +311,29 @@ export default function AdminShell({
       permission: "permissions.view",
     },
   ];
+=======
+  /* =======================================================
+     NOTIFICATIONS
+  ======================================================= */
+
+  const [notificationsOpen, setNotificationsOpen] =
+    useState(false);
+
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>([]);
+
+  const [, setSocket] =
+    useState<Socket | null>(null);
+>>>>>>> 41782b4 (new)
 
   /* =========================================================
-     AUTH
+     LOAD USER
   ========================================================= */
+const loadUser = useCallback(async () => {
+  try {
+    setLoadingUser(true);
 
+<<<<<<< HEAD
   useEffect(() => {
     if (normalizedPath === "/admin/connexion") {
       setReady(true);
@@ -359,52 +394,66 @@ export default function AdminShell({
 
       return;
     }
+=======
+    const response = await getMe();
+>>>>>>> 41782b4 (new)
 
     console.log(
-      "[ADMIN SOCKET] Connexion :",
-      socketUrl
+      "========== ADMIN SHELL ==========",
     );
 
-    const socket = io(socketUrl, {
-      transports: ["websocket", "polling"],
-      withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-    });
+    console.log(
+      "GET ME RESPONSE :",
+      response,
+    );
 
-    socketRef.current = socket;
+    console.log(
+      "USER :",
+      response?.user,
+    );
 
-    socket.on("connect", () => {
-      console.log(
-        "[ADMIN SOCKET] Connecté :",
-        socket.id
-      );
+    console.log(
+      "ROLE :",
+      response?.user?.role,
+    );
 
-      setSocketConnected(true);
+    console.log(
+      "ROLE CODE :",
+      response?.user?.role?.code,
+    );
 
+<<<<<<< HEAD
       socket.emit("admin:join");
     });
+=======
+    console.log(
+      "ROLE NAME :",
+      response?.user?.role?.name,
+    );
+>>>>>>> 41782b4 (new)
 
-    socket.on("disconnect", (reason) => {
-      console.log(
-        "[ADMIN SOCKET] Déconnecté :",
-        reason
-      );
+    console.log(
+      "PERMISSIONS :",
+      response?.user?.role?.permissions,
+    );
 
-      setSocketConnected(false);
-    });
+    console.log(
+      "================================",
+    );
 
-    socket.on("connect_error", (error) => {
-      console.error(
-        "[ADMIN SOCKET] Erreur :",
-        error.message
-      );
+    if (!response?.user) {
+      router.replace("/admin/connexion");
+      return;
+    }
 
-      setSocketConnected(false);
-    });
+    setUser(response.user);
+  } catch (error) {
+    console.error(
+      "Erreur récupération utilisateur :",
+      error,
+    );
 
+<<<<<<< HEAD
     const handleNewOrder = (
       payload: NewOrderPayload
     ) => {
@@ -538,60 +587,418 @@ export default function AdminShell({
 
   /* =========================================================
      CLOSE TOAST
+=======
+    router.replace("/admin/connexion");
+  } finally {
+    setLoadingUser(false);
+  }
+}, [router]);
+
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
+
+  /* =========================================================
+     PERMISSIONS
+>>>>>>> 41782b4 (new)
   ========================================================= */
 
-  function closeNotification() {
-    setNotification(null);
+  const userPermissions = useMemo(() => {
+    const permissions =
+      user?.role?.permissions ??
+      user?.permissions ??
+      [];
 
+<<<<<<< HEAD
     if (notificationTimerRef.current) {
       clearTimeout(notificationTimerRef.current);
       notificationTimerRef.current = null;
     }
   }
+=======
+    if (!Array.isArray(permissions)) {
+      return new Set<string>();
+    }
+
+    const codes = permissions
+      .map(
+        (permission: SessionPermission) => {
+          if (
+            typeof permission === "string"
+          ) {
+            return permission.trim();
+          }
+
+          return String(
+            permission?.code ?? "",
+          ).trim();
+        },
+      )
+      .filter(
+        (code): code is string =>
+          Boolean(code),
+      );
+
+    return new Set(codes);
+  }, [user]);
+>>>>>>> 41782b4 (new)
 
   /* =========================================================
-     GO TO ORDERS
+     CHECK PERMISSION
   ========================================================= */
 
+<<<<<<< HEAD
   function openOrders() {
     closeNotification();
     router.push("/admin/commandes");
   }
+=======
+  const hasPermission = useCallback(
+    (permission?: string) => {
+      /**
+       * Pas de permission demandée.
+       */
+      if (!permission) {
+        return true;
+      }
+
+      /**
+       * ADMIN = accès complet.
+       *
+       * Tu as déjà toutes les permissions
+       * en base, mais ceci garantit aussi
+       * que le menu ADMIN ne reste pas vide
+       * si une nouvelle permission est ajoutée.
+       */
+      const roleCode = String(
+        user?.role?.code ?? "",
+      ).toUpperCase();
+
+      if (roleCode === "ADMIN") {
+        return true;
+      }
+
+      return userPermissions.has(
+        permission,
+      );
+    },
+    [user, userPermissions],
+  );
+>>>>>>> 41782b4 (new)
+
+  /* =========================================================
+     VISIBLE NAVIGATION
+  ========================================================= */
+
+  const visibleNav = useMemo(() => {
+    return nav.filter((item) =>
+      hasPermission(
+        item.permission,
+      ),
+    );
+  }, [hasPermission]);
+
+  /* =========================================================
+<<<<<<< HEAD
+     LOGIN PAGE
+=======
+     GROUPS
+  ========================================================= */
+
+  const groups = useMemo(() => {
+    return visibleNav.reduce<
+      Record<string, NavItem[]>
+    >(
+      (accumulator, item) => {
+        if (!accumulator[item.group]) {
+          accumulator[item.group] = [];
+        }
+
+        accumulator[item.group].push(
+          item,
+        );
+
+        return accumulator;
+      },
+      {},
+    );
+  }, [visibleNav]);
+
+  /* =========================================================
+     NOTIFICATION COUNT
+>>>>>>> 41782b4 (new)
+  ========================================================= */
+
+  const unreadCount = useMemo(() => {
+    return notifications.filter(
+      (notification) =>
+        !notification.read,
+    ).length;
+  }, [notifications]);
+
+  /* =========================================================
+     SOCKET.IO
+  ========================================================= */
+
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+
+    const url = backendUrl();
+
+    if (!url) {
+      return;
+    }
+
+    const newSocket = io(url, {
+      withCredentials: true,
+      transports: [
+        "websocket",
+        "polling",
+      ],
+    });
+
+    setSocket(newSocket);
+
+    newSocket.on(
+      "connect",
+      () => {
+        console.log(
+          "Socket admin connecté :",
+          newSocket.id,
+        );
+
+        newSocket.emit(
+          "join-user",
+          user.id,
+        );
+      },
+    );
+
+    /* =====================================================
+       NOTIFICATION
+    ===================================================== */
+
+    newSocket.on(
+      "notification",
+      (
+        notification: NotificationItem,
+      ) => {
+        setNotifications(
+          (previous) => [
+            {
+              ...notification,
+
+              id:
+                notification.id ??
+                `${Date.now()}-${Math.random()
+                  .toString(36)
+                  .slice(2)}`,
+
+              read: false,
+            },
+
+            ...previous,
+          ],
+        );
+      },
+    );
+
+    /* =====================================================
+       NOUVELLE COMMANDE
+    ===================================================== */
+
+    newSocket.on(
+      "new-order",
+      (
+        notification: NotificationItem,
+      ) => {
+        setNotifications(
+          (previous) => [
+            {
+              ...notification,
+
+              id:
+                notification.id ??
+                `order-${Date.now()}`,
+
+              title:
+                notification.title ??
+                "Nouvelle commande",
+
+              message:
+                notification.message ??
+                "Une nouvelle commande a été reçue.",
+
+              read: false,
+            },
+
+            ...previous,
+          ],
+        );
+      },
+    );
+
+    /* =====================================================
+       NOUVEAU TICKET
+    ===================================================== */
+
+    newSocket.on(
+      "new-ticket",
+      (
+        notification: NotificationItem,
+      ) => {
+        setNotifications(
+          (previous) => [
+            {
+              ...notification,
+
+              id:
+                notification.id ??
+                `ticket-${Date.now()}`,
+
+              title:
+                notification.title ??
+                "Nouveau ticket",
+
+              message:
+                notification.message ??
+                "Un nouveau ticket nécessite votre attention.",
+
+              read: false,
+            },
+
+            ...previous,
+          ],
+        );
+      },
+    );
+
+    newSocket.on(
+      "disconnect",
+      () => {
+        console.log(
+          "Socket admin déconnecté",
+        );
+      },
+    );
+
+    return () => {
+      newSocket.disconnect();
+      setSocket(null);
+    };
+  }, [user?.id]);
 
   /* =========================================================
      LOGOUT
   ========================================================= */
 
-  async function signOut() {
+  const handleLogout = async () => {
     try {
       await logout();
+    } catch (error) {
+      console.error(
+        "Erreur logout :",
+        error,
+      );
     } finally {
-      router.replace("/admin/connexion");
+      router.replace(
+        "/admin/admin/connexion",
+      );
     }
-  }
+  };
 
   /* =========================================================
-     LOGIN PAGE
+     MARK NOTIFICATIONS READ
   ========================================================= */
 
-  if (normalizedPath === "/admin/connexion") {
-    return <>{children}</>;
-  }
+  const markAllNotificationsRead =
+    () => {
+      setNotifications(
+        (previous) =>
+          previous.map(
+            (notification) => ({
+              ...notification,
+              read: true,
+            }),
+          ),
+      );
+    };
+
+  const markNotificationRead = (
+    id: string | number,
+  ) => {
+    setNotifications(
+      (previous) =>
+        previous.map(
+          (notification) =>
+            notification.id === id
+              ? {
+                  ...notification,
+                  read: true,
+                }
+              : notification,
+        ),
+    );
+  };
 
   /* =========================================================
-     LOADER
+     ACTIVE MENU
   ========================================================= */
 
-  if (!ready) {
+  const isActive = (
+    href: string,
+  ) => {
+    if (
+      href ===
+      "/admin/dashboard"
+    ) {
+      return pathname === href;
+    }
+
     return (
-      <div className="grid min-h-screen place-items-center bg-[#f4f7fb]">
-        <div className="relative">
-          <div className="h-14 w-14 rounded-2xl bg-[#2563EB] shadow-xl shadow-[#2563EB]/20" />
+      pathname === href ||
+      pathname.startsWith(
+        `${href}/`,
+      )
+    );
+  };
 
-          <div className="absolute inset-2 animate-spin rounded-xl border-2 border-white/30 border-t-white" />
+  /* =========================================================
+     MOBILE SIDEBAR
+  ========================================================= */
+
+  const closeMobileSidebar = () => {
+    setSidebarOpen(false);
+  };
+
+  /* =========================================================
+     LOADING
+  ========================================================= */
+
+  if (loadingUser) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+
+          <p className="text-sm font-medium text-slate-500">
+            Chargement...
+          </p>
+
         </div>
       </div>
     );
+  }
+
+  /* =========================================================
+     NO USER
+  ========================================================= */
+
+  if (!user) {
+    return null;
   }
 
   /* =========================================================
@@ -599,6 +1006,7 @@ export default function AdminShell({
   ========================================================= */
 
   return (
+<<<<<<< HEAD
     <div className="min-h-screen bg-[#f4f7fb] text-slate-950">
       {/* =======================================================
           GLOBAL ORDER TOAST
@@ -701,19 +1109,60 @@ export default function AdminShell({
             </div>
           </div>
         </div>
+=======
+    <div className="min-h-screen bg-slate-50">
+
+      {/* =====================================================
+          MOBILE OVERLAY
+      ===================================================== */}
+
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Fermer le menu"
+          onClick={
+            closeMobileSidebar
+          }
+          className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden"
+        />
+>>>>>>> 41782b4 (new)
       )}
 
-      {/* =========================================================
+      {/* =====================================================
           SIDEBAR
-      ========================================================= */}
+      ===================================================== */}
 
       <aside
-        className={`fixed inset-y-0 start-0 z-[80] flex w-[292px] flex-col overflow-hidden bg-[#071821] text-white shadow-2xl shadow-slate-950/20 transition-transform duration-300 lg:translate-x-0 ${
-          open
-            ? "translate-x-0 rtl:translate-x-0"
-            : "-translate-x-full rtl:translate-x-full lg:rtl:translate-x-0"
-        }`}
+        className={`
+          fixed
+          inset-y-0
+          left-0
+          z-50
+          flex
+          flex-col
+          bg-white
+          shadow-xl
+          shadow-slate-200/40
+          transition-all
+          duration-300
+          lg:translate-x-0
+
+          ${
+            sidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full"
+          }
+
+          ${
+            sidebarCollapsed
+              ? "lg:w-[88px]"
+              : "lg:w-[270px]"
+          }
+
+          w-[270px]
+        `}
       >
+<<<<<<< HEAD
         <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[#60A5FA]/15 blur-3xl" />
 
         <div className="absolute -left-24 bottom-32 h-64 w-64 rounded-full bg-[#FE5737]/10 blur-3xl" />
@@ -748,16 +1197,76 @@ export default function AdminShell({
               </span>
             </span>
           </Link>
+=======
+
+        {/* ===================================================
+            LOGO
+        =================================================== */}
+
+        <div
+          className={`
+            flex
+            h-[76px]
+            shrink-0
+            items-center
+            border-b
+            border-slate-100
+            px-5
+
+            ${
+              sidebarCollapsed
+                ? "lg:justify-center lg:px-3"
+                : "justify-between"
+            }
+          `}
+        >
+>>>>>>> 41782b4 (new)
 
           <button
-            aria-label="Fermer"
-            onClick={() => setOpen(false)}
-            className="grid h-9 w-9 place-items-center rounded-xl bg-white/5 text-slate-300 lg:hidden"
+            type="button"
+            onClick={() =>
+              router.push(
+                "/admin/dashboard",
+              )
+            }
+            className="flex items-center gap-3"
           >
-            <X size={18} />
+
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
+              <Gauge
+                size={21}
+                strokeWidth={2.5}
+              />
+            </div>
+
+            {!sidebarCollapsed && (
+              <div className="text-left">
+
+                <div className="text-lg font-black tracking-tight text-slate-900">
+                  DOCTECH
+                </div>
+
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Administration
+                </div>
+
+              </div>
+            )}
+
+          </button>
+
+          <button
+            type="button"
+            onClick={
+              closeMobileSidebar
+            }
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+          >
+            <X size={20} />
           </button>
         </div>
 
+<<<<<<< HEAD
         {/* NAVIGATION */}
 
         <div className="relative flex-1 overflow-y-auto px-3 py-5 [scrollbar-width:none]">
@@ -854,20 +1363,247 @@ export default function AdminShell({
                   {user?.role?.name || "Administrateur"}
                 </p>
               </div>
+=======
+        {/* ===================================================
+            NAVIGATION
+        =================================================== */}
+
+        <div className="flex-1 overflow-y-auto px-3 py-5">
+
+          <nav className="space-y-6">
+
+            {Object.entries(
+              groups,
+            ).map(
+              ([
+                groupName,
+                items,
+              ]) => (
+                <div
+                  key={groupName}
+                >
+
+                  {!sidebarCollapsed && (
+                    <div className="mb-2 px-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+                      {groupName}
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+
+                    {items.map(
+                      (item) => {
+                        const Icon =
+                          item.icon;
+
+                        const active =
+                          isActive(
+                            item.href,
+                          );
+
+                        return (
+                          <button
+                            key={
+                              item.href
+                            }
+                            type="button"
+                            onClick={() => {
+                              router.push(
+                                item.href,
+                              );
+
+                              closeMobileSidebar();
+                            }}
+                            title={
+                              sidebarCollapsed
+                                ? item.label
+                                : undefined
+                            }
+                            className={`
+                              group
+                              flex
+                              w-full
+                              items-center
+                              gap-3
+                              rounded-xl
+                              px-3
+                              py-3
+                              text-left
+                              transition-all
+                              duration-200
+
+                              ${
+                                active
+                                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                              }
+
+                              ${
+                                sidebarCollapsed
+                                  ? "lg:justify-center"
+                                  : ""
+                              }
+                            `}
+                          >
+
+                            <Icon
+                              size={19}
+                              strokeWidth={
+                                active
+                                  ? 2.4
+                                  : 2
+                              }
+                              className="shrink-0"
+                            />
+
+                            {!sidebarCollapsed && (
+                              <div className="min-w-0 flex-1">
+
+                                <div className="truncate text-sm font-semibold">
+                                  {locale ===
+                                  "ar"
+                                    ? item.ar
+                                    : item.label}
+                                </div>
+
+                              </div>
+                            )}
+
+                          </button>
+                        );
+                      },
+                    )}
+
+                  </div>
+
+                </div>
+              ),
+            )}
+
+            {/* =================================================
+                NO PERMISSIONS
+            ================================================= */}
+
+            {visibleNav.length ===
+              0 && (
+              <div className="rounded-2xl bg-slate-50 px-4 py-5 text-center">
+
+                <Shield
+                  size={28}
+                  className="mx-auto mb-2 text-slate-300"
+                />
+
+                {!sidebarCollapsed && (
+                  <p className="text-xs font-medium leading-5 text-slate-500">
+                    Aucune permission disponible.
+                  </p>
+                )}
+
+              </div>
+            )}
+
+          </nav>
+
+        </div>
+
+        {/* ===================================================
+            COLLAPSE BUTTON
+        =================================================== */}
+
+        <div className="hidden border-t border-slate-100 p-3 lg:block">
+
+          <button
+            type="button"
+            onClick={() =>
+              setSidebarCollapsed(
+                (value) =>
+                  !value,
+              )
+            }
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-50 py-2.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+          >
+
+            {sidebarCollapsed ? (
+              <ChevronRight
+                size={18}
+              />
+            ) : (
+              <>
+                <ChevronLeft
+                  size={18}
+                />
+
+                <span className="text-xs font-semibold">
+                  Réduire
+                </span>
+              </>
+            )}
+
+          </button>
+
+        </div>
+
+        {/* ===================================================
+            USER CARD
+        =================================================== */}
+
+        <div className="border-t border-slate-100 p-3">
+
+          <div
+            className={`
+              flex
+              items-center
+              gap-3
+              rounded-2xl
+              bg-slate-50
+              p-3
+
+              ${
+                sidebarCollapsed
+                  ? "lg:justify-center lg:p-2"
+                  : ""
+              }
+            `}
+          >
+
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-sm font-black text-blue-700">
+
+              {(
+                user.firstName?.[0] ||
+                user.email?.[0] ||
+                "U"
+              ).toUpperCase()}
+
+>>>>>>> 41782b4 (new)
             </div>
 
-            <button
-              onClick={signOut}
-              className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white/[.06] text-[10px] font-black text-slate-300 transition hover:bg-red-500/10 hover:text-red-300"
-            >
-              <LogOut size={14} />
+            {!sidebarCollapsed && (
+              <div className="min-w-0 flex-1">
 
+<<<<<<< HEAD
               {text("Déconnexion", "تسجيل الخروج")}
             </button>
+=======
+                <div className="truncate text-sm font-bold text-slate-900">
+                  {user.firstName ||
+                    user.email}
+                </div>
+
+                <div className="mt-0.5 truncate text-xs font-medium text-slate-500">
+                  {user.role?.name ||
+                    user.role?.code ||
+                    "Utilisateur"}
+                </div>
+
+              </div>
+            )}
+
+>>>>>>> 41782b4 (new)
           </div>
         </div>
       </aside>
 
+<<<<<<< HEAD
       {/* MOBILE OVERLAY */}
 
       {open && (
@@ -879,21 +1615,55 @@ export default function AdminShell({
       )}
 
       {/* =========================================================
+=======
+      {/* =====================================================
+>>>>>>> 41782b4 (new)
           MAIN
-      ========================================================= */}
+      ===================================================== */}
 
+<<<<<<< HEAD
       <div className="lg:ps-[292px]">
         {/* TOP HEADER */}
 
         <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
           <div className="flex h-[72px] items-center gap-3 px-4 sm:px-6 lg:px-8">
+=======
+      <div
+        className={`
+          min-h-screen
+          transition-all
+          duration-300
+
+          ${
+            sidebarCollapsed
+              ? "lg:pl-[88px]"
+              : "lg:pl-[270px]"
+          }
+        `}
+      >
+
+        {/* ===================================================
+            TOP HEADER
+        =================================================== */}
+
+        <header className="sticky top-0 z-30 flex h-[76px] items-center justify-between border-b border-slate-100 bg-white/95 px-4 shadow-sm backdrop-blur-xl sm:px-6 lg:px-8">
+
+          <div className="flex items-center gap-3">
+
+>>>>>>> 41782b4 (new)
             <button
-              onClick={() => setOpen(true)}
-              className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm lg:hidden"
+              type="button"
+              onClick={() =>
+                setSidebarOpen(
+                  true,
+                )
+              }
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 lg:hidden"
             >
-              <Menu size={18} />
+              <Menu size={21} />
             </button>
 
+<<<<<<< HEAD
             {/* Breadcrumb */}
 
             <div className="hidden min-w-0 sm:block">
@@ -923,9 +1693,20 @@ export default function AdminShell({
                 <kbd className="hidden rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[9px] font-black text-slate-400 lg:block">
                   ⌘ K
                 </kbd>
+=======
+            <div className="hidden lg:block">
+
+              <div className="text-sm font-bold text-slate-900">
+                Administration
+              </div>
+
+              <div className="text-xs text-slate-400">
+                Gestion de votre espace DOCTECH
+>>>>>>> 41782b4 (new)
               </div>
             </div>
 
+<<<<<<< HEAD
             {/* RIGHT ACTIONS */}
 
             <div className="ms-auto flex items-center gap-2">
@@ -984,16 +1765,252 @@ export default function AdminShell({
 
               <LanguageSwitcher compact />
             </div>
+=======
+          </div>
+
+          <div className="flex items-center gap-2">
+
+            {/* =================================================
+                LANGUAGE
+            ================================================= */}
+
+            <LanguageSwitcher />
+
+            {/* =================================================
+                NOTIFICATIONS
+            ================================================= */}
+
+            <div className="relative">
+
+              <button
+                type="button"
+                onClick={() =>
+                  setNotificationsOpen(
+                    (value) =>
+                      !value,
+                  )
+                }
+                className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+              >
+
+                <Bell size={20} />
+
+                {unreadCount >
+                  0 && (
+                  <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-black text-white">
+                    {unreadCount >
+                    9
+                      ? "9+"
+                      : unreadCount}
+                  </span>
+                )}
+
+              </button>
+
+              {notificationsOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Fermer notifications"
+                    onClick={() =>
+                      setNotificationsOpen(
+                        false,
+                      )
+                    }
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+
+                  <div className="absolute right-0 top-12 z-50 w-[350px] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-900/15 ring-1 ring-slate-100">
+
+                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
+
+                      <div>
+
+                        <h3 className="text-sm font-extrabold text-slate-900">
+                          Notifications
+                        </h3>
+
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          {unreadCount} non lue
+                          {unreadCount >
+                          1
+                            ? "s"
+                            : ""}
+                        </p>
+
+                      </div>
+
+                      {unreadCount >
+                        0 && (
+                        <button
+                          type="button"
+                          onClick={
+                            markAllNotificationsRead
+                          }
+                          className="text-xs font-bold text-blue-600 hover:text-blue-700"
+                        >
+                          Tout lire
+                        </button>
+                      )}
+
+                    </div>
+
+                    <div className="max-h-[420px] overflow-y-auto">
+
+                      {notifications.length ===
+                      0 ? (
+                        <div className="px-5 py-10 text-center">
+
+                          <Bell
+                            size={28}
+                            className="mx-auto mb-3 text-slate-300"
+                          />
+
+                          <p className="text-sm font-semibold text-slate-500">
+                            Aucune notification
+                          </p>
+
+                        </div>
+                      ) : (
+                        notifications.map(
+                          (
+                            notification,
+                          ) => (
+                            <button
+                              key={
+                                notification.id
+                              }
+                              type="button"
+                              onClick={() =>
+                                markNotificationRead(
+                                  notification.id,
+                                )
+                              }
+                              className={`
+                                flex
+                                w-full
+                                gap-3
+                                border-b
+                                border-slate-50
+                                px-4
+                                py-4
+                                text-left
+                                transition
+                                hover:bg-slate-50
+
+                                ${
+                                  !notification.read
+                                    ? "bg-blue-50/40"
+                                    : "bg-white"
+                                }
+                              `}
+                            >
+
+                              <div
+                                className={`
+                                  mt-0.5
+                                  flex
+                                  h-9
+                                  w-9
+                                  shrink-0
+                                  items-center
+                                  justify-center
+                                  rounded-xl
+
+                                  ${
+                                    !notification.read
+                                      ? "bg-blue-100 text-blue-600"
+                                      : "bg-slate-100 text-slate-400"
+                                  }
+                                `}
+                              >
+
+                                <Bell
+                                  size={
+                                    17
+                                  }
+                                />
+
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+
+                                <div className="flex items-start justify-between gap-2">
+
+                                  <p className="truncate text-sm font-bold text-slate-800">
+                                    {notification.title ||
+                                      "Notification"}
+                                  </p>
+
+                                  {!notification.read && (
+                                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                                  )}
+
+                                </div>
+
+                                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                                  {notification.message ||
+                                    "Nouvelle notification."}
+                                </p>
+
+                                {notification.createdAt && (
+                                  <p className="mt-1 text-[10px] font-medium text-slate-400">
+                                    {
+                                      notification.createdAt
+                                    }
+                                  </p>
+                                )}
+
+                              </div>
+
+                            </button>
+                          ),
+                        )
+                      )}
+
+                    </div>
+
+                  </div>
+                </>
+              )}
+
+            </div>
+
+            {/* =================================================
+                LOGOUT
+            ================================================= */}
+
+            <button
+              type="button"
+              onClick={
+                handleLogout
+              }
+              title="Déconnexion"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition hover:bg-red-50 hover:text-red-600"
+            >
+              <LogOut
+                size={19}
+              />
+            </button>
+
+>>>>>>> 41782b4 (new)
           </div>
         </header>
 
+<<<<<<< HEAD
         {/* PAGE CONTENT */}
+=======
+        {/* ===================================================
+            CONTENT
+        =================================================== */}
+>>>>>>> 41782b4 (new)
 
-        <main className="min-h-[calc(100vh-72px)] p-3 sm:p-5 lg:p-8">
+        <main className="min-h-[calc(100vh-76px)] p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>
 
+<<<<<<< HEAD
       {/* =========================================================
           GLOBAL ADMIN STYLES
       ========================================================= */}
@@ -1068,6 +2085,8 @@ export default function AdminShell({
           -webkit-tap-highlight-color: transparent;
         }
       `}</style>
+=======
+>>>>>>> 41782b4 (new)
     </div>
   );
 }

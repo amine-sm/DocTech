@@ -1,396 +1,890 @@
-
 // lib/api.ts
+
+// ============================================================
+// CONFIGURATION BACKEND
+// ============================================================
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:4000/api";
+  "https://backenddoctech.aladinnutritiondz.com/api";
+
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "https://backenddoctech.aladinnutritiondz.com";
+
+
+// ============================================================
+// LOG CONFIGURATION
+// ============================================================
+
+if (typeof window !== "undefined") {
+  console.log("[API] API_URL:", API_URL);
+  console.log("[API] BACKEND_URL:", BACKEND_URL);
+}
+
+
+// ============================================================
+// NORMALISATION URL BACKEND
+// ============================================================
 
 /**
- * URL de base du backend sans /api final.
+ * Construit une URL complète pour les fichiers/images du backend.
  *
- * Exemple :
- * API_URL = http://localhost:4000/api
+ * Backend :
  *
- * backendUrl("/uploads/test.jpg")
+ * API REST :
+ * https://backenddoctech.aladinnutritiondz.com/api
+ *
+ * Images :
+ * https://backenddoctech.aladinnutritiondz.com/api/uploads-file/xxx.jpg
+ *
+ * Exemples :
+ *
+ * /uploads/test.jpg
  * =>
+ * https://backenddoctech.aladinnutritiondz.com/api/uploads-file/test.jpg
+ *
+ * uploads/test.jpg
+ * =>
+ * https://backenddoctech.aladinnutritiondz.com/api/uploads-file/test.jpg
+ *
  * http://localhost:4000/uploads/test.jpg
+ * =>
+ * https://backenddoctech.aladinnutritiondz.com/api/uploads-file/test.jpg
+ *
+ * http://localhost:4000/api/uploads-file/test.jpg
+ * =>
+ * https://backenddoctech.aladinnutritiondz.com/api/uploads-file/test.jpg
  */
-export function backendUrl(path?: string | null): string {
-  if (!path) return "";
+export function backendUrl(
+  path?: string | null
+): string {
 
-  let cleanPath = path;
-
-  // 1. Nettoyer si l'URL contient localhost
-  if (cleanPath.includes("localhost:4000") || cleanPath.includes("127.0.0.1:4000")) {
-    cleanPath = cleanPath.replace(/https?:\/\/(localhost|127\.0\.0\.1):4000/, "");
+  if (!path) {
+    return "";
   }
+
+  let value = String(path).trim();
+
+  if (!value) {
+    return "";
+  }
+
+
+  // ==========================================================
+  // DATA / BLOB
+  // ==========================================================
 
   if (
-    cleanPath.startsWith("data:") ||
-    cleanPath.startsWith("blob:")
+    value.startsWith("data:") ||
+    value.startsWith("blob:")
   ) {
-    return cleanPath;
+    return value;
   }
 
-  const backendBase = API_URL.replace(/\/api\/?$/, "");
 
-  // 2. Si l'URL est déjà une URL absolue externe (ou déjà avec /api/uploads-file)
-  if (cleanPath.startsWith("http://") || cleanPath.startsWith("https://")) {
-    // Si c'est notre propre domaine mais avec /uploads/ au lieu de /api/uploads-file/
-    if (cleanPath.includes("/uploads/") && !cleanPath.includes("/api/uploads-file/")) {
-      return cleanPath.replace("/uploads/", "/api/uploads-file/");
+  // ==========================================================
+  // ANCIENNES URL LOCALHOST
+  // ==========================================================
+
+  value = value.replace(
+    /^https?:\/\/localhost:4000/i,
+    BACKEND_URL
+  );
+
+  value = value.replace(
+    /^https?:\/\/127\.0\.0\.1:4000/i,
+    BACKEND_URL
+  );
+
+
+  // ==========================================================
+  // SI C'EST UNE URL ABSOLUE
+  // ==========================================================
+
+  if (
+    value.startsWith("http://") ||
+    value.startsWith("https://")
+  ) {
+
+    // --------------------------------------------------------
+    // Ancienne URL :
+    //
+    // https://backenddoctech.../uploads/image.jpg
+    //
+    // doit devenir :
+    //
+    // https://backenddoctech.../api/uploads-file/image.jpg
+    // --------------------------------------------------------
+
+    const backendOrigin =
+      BACKEND_URL.replace(/\/+$/, "");
+
+    const uploadsPrefix =
+      `${backendOrigin}/uploads/`;
+
+    const apiUploadsPrefix =
+      `${backendOrigin}/api/uploads-file/`;
+
+    if (
+      value.startsWith(uploadsPrefix)
+    ) {
+
+      const fileName =
+        value.substring(
+          uploadsPrefix.length
+        );
+
+      return `${apiUploadsPrefix}${fileName}`;
     }
-    return cleanPath;
+
+
+    // --------------------------------------------------------
+    // URL déjà correcte
+    // --------------------------------------------------------
+
+    return value;
   }
 
-  const formattedPath = cleanPath.startsWith("/")
-    ? cleanPath
-    : `/${cleanPath}`;
 
-  // 3. Redirection des chemins /uploads/ vers /api/uploads-file/ pour cPanel
-  if (formattedPath.startsWith("/uploads/")) {
-    const relativePart = formattedPath.replace("/uploads/", "");
-    return `${backendBase}/api/uploads-file/${relativePart}`;
+  // ==========================================================
+  // NORMALISER SLASH
+  // ==========================================================
+
+  value = value.replace(
+    /^\/+/,
+    "/"
+  );
+
+
+  // ==========================================================
+  // /api/uploads-file/...
+  // ==========================================================
+
+  if (
+    value.startsWith(
+      "/api/uploads-file/"
+    )
+  ) {
+
+    return `${BACKEND_URL.replace(
+      /\/+$/,
+      ""
+    )}${value}`;
   }
 
-  return `${backendBase}${formattedPath}`;
+
+  // ==========================================================
+  // /uploads-file/...
+  // ==========================================================
+
+  if (
+    value.startsWith(
+      "/uploads-file/"
+    )
+  ) {
+
+    return `${BACKEND_URL.replace(
+      /\/+$/,
+      ""
+    )}/api${value}`;
+  }
+
+
+  // ==========================================================
+  // /uploads/...
+  //
+  // C'est généralement ce que contient la BDD.
+  // ==========================================================
+
+  if (
+    value.startsWith(
+      "/uploads/"
+    )
+  ) {
+
+    const fileName =
+      value.replace(
+        /^\/uploads\//,
+        ""
+      );
+
+    return `${BACKEND_URL.replace(
+      /\/+$/,
+      ""
+    )}/api/uploads-file/${fileName}`;
+  }
+
+
+  // ==========================================================
+  // uploads/...
+  // ==========================================================
+
+  if (
+    value.startsWith(
+      "uploads/"
+    )
+  ) {
+
+    const fileName =
+      value.replace(
+        /^uploads\//,
+        ""
+      );
+
+    return `${BACKEND_URL.replace(
+      /\/+$/,
+      ""
+    )}/api/uploads-file/${fileName}`;
+  }
+
+
+  // ==========================================================
+  // /api/...
+  // ==========================================================
+
+  if (
+    value.startsWith(
+      "/api/"
+    )
+  ) {
+
+    return `${BACKEND_URL.replace(
+      /\/+$/,
+      ""
+    )}${value}`;
+  }
+
+
+  // ==========================================================
+  // AUTRE URL RELATIVE
+  // ==========================================================
+
+  const cleanPath =
+    value.startsWith("/")
+      ? value
+      : `/${value}`;
+
+  return `${BACKEND_URL.replace(
+    /\/+$/,
+    ""
+  )}${cleanPath}`;
 }
+
+
+// ============================================================
+// URL API
+// ============================================================
+
 /**
- * URL complète de l'API.
+ * Construit une URL REST complète.
  *
  * Exemple :
- * apiUrl("/auth/me")
+ *
+ * apiUrl("/public/articles")
+ *
  * =>
- * http://localhost:4000/api/auth/me
+ *
+ * https://backenddoctech.aladinnutritiondz.com/api/public/articles
  */
-export function apiUrl(path: string): string {
-  if (!path) return API_URL;
+export function apiUrl(
+  path: string
+): string {
 
+  if (!path) {
+    return API_URL;
+  }
+
+
+  // URL déjà absolue
   if (
     path.startsWith("http://") ||
     path.startsWith("https://")
   ) {
+
     return path;
   }
 
-  const cleanBase = API_URL.replace(/\/+$/, "");
 
-  const cleanPath = path.startsWith("/")
-    ? path
-    : `/${path}`;
+  const cleanBase =
+    API_URL.replace(
+      /\/+$/,
+      ""
+    );
+
+  const cleanPath =
+    path.startsWith("/")
+      ? path
+      : `/${path}`;
+
 
   return `${cleanBase}${cleanPath}`;
 }
 
-/**
- * Options personnalisées pour apiFetch.
- */
-type ApiFetchOptions = RequestInit & {
-  bodyJson?: unknown;
-};
 
-/**
- * Récupération du JWT stocké côté navigateur.
- */
+// ============================================================
+// OPTIONS API FETCH
+// ============================================================
+
+type ApiFetchOptions =
+  RequestInit & {
+    bodyJson?: unknown;
+  };
+
+
+// ============================================================
+// RÉCUPÉRATION JWT
+// ============================================================
+
 function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
+
+  if (
+    typeof window === "undefined"
+  ) {
+
+    return null;
+  }
+
 
   return (
-    sessionStorage.getItem("doctech_access_token") ||
-    localStorage.getItem("doctech_access_token")
+    sessionStorage.getItem(
+      "doctech_access_token"
+    ) ||
+    localStorage.getItem(
+      "doctech_access_token"
+    )
   );
 }
 
-/**
- * API principale.
- *
- * Supporte :
- * - JWT Bearer
- * - Cookie HttpOnly
- * - JSON
- * - FormData
- * - GET / POST / PUT / PATCH / DELETE
- */
+
+// ============================================================
+// API FETCH PRINCIPALE
+// ============================================================
+
 export async function apiFetch<T = any>(
   path: string,
   options: ApiFetchOptions = {}
 ): Promise<T> {
+
   const {
     bodyJson,
     headers: customHeaders,
     ...fetchOptions
   } = options;
 
-  const headers = new Headers(customHeaders);
 
-  headers.set("Accept", "application/json");
+  // ==========================================================
+  // HEADERS
+  // ==========================================================
 
-  /**
-   * JSON
-   */
-  if (bodyJson !== undefined) {
-    headers.set("Content-Type", "application/json");
+  const headers =
+    new Headers(
+      customHeaders
+    );
+
+  headers.set(
+    "Accept",
+    "application/json"
+  );
+
+
+  // ==========================================================
+  // JSON
+  // ==========================================================
+
+  if (
+    bodyJson !== undefined
+  ) {
+
+    headers.set(
+      "Content-Type",
+      "application/json"
+    );
   }
 
-  /**
-   * JWT fallback.
-   */
-  const token = getStoredToken();
+
+  // ==========================================================
+  // JWT
+  // ==========================================================
+
+  const token =
+    getStoredToken();
 
   if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+
+    headers.set(
+      "Authorization",
+      `Bearer ${token}`
+    );
   }
 
-  /**
-   * Ne pas définir Content-Type manuellement
-   * pour FormData.
-   */
-  if (fetchOptions.body instanceof FormData) {
-    headers.delete("Content-Type");
+
+  // ==========================================================
+  // FORMDATA
+  // ==========================================================
+
+  if (
+    typeof FormData !== "undefined" &&
+    fetchOptions.body instanceof FormData
+  ) {
+
+    // Important :
+    // Ne pas définir Content-Type manuellement.
+    //
+    // Le navigateur doit ajouter :
+    //
+    // multipart/form-data; boundary=...
+    //
+
+    headers.delete(
+      "Content-Type"
+    );
   }
 
-  const response = await fetch(apiUrl(path), {
-    ...fetchOptions,
 
-    /**
-     * Permet d'envoyer le cookie JWT HttpOnly.
-     */
-    credentials: "include",
+  // ==========================================================
+  // URL
+  // ==========================================================
 
-    headers,
+  const url =
+    apiUrl(path);
 
-    body:
-      bodyJson !== undefined
-        ? JSON.stringify(bodyJson)
-        : fetchOptions.body,
-  });
 
-  /**
-   * Lecture de la réponse.
-   */
+  if (
+    typeof window !== "undefined"
+  ) {
+
+    console.log(
+      "[API REQUEST]",
+      url
+    );
+  }
+
+
+  // ==========================================================
+  // FETCH
+  // ==========================================================
+
+  const response =
+    await fetch(
+      url,
+      {
+        ...fetchOptions,
+
+        credentials:
+          "include",
+
+        headers,
+
+        body:
+          bodyJson !== undefined
+            ? JSON.stringify(
+                bodyJson
+              )
+            : fetchOptions.body,
+      }
+    );
+
+
+  // ==========================================================
+  // RESPONSE
+  // ==========================================================
+
   let data: any = null;
 
-  try {
-    const contentType =
-      response.headers.get("content-type") || "";
 
-    if (contentType.includes("application/json")) {
-      data = await response.json();
+  try {
+
+    const contentType =
+      response.headers.get(
+        "content-type"
+      ) || "";
+
+
+    if (
+      contentType.includes(
+        "application/json"
+      )
+    ) {
+
+      data =
+        await response.json();
+
     } else {
-      const text = await response.text();
+
+      const text =
+        await response.text();
+
 
       if (text) {
+
         try {
-          data = JSON.parse(text);
+
+          data =
+            JSON.parse(
+              text
+            );
+
         } catch {
+
           data = text;
         }
       }
     }
+
   } catch {
+
     data = null;
   }
 
-  /**
-   * Gestion des erreurs.
-   */
+
+  // ==========================================================
+  // ERREUR API
+  // ==========================================================
+
   if (!response.ok) {
+
     throw new Error(
       data?.message ||
-        data?.error ||
-        `Erreur API ${response.status}`
+      data?.error ||
+      `Erreur API ${response.status}`
     );
   }
+
+
+  // ==========================================================
+  // RETURN
+  // ==========================================================
 
   return data as T;
 }
 
-/**
- * GET
- */
+
+// ============================================================
+// GET
+// ============================================================
+
 export async function apiGet<T = any>(
   path: string,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  return apiFetch<T>(path, {
-    ...options,
-    method: "GET",
-  });
+
+  return apiFetch<T>(
+    path,
+    {
+      ...options,
+      method: "GET",
+    }
+  );
 }
 
-/**
- * POST
- *
- * Exemple :
- *
- * apiPost("/products", {
- *   name: "Clavier",
- *   price: 3500
- * })
- */
+
+// ============================================================
+// POST
+// ============================================================
+
 export async function apiPost<T = any>(
   path: string,
   body?: unknown,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  /**
-   * Si FormData, on l'envoie directement.
-   */
-  if (body instanceof FormData) {
-    return apiFetch<T>(path, {
-      ...options,
-      method: "POST",
-      body,
-    });
+
+  // ----------------------------------------------------------
+  // FORMDATA
+  // ----------------------------------------------------------
+
+  if (
+    typeof FormData !== "undefined" &&
+    body instanceof FormData
+  ) {
+
+    return apiFetch<T>(
+      path,
+      {
+        ...options,
+        method: "POST",
+        body,
+      }
+    );
   }
 
-  return apiFetch<T>(path, {
-    ...options,
-    method: "POST",
-    bodyJson: body,
-  });
+
+  // ----------------------------------------------------------
+  // JSON
+  // ----------------------------------------------------------
+
+  return apiFetch<T>(
+    path,
+    {
+      ...options,
+      method: "POST",
+      bodyJson: body,
+    }
+  );
 }
 
-/**
- * PUT
- */
+
+// ============================================================
+// PUT
+// ============================================================
+
 export async function apiPut<T = any>(
   path: string,
   body?: unknown,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  if (body instanceof FormData) {
-    return apiFetch<T>(path, {
-      ...options,
-      method: "PUT",
-      body,
-    });
+
+  // ----------------------------------------------------------
+  // FORMDATA
+  // ----------------------------------------------------------
+
+  if (
+    typeof FormData !== "undefined" &&
+    body instanceof FormData
+  ) {
+
+    return apiFetch<T>(
+      path,
+      {
+        ...options,
+        method: "PUT",
+        body,
+      }
+    );
   }
 
-  return apiFetch<T>(path, {
-    ...options,
-    method: "PUT",
-    bodyJson: body,
-  });
+
+  // ----------------------------------------------------------
+  // JSON
+  // ----------------------------------------------------------
+
+  return apiFetch<T>(
+    path,
+    {
+      ...options,
+      method: "PUT",
+      bodyJson: body,
+    }
+  );
 }
 
-/**
- * PATCH
- */
+
+// ============================================================
+// PATCH
+// ============================================================
+
 export async function apiPatch<T = any>(
   path: string,
   body?: unknown,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  if (body instanceof FormData) {
-    return apiFetch<T>(path, {
-      ...options,
-      method: "PATCH",
-      body,
-    });
+
+  // ----------------------------------------------------------
+  // FORMDATA
+  // ----------------------------------------------------------
+
+  if (
+    typeof FormData !== "undefined" &&
+    body instanceof FormData
+  ) {
+
+    return apiFetch<T>(
+      path,
+      {
+        ...options,
+        method: "PATCH",
+        body,
+      }
+    );
   }
 
-  return apiFetch<T>(path, {
-    ...options,
-    method: "PATCH",
-    bodyJson: body,
-  });
+
+  // ----------------------------------------------------------
+  // JSON
+  // ----------------------------------------------------------
+
+  return apiFetch<T>(
+    path,
+    {
+      ...options,
+      method: "PATCH",
+      bodyJson: body,
+    }
+  );
 }
 
-/**
- * DELETE
- */
+
+// ============================================================
+// DELETE
+// ============================================================
+
 export async function apiDelete<T = any>(
   path: string,
   options: ApiFetchOptions = {}
 ): Promise<T> {
-  return apiFetch<T>(path, {
-    ...options,
-    method: "DELETE",
-  });
+
+  return apiFetch<T>(
+    path,
+    {
+      ...options,
+      method: "DELETE",
+    }
+  );
 }
 
+
+// ============================================================
+// UPLOAD IMAGE
+// ============================================================
+
 /**
- * UPLOAD IMAGE
+ * Upload d'une image.
  *
  * Backend :
  *
- * POST /api/upload
+ * POST /api/uploads/image
  *
- * FormData :
- * image = File
+ * Le fichier est ensuite servi par :
  *
- * Le backend peut retourner :
- *
- * {
- *   "url": "/uploads/image.jpg"
- * }
- *
- * ou :
- *
- * {
- *   "imageUrl": "/uploads/image.jpg"
- * }
+ * GET /api/uploads-file/:filename
  */
 export async function uploadImage(
   file: File,
   fieldName = "image"
 ): Promise<string> {
+
   if (!file) {
-    throw new Error("Aucune image sélectionnée.");
+
+    throw new Error(
+      "Aucune image sélectionnée."
+    );
   }
 
-  const formData = new FormData();
-  formData.append(fieldName, file);
 
-  const token = getStoredToken();
+  // ==========================================================
+  // FORMDATA
+  // ==========================================================
 
-  const headers = new Headers();
-  headers.set("Accept", "application/json");
+  const formData =
+    new FormData();
+
+  formData.append(
+    fieldName,
+    file
+  );
+
+
+  // ==========================================================
+  // TOKEN
+  // ==========================================================
+
+  const token =
+    getStoredToken();
+
+
+  // ==========================================================
+  // HEADERS
+  // ==========================================================
+
+  const headers =
+    new Headers();
+
+  headers.set(
+    "Accept",
+    "application/json"
+  );
+
 
   if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+
+    headers.set(
+      "Authorization",
+      `Bearer ${token}`
+    );
   }
 
-  /**
-   * IMPORTANT :
-   * Ne jamais définir Content-Type manuellement
-   * pour FormData.
-   */
-  const response = await fetch(
-    apiUrl("/uploads/image"),
-    {
-      method: "POST",
-      credentials: "include",
-      headers,
-      body: formData,
-    }
-  );
+
+  // ==========================================================
+  // REQUEST
+  // ==========================================================
+
+  const response =
+    await fetch(
+      apiUrl(
+        "/uploads/image"
+      ),
+      {
+        method: "POST",
+
+        credentials:
+          "include",
+
+        headers,
+
+        body:
+          formData,
+      }
+    );
+
+
+  // ==========================================================
+  // RESPONSE
+  // ==========================================================
 
   let data: any = null;
 
-  try {
-    const contentType =
-      response.headers.get("content-type") || "";
 
-    if (contentType.includes("application/json")) {
-      data = await response.json();
+  try {
+
+    const contentType =
+      response.headers.get(
+        "content-type"
+      ) || "";
+
+
+    if (
+      contentType.includes(
+        "application/json"
+      )
+    ) {
+
+      data =
+        await response.json();
+
     } else {
-      const text = await response.text();
+
+      const text =
+        await response.text();
+
 
       if (text) {
+
         try {
-          data = JSON.parse(text);
+
+          data =
+            JSON.parse(
+              text
+            );
+
         } catch {
+
           data = text;
         }
       }
     }
+
   } catch {
+
     data = null;
   }
 
+
+  // ==========================================================
+  // ERROR
+  // ==========================================================
+
   if (!response.ok) {
+
     throw new Error(
       data?.message ||
       data?.error ||
@@ -398,17 +892,11 @@ export async function uploadImage(
     );
   }
 
-  /**
-   * Backend actuel :
-   *
-   * {
-   *   ok: true,
-   *   data: {
-   *     filename: "...",
-   *     url: "http://localhost:4000/uploads/..."
-   *   }
-   * }
-   */
+
+  // ==========================================================
+  // URL IMAGE
+  // ==========================================================
+
   const imagePath =
     data?.data?.url ||
     data?.url ||
@@ -417,107 +905,184 @@ export async function uploadImage(
     data?.path ||
     data?.file?.url;
 
+
   if (!imagePath) {
+
     throw new Error(
       "L'upload a réussi mais aucune URL d'image n'a été retournée par le serveur."
     );
   }
 
-  /**
-   * URL absolue
-   */
-  if (
-    typeof imagePath === "string" &&
-    (
-      imagePath.startsWith("http://") ||
-      imagePath.startsWith("https://")
-    )
-  ) {
-    return imagePath;
-  }
 
-  /**
-   * URL relative
-   */
-  return backendUrl(String(imagePath));
+  // ==========================================================
+  // NORMALISATION
+  // ==========================================================
+
+  return backendUrl(
+    String(imagePath)
+  );
 }
 
-/**
- * UPLOAD MULTIPLE IMAGES
- *
- * Backend :
- * POST /api/upload
- *
- * Plusieurs fichiers avec :
- * images[]
- */
+
+// ============================================================
+// UPLOAD MULTIPLE IMAGES
+// ============================================================
+
 export async function uploadImages(
   files: File[],
   fieldName = "images"
 ): Promise<string[]> {
-  if (!files || files.length === 0) {
+
+  if (
+    !files ||
+    files.length === 0
+  ) {
+
     return [];
   }
 
-  const formData = new FormData();
 
-  for (const file of files) {
-    formData.append(fieldName, file);
+  // ==========================================================
+  // FORMDATA
+  // ==========================================================
+
+  const formData =
+    new FormData();
+
+
+  for (
+    const file of files
+  ) {
+
+    formData.append(
+      fieldName,
+      file
+    );
   }
 
-  const token = getStoredToken();
 
-  const headers = new Headers();
+  // ==========================================================
+  // TOKEN
+  // ==========================================================
 
-  headers.set("Accept", "application/json");
+  const token =
+    getStoredToken();
+
+
+  // ==========================================================
+  // HEADERS
+  // ==========================================================
+
+  const headers =
+    new Headers();
+
+  headers.set(
+    "Accept",
+    "application/json"
+  );
+
 
   if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
+
+    headers.set(
+      "Authorization",
+      `Bearer ${token}`
+    );
   }
 
-  const response = await fetch(
-    apiUrl("/upload"),
-    {
-      method: "POST",
 
-      credentials: "include",
+  // ==========================================================
+  // REQUEST
+  // ==========================================================
 
-      headers,
+  const response =
+    await fetch(
+      apiUrl(
+        "/upload"
+      ),
+      {
+        method: "POST",
 
-      body: formData,
-    }
-  );
+        credentials:
+          "include",
+
+        headers,
+
+        body:
+          formData,
+      }
+    );
+
+
+  // ==========================================================
+  // RESPONSE
+  // ==========================================================
 
   let data: any = null;
 
-  try {
-    const contentType =
-      response.headers.get("content-type") || "";
 
-    if (contentType.includes("application/json")) {
-      data = await response.json();
+  try {
+
+    const contentType =
+      response.headers.get(
+        "content-type"
+      ) || "";
+
+
+    if (
+      contentType.includes(
+        "application/json"
+      )
+    ) {
+
+      data =
+        await response.json();
+
     } else {
-      const text = await response.text();
+
+      const text =
+        await response.text();
+
 
       if (text) {
+
         try {
-          data = JSON.parse(text);
+
+          data =
+            JSON.parse(
+              text
+            );
+
         } catch {
+
           data = text;
         }
       }
     }
+
   } catch {
+
     data = null;
   }
 
+
+  // ==========================================================
+  // ERROR
+  // ==========================================================
+
   if (!response.ok) {
+
     throw new Error(
       data?.message ||
-        data?.error ||
-        `Erreur upload ${response.status}`
+      data?.error ||
+      `Erreur upload ${response.status}`
     );
   }
+
+
+  // ==========================================================
+  // IMAGES
+  // ==========================================================
 
   const images =
     data?.urls ||
@@ -526,95 +1091,127 @@ export async function uploadImages(
     data?.data ||
     [];
 
-  if (!Array.isArray(images)) {
+
+  if (
+    !Array.isArray(images)
+  ) {
+
     throw new Error(
       "Le serveur n'a pas retourné une liste d'images valide."
     );
   }
 
+
+  // ==========================================================
+  // NORMALISATION DES IMAGES
+  // ==========================================================
+
   return images
-    .map((item: any) => {
-      const value =
-        typeof item === "string"
-          ? item
-          : item?.url ||
-            item?.imageUrl ||
-            item?.path;
+    .map(
+      (item: any) => {
 
-      if (!value) return null;
+        const value =
+          typeof item === "string"
+            ? item
+            : item?.url ||
+              item?.imageUrl ||
+              item?.path;
 
-      if (
-        value.startsWith("http://") ||
-        value.startsWith("https://")
-      ) {
-        return value;
+
+        if (!value) {
+          return null;
+        }
+
+
+        return backendUrl(
+          String(value)
+        );
       }
-
-      return backendUrl(value);
-    })
-    .filter(Boolean);
+    )
+    .filter(
+      Boolean
+    ) as string[];
 }
 
+
+// ============================================================
+// IMAGE URL
+// ============================================================
+
 /**
- * Convertit une URL d'image relative
- * en URL complète.
+ * Utiliser cette fonction dans ProductCard,
+ * listes, détails produits, etc.
  *
  * Exemple :
  *
- * imageUrl("/uploads/test.jpg")
+ * imageUrl("/uploads/photo.jpg")
  *
  * =>
- * http://localhost:4000/uploads/test.jpg
+ *
+ * https://backenddoctech.aladinnutritiondz.com/api/uploads-file/photo.jpg
  */
 export function imageUrl(
   value?: string | null
 ): string {
-  if (!value) return "";
 
-  if (
-    value.startsWith("http://") ||
-    value.startsWith("https://") ||
-    value.startsWith("data:") ||
-    value.startsWith("blob:")
-  ) {
-    return value;
+  if (!value) {
+    return "";
   }
 
-  return backendUrl(value);
-}
-
-/**
- * Vérifie si une URL est absolue.
- */
-export function isAbsoluteUrl(
-  value: string
-): boolean {
-  return (
-    value.startsWith("http://") ||
-    value.startsWith("https://")
+  return backendUrl(
+    value
   );
 }
 
+
+// ============================================================
+// ABSOLUTE URL
+// ============================================================
+
+export function isAbsoluteUrl(
+  value: string
+): boolean {
+
+  return (
+    value.startsWith(
+      "http://"
+    ) ||
+    value.startsWith(
+      "https://"
+    )
+  );
+}
+
+
+// ============================================================
+// UNWRAP API RESPONSE
+// ============================================================
+
 /**
- * Récupère data si l'API retourne :
+ * Si l'API retourne :
  *
  * {
  *   data: [...]
  * }
  *
- * sinon retourne directement la réponse.
+ * retourne [...]
+ *
+ * Sinon retourne directement
+ * la réponse.
  */
 export function unwrap<T = any>(
   response: any
 ): T {
+
   if (
     response &&
     typeof response === "object" &&
     "data" in response
   ) {
+
     return response.data as T;
   }
 
+
   return response as T;
 }
-

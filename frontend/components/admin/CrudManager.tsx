@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -23,6 +22,10 @@ import {
 
 import { backendUrl, uploadImage } from "@/lib/api";
 import { useLocale } from "@/components/LocaleProvider";
+
+/* =========================================================
+   TYPES
+   ========================================================= */
 
 export type FieldOption = {
   label: string;
@@ -104,6 +107,7 @@ export default function CrudManager({
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
@@ -111,6 +115,18 @@ export default function CrudManager({
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [opts, setOpts] = useState<Record<string, FieldOption[]>>({});
+
+  /* =========================================================
+     DEBOUNCE DE LA RECHERCHE
+     ========================================================= */
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQ(q.trim());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [q]);
 
   /* =========================================================
      CHARGEMENT
@@ -122,8 +138,8 @@ export default function CrudManager({
 
     try {
       const query =
-        search && q.trim()
-          ? `?limit=${pageSize}&search=${encodeURIComponent(q.trim())}`
+        search && debouncedQ
+          ? `?limit=${pageSize}&search=${encodeURIComponent(debouncedQ)}`
           : `?limit=${pageSize}`;
 
       const result = await adminList(endpoint, query);
@@ -134,13 +150,15 @@ export default function CrudManager({
     } finally {
       setLoading(false);
     }
-  }, [endpoint, pageSize, q, search, text]);
+  }, [endpoint, pageSize, debouncedQ, search, text]);
 
   useEffect(() => {
-    const timer = setTimeout(load, 250);
-
-    return () => clearTimeout(timer);
+    load();
   }, [load]);
+
+  /* =========================================================
+     OPTIONS (parents, etc.)
+     ========================================================= */
 
   useEffect(() => {
     onLoadOptions?.()
@@ -217,10 +235,7 @@ export default function CrudManager({
      CHANGEMENT DES CHAMPS
      ========================================================= */
 
-  function handleFieldChange(
-    fieldName: string,
-    value: any
-  ) {
+  function handleFieldChange(fieldName: string, value: any) {
     setForm((current) => {
       const next = {
         ...current,
@@ -243,10 +258,7 @@ export default function CrudManager({
      UPLOAD IMAGE
      ========================================================= */
 
-  async function handleImage(
-    fieldName: string,
-    file?: File
-  ) {
+  async function handleImage(fieldName: string, file?: File) {
     if (!file) return;
 
     setUploadingField(fieldName);
@@ -264,9 +276,7 @@ export default function CrudManager({
         [fieldName]: uploaded,
       }));
     } catch (e: any) {
-      setError(
-        e.message || "Impossible d'envoyer l'image."
-      );
+      setError(e.message || "Impossible d'envoyer l'image.");
     } finally {
       setUploadingField(null);
     }
@@ -295,9 +305,7 @@ export default function CrudManager({
         }
 
         payload[field.name] =
-          value === "" && !field.required
-            ? null
-            : value;
+          value === "" && !field.required ? null : value;
       });
 
       /*
@@ -305,37 +313,21 @@ export default function CrudManager({
        * on régénère toujours le slug au moment
        * de l'enregistrement.
        */
-      if (
-        Object.prototype.hasOwnProperty.call(
-          payload,
-          "name"
-        )
-      ) {
-        payload.slug = generateSlug(
-          String(payload.name ?? "")
-        );
+      if (Object.prototype.hasOwnProperty.call(payload, "name")) {
+        payload.slug = generateSlug(String(payload.name ?? ""));
       }
 
       if (editing) {
-        await adminUpdate(
-          endpoint,
-          editing.id,
-          payload
-        );
+        await adminUpdate(endpoint, editing.id, payload);
       } else {
-        await adminCreate(
-          endpoint,
-          payload
-        );
+        await adminCreate(endpoint, payload);
       }
 
       setModal(false);
 
       await load();
     } catch (e: any) {
-      setError(
-        e.message || text("Erreur", "خطأ")
-      );
+      setError(e.message || text("Erreur", "خطأ"));
     } finally {
       setSaving(false);
     }
@@ -352,10 +344,7 @@ export default function CrudManager({
           row.name ||
           row.nom ||
           row.code ||
-          text(
-            "cet élément",
-            "هذا العنصر"
-          )
+          text("cet élément", "هذا العنصر")
         } ?`
       )
     ) {
@@ -363,10 +352,7 @@ export default function CrudManager({
     }
 
     try {
-      await adminDelete(
-        endpoint,
-        row.id
-      );
+      await adminDelete(endpoint, row.id);
 
       await load();
     } catch (e: any) {
@@ -400,9 +386,7 @@ export default function CrudManager({
           </h1>
 
           {subtitle && (
-            <p className="mt-2 text-sm text-slate-500">
-              {subtitle}
-            </p>
+            <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
           )}
         </div>
 
@@ -435,15 +419,32 @@ export default function CrudManager({
 
               <input
                 value={q}
-                onChange={(e) =>
-                  setQ(e.target.value)
-                }
-                placeholder={text(
-                  "Rechercher...",
-                  "بحث..."
-                )}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 ps-11 pe-4 text-sm outline-none focus:border-blue-300"
+                onChange={(e) => setQ(e.target.value)}
+                placeholder={text("Rechercher...", "بحث...")}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 ps-11 pe-16 text-sm outline-none focus:border-blue-300"
               />
+
+              {/* Bouton clear */}
+
+              {q && (
+                <button
+                  type="button"
+                  onClick={() => setQ("")}
+                  className="absolute end-10 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label="Clear"
+                >
+                  <X size={14} />
+                </button>
+              )}
+
+              {/* Spinner discret pendant la recherche */}
+
+              {loading && debouncedQ && (
+                <RefreshCw
+                  size={14}
+                  className="absolute end-4 top-1/2 -translate-y-1/2 animate-spin text-blue-500"
+                />
+              )}
             </div>
           )}
 
@@ -453,10 +454,7 @@ export default function CrudManager({
           >
             <RefreshCw size={14} />
 
-            {text(
-              "Actualiser",
-              "تحديث"
-            )}
+            {text("Actualiser", "تحديث")}
           </button>
         </div>
 
@@ -477,42 +475,30 @@ export default function CrudManager({
             <thead className="bg-slate-50 text-[10px] uppercase tracking-[.12em] text-slate-400">
               <tr>
                 {columns.map((column) => (
-                  <th
-                    key={column.key}
-                    className="px-4 py-3 font-black"
-                  >
+                  <th key={column.key} className="px-4 py-3 font-black">
                     {column.label}
                   </th>
                 ))}
 
                 <th className="px-4 py-3 text-right font-black">
-                  {text(
-                    "Actions",
-                    "الإجراءات"
-                  )}
+                  {text("Actions", "الإجراءات")}
                 </th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-100">
-              {loading ? (
+              {loading && rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={columns.length + 1}
                     className="p-10 text-center text-sm text-slate-400"
                   >
-                    {text(
-                      "Chargement...",
-                      "جارٍ التحميل..."
-                    )}
+                    {text("Chargement...", "جارٍ التحميل...")}
                   </td>
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="hover:bg-slate-50/70"
-                  >
+                  <tr key={row.id} className="hover:bg-slate-50/70">
                     {columns.map((column) => (
                       <td
                         key={column.key}
@@ -520,28 +506,21 @@ export default function CrudManager({
                       >
                         {column.render
                           ? column.render(row)
-                          : String(
-                              row[column.key] ??
-                                "—"
-                            )}
+                          : String(row[column.key] ?? "—")}
                       </td>
                     ))}
 
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() =>
-                            openEdit(row)
-                          }
+                          onClick={() => openEdit(row)}
                           className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600"
                         >
                           <Edit3 size={14} />
                         </button>
 
                         <button
-                          onClick={() =>
-                            remove(row)
-                          }
+                          onClick={() => remove(row)}
                           className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500"
                         >
                           <Trash2 size={14} />
@@ -556,10 +535,7 @@ export default function CrudManager({
 
           {empty && (
             <div className="p-12 text-center text-sm text-slate-400">
-              {text(
-                "Aucun résultat.",
-                "لا توجد نتائج."
-              )}
+              {text("Aucun résultat.", "لا توجد نتائج.")}
             </div>
           )}
         </div>
@@ -569,12 +545,9 @@ export default function CrudManager({
             =================================================== */}
 
         <div className="space-y-3 p-3 md:hidden">
-          {loading ? (
+          {loading && rows.length === 0 ? (
             <div className="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-400">
-              {text(
-                "Chargement...",
-                "جارٍ التحميل..."
-              )}
+              {text("Chargement...", "جارٍ التحميل...")}
             </div>
           ) : rows.length > 0 ? (
             rows.map((row) => (
@@ -595,10 +568,7 @@ export default function CrudManager({
                       <div className="min-w-0 text-end text-xs font-bold text-slate-700">
                         {column.render
                           ? column.render(row)
-                          : String(
-                              row[column.key] ??
-                                "—"
-                            )}
+                          : String(row[column.key] ?? "—")}
                       </div>
                     </div>
                   ))}
@@ -606,41 +576,28 @@ export default function CrudManager({
 
                 <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
                   <button
-                    onClick={() =>
-                      openEdit(row)
-                    }
+                    onClick={() => openEdit(row)}
                     className="flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-50 text-[10px] font-black text-blue-600"
                   >
                     <Edit3 size={14} />
 
-                    {text(
-                      "Modifier",
-                      "تعديل"
-                    )}
+                    {text("Modifier", "تعديل")}
                   </button>
 
                   <button
-                    onClick={() =>
-                      remove(row)
-                    }
+                    onClick={() => remove(row)}
                     className="flex h-10 items-center justify-center gap-2 rounded-xl bg-red-50 text-[10px] font-black text-red-500"
                   >
                     <Trash2 size={14} />
 
-                    {text(
-                      "Supprimer",
-                      "حذف"
-                    )}
+                    {text("Supprimer", "حذف")}
                   </button>
                 </div>
               </article>
             ))
           ) : (
             <div className="rounded-2xl bg-slate-50 p-8 text-center text-sm text-slate-400">
-              {text(
-                "Aucun résultat.",
-                "لا توجد نتائج."
-              )}
+              {text("Aucun résultat.", "لا توجد نتائج.")}
             </div>
           )}
         </div>
@@ -654,18 +611,9 @@ export default function CrudManager({
         {modal && (
           <div className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-4">
             <motion.div
-              initial={{
-                opacity: 0,
-                y: 30,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
-              exit={{
-                opacity: 0,
-                y: 30,
-              }}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 30 }}
               className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-[28px] bg-white p-5 shadow-2xl sm:rounded-[28px] sm:p-6"
             >
               {/* MODAL HEADER */}
@@ -674,25 +622,15 @@ export default function CrudManager({
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[.16em] text-blue-600">
                     {editing
-                      ? text(
-                          "Modification",
-                          "تعديل"
-                        )
-                      : text(
-                          "Création",
-                          "إنشاء"
-                        )}
+                      ? text("Modification", "تعديل")
+                      : text("Création", "إنشاء")}
                   </p>
 
-                  <h2 className="mt-1 text-xl font-black">
-                    {title}
-                  </h2>
+                  <h2 className="mt-1 text-xl font-black">{title}</h2>
                 </div>
 
                 <button
-                  onClick={() =>
-                    setModal(false)
-                  }
+                  onClick={() => setModal(false)}
                   className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100"
                 >
                   <X size={17} />
@@ -713,40 +651,25 @@ export default function CrudManager({
                 {fields.map((field) => (
                   <label
                     key={field.name}
-                    className={
-                      field.colSpan
-                        ? "sm:col-span-2"
-                        : ""
-                    }
+                    className={field.colSpan ? "sm:col-span-2" : ""}
                   >
                     <span className="mb-2 block text-[11px] font-black text-slate-600">
                       {field.label}
 
                       {field.required && (
-                        <b className="text-red-500">
-                          {" "}
-                          *
-                        </b>
+                        <b className="text-red-500"> *</b>
                       )}
                     </span>
 
                     {/* TEXTAREA */}
 
-                    {field.type ===
-                    "textarea" ? (
+                    {field.type === "textarea" ? (
                       <textarea
                         rows={4}
-                        value={
-                          form[field.name] ?? ""
-                        }
-                        disabled={
-                          field.disabled
-                        }
+                        value={form[field.name] ?? ""}
+                        disabled={field.disabled}
                         onChange={(e) =>
-                          handleFieldChange(
-                            field.name,
-                            e.target.value
-                          )
+                          handleFieldChange(field.name, e.target.value)
                         }
                         className={`w-full rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-blue-300 ${
                           field.disabled
@@ -754,22 +677,14 @@ export default function CrudManager({
                             : "bg-slate-50"
                         }`}
                       />
-                    ) : field.type ===
-                      "select" ? (
+                    ) : field.type === "select" ? (
                       /* SELECT */
 
                       <select
-                        value={
-                          form[field.name] ?? ""
-                        }
-                        disabled={
-                          field.disabled
-                        }
+                        value={form[field.name] ?? ""}
+                        disabled={field.disabled}
                         onChange={(e) =>
-                          handleFieldChange(
-                            field.name,
-                            e.target.value
-                          )
+                          handleFieldChange(field.name, e.target.value)
                         }
                         className={`h-12 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none ${
                           field.disabled
@@ -778,161 +693,97 @@ export default function CrudManager({
                         }`}
                       >
                         <option value="">
-                          {text(
-                            "Choisir...",
-                            "اختر..."
-                          )}
+                          {text("Choisir...", "اختر...")}
                         </option>
 
                         {[
-                          ...(field.options ||
-                            []),
-                          ...(opts[
-                            field.name
-                          ] || []),
+                          ...(field.options || []),
+                          ...(opts[field.name] || []),
                         ].map((option) => (
                           <option
-                            key={String(
-                              option.value
-                            )}
-                            value={
-                              option.value
-                            }
+                            key={String(option.value)}
+                            value={option.value}
                           >
                             {option.label}
                           </option>
                         ))}
                       </select>
-                    ) : field.type ===
-                      "multiselect" ? (
+                    ) : field.type === "multiselect" ? (
                       /* MULTISELECT */
 
                       <div className="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
                         {[
-                          ...(field.options ||
-                            []),
-                          ...(opts[
-                            field.name
-                          ] || []),
+                          ...(field.options || []),
+                          ...(opts[field.name] || []),
                         ].map((option) => {
                           const selected =
-                            Array.isArray(
-                              form[field.name]
-                            ) &&
-                            form[
-                              field.name
-                            ]
+                            Array.isArray(form[field.name]) &&
+                            form[field.name]
                               .map(String)
-                              .includes(
-                                String(
-                                  option.value
-                                )
-                              );
+                              .includes(String(option.value));
 
                           return (
                             <label
-                              key={String(
-                                option.value
-                              )}
+                              key={String(option.value)}
                               className="flex items-center gap-2 text-xs"
                             >
                               <input
                                 type="checkbox"
-                                checked={
-                                  selected
-                                }
+                                checked={selected}
                                 onChange={() => {
-                                  const current =
-                                    Array.isArray(
-                                      form[
-                                        field.name
-                                      ]
-                                    )
-                                      ? form[
-                                          field
-                                            .name
-                                        ]
-                                      : [];
+                                  const current = Array.isArray(
+                                    form[field.name]
+                                  )
+                                    ? form[field.name]
+                                    : [];
 
                                   handleFieldChange(
                                     field.name,
                                     selected
                                       ? current.filter(
-                                          (
-                                            x: any
-                                          ) =>
-                                            String(
-                                              x
-                                            ) !==
-                                            String(
-                                              option.value
-                                            )
+                                          (x: any) =>
+                                            String(x) !==
+                                            String(option.value)
                                         )
-                                      : [
-                                          ...current,
-                                          option.value,
-                                        ]
+                                      : [...current, option.value]
                                   );
                                 }}
                               />
 
-                              <span>
-                                {
-                                  option.label
-                                }
-                              </span>
+                              <span>{option.label}</span>
                             </label>
                           );
                         })}
                       </div>
-                    ) : field.type ===
-                      "checkbox" ? (
+                    ) : field.type === "checkbox" ? (
                       /* CHECKBOX */
 
                       <button
                         type="button"
-                        disabled={
-                          field.disabled
-                        }
+                        disabled={field.disabled}
                         onClick={() =>
-                          handleFieldChange(
-                            field.name,
-                            !form[field.name]
-                          )
+                          handleFieldChange(field.name, !form[field.name])
                         }
                         className={`flex h-12 w-full items-center rounded-xl border px-3 text-sm font-bold ${
                           field.disabled
                             ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                            : form[
-                                  field.name
-                                ]
+                            : form[field.name]
                               ? "border-blue-200 bg-blue-50 text-blue-700"
                               : "border-slate-200 bg-slate-50 text-slate-500"
                         }`}
                       >
                         {form[field.name]
-                          ? text(
-                              "Oui / Actif",
-                              "نعم / نشط"
-                            )
-                          : text(
-                              "Non / Inactif",
-                              "لا / غير نشط"
-                            )}
+                          ? text("Oui / Actif", "نعم / نشط")
+                          : text("Non / Inactif", "لا / غير نشط")}
                       </button>
-                    ) : field.type ===
-                      "image" ? (
+                    ) : field.type === "image" ? (
                       /* IMAGE */
 
                       <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3">
                         {form[field.name] ? (
                           <div className="mb-3 flex items-center gap-3 rounded-xl bg-white p-2">
                             <img
-                              src={backendUrl(
-                                form[
-                                  field.name
-                                ]
-                              )}
+                              src={backendUrl(form[field.name])}
                               alt="Aperçu"
                               className="h-20 w-20 rounded-xl object-contain"
                             />
@@ -947,53 +798,34 @@ export default function CrudManager({
                             <button
                               type="button"
                               onClick={() =>
-                                setForm(
-                                  {
-                                    ...form,
-                                    [field.name]:
-                                      "",
-                                  }
-                                )
+                                setForm({
+                                  ...form,
+                                  [field.name]: "",
+                                })
                               }
                               className="rounded-lg bg-red-50 px-2 py-1 text-[10px] font-black text-red-500"
                             >
-                              {text(
-                                "Retirer",
-                                "إزالة"
-                              )}
+                              {text("Retirer", "إزالة")}
                             </button>
                           </div>
                         ) : null}
 
                         <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white text-xs font-black text-blue-600 shadow-sm">
-                          <ImagePlus
-                            size={16}
-                          />
+                          <ImagePlus size={16} />
 
-                          {uploadingField ===
-                          field.name
-                            ? text(
-                                "Envoi...",
-                                "جارٍ الرفع..."
-                              )
-                            : text(
-                                "Choisir une image",
-                                "اختر صورة"
-                              )}
+                          {uploadingField === field.name
+                            ? text("Envoi...", "جارٍ الرفع...")
+                            : text("Choisir une image", "اختر صورة")}
 
                           <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
                             className="hidden"
-                            disabled={
-                              uploadingField ===
-                              field.name
-                            }
+                            disabled={uploadingField === field.name}
                             onChange={(e) =>
                               void handleImage(
                                 field.name,
-                                e.target
-                                  .files?.[0]
+                                e.target.files?.[0]
                               )
                             }
                           />
@@ -1003,28 +835,13 @@ export default function CrudManager({
                       /* INPUT */
 
                       <input
-                        type={
-                          field.type ||
-                          "text"
-                        }
-                        required={
-                          field.required
-                        }
-                        disabled={
-                          field.disabled
-                        }
-                        placeholder={
-                          field.placeholder
-                        }
-                        value={
-                          form[field.name] ??
-                          ""
-                        }
+                        type={field.type || "text"}
+                        required={field.required}
+                        disabled={field.disabled}
+                        placeholder={field.placeholder}
+                        value={form[field.name] ?? ""}
                         onChange={(e) =>
-                          handleFieldChange(
-                            field.name,
-                            e.target.value
-                          )
+                          handleFieldChange(field.name, e.target.value)
                         }
                         className={`h-12 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-300 ${
                           field.disabled
@@ -1036,8 +853,7 @@ export default function CrudManager({
 
                     {/* SLUG INFO */}
 
-                    {field.name ===
-                      "slug" && (
+                    {field.name === "slug" && (
                       <p className="mt-1.5 text-[10px] font-semibold text-slate-400">
                         {text(
                           "Généré automatiquement à partir du nom français.",
@@ -1053,34 +869,20 @@ export default function CrudManager({
 
               <div className="mt-6 grid grid-cols-2 gap-3 sm:flex sm:justify-end">
                 <button
-                  onClick={() =>
-                    setModal(false)
-                  }
+                  onClick={() => setModal(false)}
                   className="h-11 rounded-xl border border-slate-200 px-5 text-xs font-black"
                 >
-                  {text(
-                    "Annuler",
-                    "إلغاء"
-                  )}
+                  {text("Annuler", "إلغاء")}
                 </button>
 
                 <button
-                  disabled={
-                    saving ||
-                    Boolean(uploadingField)
-                  }
+                  disabled={saving || Boolean(uploadingField)}
                   onClick={save}
                   className="h-11 rounded-xl bg-blue-600 px-5 text-xs font-black text-white disabled:opacity-60"
                 >
                   {saving
-                    ? text(
-                        "Enregistrement...",
-                        "جارٍ الحفظ..."
-                      )
-                    : text(
-                        "Enregistrer",
-                        "حفظ"
-                      )}
+                    ? text("Enregistrement...", "جارٍ الحفظ...")
+                    : text("Enregistrer", "حفظ")}
                 </button>
               </div>
             </motion.div>
@@ -1090,4 +892,3 @@ export default function CrudManager({
     </div>
   );
 }
-
