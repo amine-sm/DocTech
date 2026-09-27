@@ -1,3 +1,5 @@
+// lib/auth.ts
+
 import { apiFetch } from "@/lib/api";
 
 /* =========================================================
@@ -39,12 +41,16 @@ export type SessionUser = {
 };
 
 /* =========================================================
+   TOKEN
+========================================================= */
+
+const TOKEN_KEY = "doctech_access_token";
+
+/* =========================================================
    NORMALIZE PERMISSIONS
 ========================================================= */
 
-function normalizePermissions(
-  raw: any,
-): SessionPermission[] {
+function normalizePermissions(raw: any): SessionPermission[] {
   if (Array.isArray(raw?.role?.permissions)) {
     return raw.role.permissions;
   }
@@ -64,23 +70,11 @@ function normalize(raw: any): SessionUser {
   const permissions = normalizePermissions(raw);
 
   const role: SessionRole = {
-    id: Number(
-      raw?.role?.id ??
-        raw?.role_id ??
-        0,
-    ),
+    id: Number(raw?.role?.id ?? raw?.role_id ?? 0),
 
-    code: String(
-      raw?.role?.code ??
-        raw?.role_code ??
-        "",
-    ),
+    code: String(raw?.role?.code ?? raw?.role_code ?? ""),
 
-    name: String(
-      raw?.role?.name ??
-        raw?.role_name ??
-        "",
-    ),
+    name: String(raw?.role?.name ?? raw?.role_name ?? ""),
 
     permissions,
   };
@@ -88,33 +82,17 @@ function normalize(raw: any): SessionUser {
   return {
     id: Number(raw?.id ?? 0),
 
-    code: String(
-      raw?.code ?? "",
-    ),
+    code: String(raw?.code ?? ""),
 
-    firstName: String(
-      raw?.firstName ??
-        raw?.first_name ??
-        "",
-    ),
+    firstName: String(raw?.firstName ?? raw?.first_name ?? ""),
 
-    lastName: String(
-      raw?.lastName ??
-        raw?.last_name ??
-        "",
-    ),
+    lastName: String(raw?.lastName ?? raw?.last_name ?? ""),
 
-    email: String(
-      raw?.email ?? "",
-    ),
+    email: String(raw?.email ?? ""),
 
-    phone:
-      raw?.phone ??
-      null,
+    phone: raw?.phone ?? null,
 
-    status: String(
-      raw?.status ?? "",
-    ),
+    status: String(raw?.status ?? ""),
 
     role,
 
@@ -123,45 +101,27 @@ function normalize(raw: any): SessionUser {
 }
 
 /* =========================================================
-   TOKEN
-========================================================= */
-
-const TOKEN_KEY =
-  "doctech_access_token";
-
-/* =========================================================
    SAVE TOKEN
 ========================================================= */
 
-function saveToken(
-  token: string,
-  rememberMe: boolean,
-) {
-  if (
-    typeof window ===
-    "undefined"
-  ) {
+function saveToken(token: string, rememberMe: boolean) {
+  if (typeof window === "undefined") {
     return;
   }
 
-  sessionStorage.removeItem(
-    TOKEN_KEY,
-  );
+  /*
+   * On supprime d'abord les anciennes sessions
+   * pour éviter d'avoir deux tokens différents.
+   */
 
-  localStorage.removeItem(
-    TOKEN_KEY,
-  );
+  sessionStorage.removeItem(TOKEN_KEY);
+
+  localStorage.removeItem(TOKEN_KEY);
 
   if (rememberMe) {
-    localStorage.setItem(
-      TOKEN_KEY,
-      token,
-    );
+    localStorage.setItem(TOKEN_KEY, token);
   } else {
-    sessionStorage.setItem(
-      TOKEN_KEY,
-      token,
-    );
+    sessionStorage.setItem(TOKEN_KEY, token);
   }
 }
 
@@ -170,20 +130,13 @@ function saveToken(
 ========================================================= */
 
 export function getStoredToken(): string | null {
-  if (
-    typeof window ===
-    "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return null;
   }
 
   return (
-    sessionStorage.getItem(
-      TOKEN_KEY,
-    ) ||
-    localStorage.getItem(
-      TOKEN_KEY,
-    )
+    sessionStorage.getItem(TOKEN_KEY) ||
+    localStorage.getItem(TOKEN_KEY)
   );
 }
 
@@ -192,20 +145,13 @@ export function getStoredToken(): string | null {
 ========================================================= */
 
 export function clearStoredToken() {
-  if (
-    typeof window ===
-    "undefined"
-  ) {
+  if (typeof window === "undefined") {
     return;
   }
 
-  sessionStorage.removeItem(
-    TOKEN_KEY,
-  );
+  sessionStorage.removeItem(TOKEN_KEY);
 
-  localStorage.removeItem(
-    TOKEN_KEY,
-  );
+  localStorage.removeItem(TOKEN_KEY);
 }
 
 /* =========================================================
@@ -217,39 +163,98 @@ export async function login(
   password: string,
   rememberMe = false,
 ) {
-  const response =
-    await apiFetch<any>(
-      "/auth/login",
-      {
-        method: "POST",
+  const response = await apiFetch<any>("/auth/login", {
+    method: "POST",
 
-        bodyJson: {
-          email: email.trim(),
-          password,
-          rememberMe,
-        },
-      },
-    );
-
-  if (response?.token) {
-    saveToken(
-      response.token,
+    bodyJson: {
+      email: email.trim(),
+      password,
       rememberMe,
+    },
+  });
+
+  console.log("==========================================");
+
+  console.log("             AUTH LOGIN");
+
+  console.log("==========================================");
+
+  console.log("[AUTH] LOGIN RESPONSE :", response);
+
+  /* =======================================================
+     RÉCUPÉRATION ROBUSTE DU TOKEN
+  ======================================================= */
+
+  const token =
+    response?.token ??
+    response?.data?.token ??
+    response?.accessToken ??
+    response?.data?.accessToken ??
+    response?.data?.data?.token ??
+    null;
+
+  console.log("[AUTH] TOKEN REÇU :", token ? "OUI" : "NON");
+
+  /*
+   * Si le backend ne retourne aucun token,
+   * on arrête ici.
+   */
+
+  if (!token) {
+    console.error("[AUTH] Aucun token JWT retourné par le serveur.");
+
+    throw new Error(
+      "Connexion réussie mais aucun token JWT n'a été retourné par le serveur.",
     );
   }
+
+  /* =======================================================
+     SAUVEGARDE TOKEN
+  ======================================================= */
+
+  saveToken(String(token), rememberMe);
+
+  console.log(
+    "[AUTH] TOKEN SAUVEGARDÉ :",
+    getStoredToken() ? "OUI" : "NON",
+  );
+
+  /* =======================================================
+     RÉCUPÉRATION UTILISATEUR
+  ======================================================= */
 
   const rawUser =
     response?.user ??
     response?.data?.user ??
-    response?.data ??
+    response?.data?.data?.user ??
     {};
+
+  const user = normalize(rawUser);
+
+  console.log("[AUTH] USER :", user);
+
+  console.log("[AUTH] ROLE :", user.role);
+
+  console.log("[AUTH] ROLE CODE :", user.role.code);
+
+  console.log("[AUTH] ROLE NAME :", user.role.name);
+
+  console.log("[AUTH] PERMISSIONS :", user.role.permissions);
+
+  console.log("==========================================");
 
   return {
     ...response,
 
-    user: normalize(
-      rawUser,
-    ),
+    /*
+     * On retourne toujours le token
+     * à la racine pour simplifier son utilisation
+     * dans la page de connexion.
+     */
+
+    token,
+
+    user,
   };
 }
 
@@ -259,12 +264,23 @@ export async function login(
 
 export async function logout() {
   try {
-    return await apiFetch(
-      "/auth/logout",
-      {
-        method: "POST",
-      },
-    );
+    /*
+     * On essaye d'informer le backend.
+     */
+
+    return await apiFetch("/auth/logout", {
+      method: "POST",
+    });
+  } catch (error) {
+    /*
+     * Même si le backend refuse le logout
+     * parce que le token est déjà expiré,
+     * on supprime quand même le token local.
+     */
+
+    console.error("[AUTH] Erreur logout :", error);
+
+    throw error;
   } finally {
     clearStoredToken();
   }
@@ -275,78 +291,116 @@ export async function logout() {
 ========================================================= */
 
 export async function getMe() {
-  const response =
-    await apiFetch<any>(
-      "/auth/me",
+  console.log("==========================================");
+
+  console.log("             AUTH /ME");
+
+  console.log("==========================================");
+
+  /* =======================================================
+     VÉRIFICATION TOKEN LOCAL
+  ======================================================= */
+
+  const token = getStoredToken();
+
+  console.log("[AUTH] TOKEN PRÉSENT :", token ? "OUI" : "NON");
+
+  /*
+   * Aucun token = utilisateur non connecté.
+   *
+   * On retourne null au lieu de throw pour que les
+   * appelants (comme AdminShell) puissent gérer
+   * proprement le cas "non authentifié" sans
+   * polluer la console avec une erreur.
+   */
+
+  if (!token) {
+    console.warn(
+      "[AUTH] Aucun token trouvé dans localStorage/sessionStorage.",
     );
 
-  /**
-   * Le backend retourne normalement :
-   *
-   * {
-   *   ok: true,
-   *   user: {...}
-   * }
-   *
-   * On accepte également :
-   *
-   * {
-   *   data: {
-   *     user: {...}
-   *   }
-   * }
-   */
+    return null;
+  }
+
+  /* =======================================================
+     APPEL BACKEND
+  ======================================================= */
+
+  let response: any;
+
+  try {
+    response = await apiFetch<any>("/auth/me", {
+      method: "GET",
+    });
+  } catch (error) {
+    /*
+     * Token expiré / invalide → on nettoie et
+     * on retourne null (pas de throw).
+     */
+
+    console.warn("[AUTH] /auth/me a échoué :", error);
+
+    clearStoredToken();
+
+    return null;
+  }
+
+  console.log("[AUTH] /auth/me RESPONSE :", response);
+
+  /* =======================================================
+     RÉCUPÉRATION USER
+  ======================================================= */
 
   const rawUser =
     response?.user ??
     response?.data?.user ??
+    response?.data?.data?.user ??
     response?.data ??
     {};
 
-  const user =
-    normalize(rawUser);
+  /* =======================================================
+     VÉRIFICATION USER
+  ======================================================= */
 
-  /**
-   * Debug temporaire.
-   * Tu peux les supprimer plus tard.
-   */
-  console.log(
-    "========== AUTH /ME ==========",
-  );
+  if (!rawUser || !rawUser.id) {
+    console.warn("[AUTH] Utilisateur authentifié introuvable.");
 
-  console.log(
-    "Response :",
-    response,
-  );
+    return null;
+  }
 
-  console.log(
-    "User :",
-    user,
-  );
+  /* =======================================================
+     NORMALISATION
+  ======================================================= */
 
-  console.log(
-    "Role :",
-    user.role,
-  );
+  const user = normalize(rawUser);
 
-  console.log(
-    "Role code :",
-    user.role.code,
-  );
+  /* =======================================================
+     DEBUG
+  ======================================================= */
 
-  console.log(
-    "Role name :",
-    user.role.name,
-  );
+  console.log("[AUTH] USER :", user);
 
-  console.log(
-    "Permissions :",
-    user.role.permissions,
-  );
+  console.log("[AUTH] USER ID :", user.id);
 
-  console.log(
-    "==============================",
-  );
+  console.log("[AUTH] USER CODE :", user.code);
+
+  console.log("[AUTH] USER EMAIL :", user.email);
+
+  console.log("[AUTH] ROLE :", user.role);
+
+  console.log("[AUTH] ROLE ID :", user.role.id);
+
+  console.log("[AUTH] ROLE CODE :", user.role.code);
+
+  console.log("[AUTH] ROLE NAME :", user.role.name);
+
+  console.log("[AUTH] PERMISSIONS :", user.role.permissions);
+
+  console.log("==========================================");
+
+  /* =======================================================
+     RETOUR
+  ======================================================= */
 
   return {
     ...response,

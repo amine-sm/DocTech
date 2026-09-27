@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Eye,
   RefreshCw,
@@ -22,9 +22,14 @@ import {
   CalendarRange,
   History,
   ArrowRight,
+  Wifi,
+  WifiOff,
+  Bell,
 } from "lucide-react";
 
-import { apiFetch } from "@/lib/api";
+import { io, type Socket } from "socket.io-client";
+
+import { apiFetch, backendUrl } from "@/lib/api";
 import { formatPrice } from "@/lib/catalog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { useLocale } from "@/components/LocaleProvider";
@@ -108,6 +113,44 @@ type Movement = {
   delivery_type?: string;
 };
 
+type LiveToast = {
+  id: number;
+  code: string;
+  client: string;
+  total: number;
+};
+
+/* =========================================================
+   HELPERS — SOCKET URL
+========================================================= */
+
+function getSocketUrl(): string {
+  try {
+    const raw =
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "https://backenddoctech.aladinnutritiondz.com";
+
+    /* On enlève le /api final pour avoir l'origine du backend */
+    return String(raw)
+      .replace(/\/api\/?$/, "")
+      .replace(/\/+$/, "");
+  } catch {
+    return "";
+  }
+}
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return (
+    sessionStorage.getItem("doctech_access_token") ||
+    localStorage.getItem("doctech_access_token")
+  );
+}
+
 /* =========================================================
    PAGE
 ========================================================= */
@@ -131,13 +174,217 @@ export default function Page() {
   const [movementsLoading, setMovementsLoading] = useState(false);
   const [movementsError, setMovementsError] = useState("");
 
-  /* Filtres dates — utilisés par "history" et "movements" */
+  /* Filtres dates */
   const [singleDate, setSingleDate] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  /* Filtre spécifique aux mouvements */
+  /* Filtre mouvements */
   const [movStatus, setMovStatus] = useState("");
+
+  /* =========================================================
+     SOCKET TEMPS RÉEL
+  ========================================================= */
+
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [liveToast, setLiveToast] = useState<LiveToast | null>(null);
+
+  const socketRef = useRef<Socket | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* Référence à l'onglet courant pour que le listener socket
+     sache quelle liste recharger sans reconnecter */
+  const tabRef = useRef<Tab>(tab);
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
+
+  /* Référence aux filtres pour que le listener utilise les
+     valeurs fraîches */
+  const filtersRef = useRef({ singleDate, dateFrom, dateTo, movStatus });
+  useEffect(() => {
+    filtersRef.current = { singleDate, dateFrom, dateTo, movStatus };
+  }, [singleDate, dateFrom, dateTo, movStatus]);
+
+  /* =========================================================
+     SOCKET CONNEXION
+  ========================================================= */
+
+  useEffect(() => {
+    const url = getSocketUrl();
+    if (!url) {
+      console.warn("[SOCKET] URL backend introuvable.");
+      return;
+    }
+
+    const token = getStoredToken();
+
+    if (!token) {
+      console.warn(
+        "[SOCKET] Pas de token JWT → connexion socket refusée par le backend."
+      );
+      setSocketConnected(false);
+      return;
+    }
+
+    console.log("[SOCKET] Connexion à", url);
+
+    const newSocket = io(url, {
+      /* 🔥 Doit correspondre EXACTEMENT au backend */
+      path: "/api/socket.io",
+
+      withCredentials: true,
+
+      /* 🔥 JWT envoyé au backend pour l'auth */
+      auth: { token },
+
+      /* Polling d'abord → plus fiable sur cPanel/Nginx */
+      transports: ["polling", "websocket"],
+      upgrade: true,
+
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+    });
+
+    socketRef.current = newSocket;
+
+    newSocket.on("connect", () => {
+      console.log("[SOCKET] ✅ Connecté :", newSocket.id);
+      setSocketConnected(true);
+
+      /* On rejoint le salon admin */
+      newSocket.emit("admin:join");
+    });
+
+    newSocket.on("disconnect", (reason) => {
+      console.log("[SOCKET] ❌ Déconnecté :", reason);
+      setSocketConnected(false);
+    });
+
+    newSocket.on("connect_error", (err) => {
+      console.error("[SOCKET] ❌ Erreur :", err.message);
+      setSocketConnected(false);
+    });
+
+    /* =====================================================
+       NOUVELLE COMMANDE
+    ===================================================== */
+
+    const handleIncomingOrder = (payload: any) => {
+      console.log("[SOCKET] Nouvelle commande :", payload);
+
+      /* Toast visuel */
+      const toast: LiveToast = {
+        id: Date.now(),
+        code:
+          payload?.tracking_number ||
+          payload?.code ||
+          `#${payload?.id ?? "?"}`,
+        client:
+          payload?.customer_name ||
+          payload?.clientName ||
+          "Client",
+        total: Number(payload?.total ?? 0),
+      };
+
+      setLiveToast(toast);
+
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+      toastTimerRef.current = setTimeout(() => {
+        setLiveToast(null);
+      }, 6000);
+
+      /* Son optionnel */
+      try {
+        const audio = new Audio("/sounds/new-order.mp3");
+        audio.volume = 0.45;
+        audio.play().catch(() => {});
+      } catch {
+        /* ignore */
+      }
+
+      /* Recharge automatique de la liste courante */
+      const currentTab = tabRef.current;
+      if (currentTab === "movements") {
+        loadMovements();
+      } else {
+        load();
+      }
+    };
+
+    /* Plusieurs noms possibles côté backend */
+    newSocket.on("new-order", handleIncomingOrder);
+    newSocket.on("order:new", handleIncomingOrder);
+    newSocket.on("new_order", handleIncomingOrder);
+    newSocket.on("commande:new", handleIncomingOrder);
+    newSocket.on("commande:nouvelle", handleIncomingOrder);
+    newSocket.on("order:created", handleIncomingOrder);
+
+    /* =====================================================
+       MISE À JOUR COMMANDE
+    ===================================================== */
+
+    const handleUpdatedOrder = (payload: any) => {
+      console.log("[SOCKET] Commande mise à jour :", payload);
+
+      const currentTab = tabRef.current;
+      if (currentTab === "movements") {
+        loadMovements();
+      } else {
+        load();
+      }
+
+      /* Rafraîchit le modal si ouvert sur cette commande */
+      const updatedId = Number(
+        payload?.id ?? payload?.commande_id
+      );
+
+      setDetail((current) => {
+        if (current && current.id === updatedId) {
+          openOrderSilently(updatedId);
+        }
+        return current;
+      });
+    };
+
+    newSocket.on("order:updated", handleUpdatedOrder);
+    newSocket.on("order:status", handleUpdatedOrder);
+    newSocket.on("commande:updated", handleUpdatedOrder);
+    newSocket.on("commande:status", handleUpdatedOrder);
+    newSocket.on("order:status-changed", handleUpdatedOrder);
+
+    /* =====================================================
+       CLEANUP
+    ===================================================== */
+
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+
+      newSocket.off("new-order", handleIncomingOrder);
+      newSocket.off("order:new", handleIncomingOrder);
+      newSocket.off("new_order", handleIncomingOrder);
+      newSocket.off("commande:new", handleIncomingOrder);
+      newSocket.off("commande:nouvelle", handleIncomingOrder);
+      newSocket.off("order:created", handleIncomingOrder);
+
+      newSocket.off("order:updated", handleUpdatedOrder);
+      newSocket.off("order:status", handleUpdatedOrder);
+      newSocket.off("commande:updated", handleUpdatedOrder);
+      newSocket.off("commande:status", handleUpdatedOrder);
+      newSocket.off("order:status-changed", handleUpdatedOrder);
+
+      newSocket.disconnect();
+      socketRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* =========================================================
      LOAD COMMANDES
@@ -207,7 +454,7 @@ export default function Page() {
   }
 
   /* =========================================================
-     EFFETS
+     EFFETS — CHARGEMENT AU CHANGEMENT D'ONGLET / FILTRES
   ========================================================= */
 
   useEffect(() => {
@@ -277,7 +524,8 @@ export default function Page() {
       return;
     }
     const apiBase =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+      process.env.NEXT_PUBLIC_API_URL ||
+      "https://backenddoctech.aladinnutritiondz.com/api";
     window.open(
       `${apiBase}/delivery/orders/${encodeURIComponent(
         order.delivery_tracking
@@ -297,6 +545,16 @@ export default function Page() {
       setDetail(r?.data || null);
     } catch (e: any) {
       alert(e?.message || "Impossible de charger la commande.");
+    }
+  }
+
+  /* Rechargement silencieux du détail (sans alert) */
+  async function openOrderSilently(id: number) {
+    try {
+      const r = await apiFetch<any>(`/commandes/${id}`);
+      setDetail(r?.data || null);
+    } catch {
+      /* ignore */
     }
   }
 
@@ -327,15 +585,7 @@ export default function Page() {
       .filter((o) => o.status !== "ANNULEE")
       .reduce((sum, o) => sum + Number(o.total || 0), 0);
 
-    return {
-      total,
-      nouvelle,
-      preparation,
-      expediee,
-      livree,
-      annulee,
-      revenue,
-    };
+    return { total, nouvelle, preparation, expediee, livree, annulee, revenue };
   }, [rows]);
 
   /* =========================================================
@@ -366,6 +616,35 @@ export default function Page() {
         />
 
         {/* =================================================
+            BADGE LIVE SOCKET
+        ================================================= */}
+        <div className="mt-4 flex items-center gap-2">
+          <div
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black ${
+              socketConnected
+                ? "border-emerald-100 bg-emerald-50 text-emerald-600"
+                : "border-slate-200 bg-slate-50 text-slate-500"
+            }`}
+          >
+            {socketConnected ? (
+              <>
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                </span>
+                <Wifi size={11} />
+                {text("Temps réel actif", "التحديث الفوري نشط")}
+              </>
+            ) : (
+              <>
+                <WifiOff size={11} />
+                {text("Reconnexion…", "إعادة الاتصال…")}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* =================================================
             ONGLETS
         ================================================= */}
         <div className="mt-6 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
@@ -390,7 +669,7 @@ export default function Page() {
         </div>
 
         {/* =================================================
-            FILTRES DATE (history + movements)
+            FILTRES DATE
         ================================================= */}
         {(tab === "history" || tab === "movements") && (
           <div className="mt-4 rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
@@ -511,7 +790,7 @@ export default function Page() {
         )}
 
         {/* =================================================
-            STATISTIQUES (uniquement pour today / history)
+            STATISTIQUES
         ================================================= */}
         {tab !== "movements" && (
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -574,7 +853,7 @@ export default function Page() {
         )}
 
         {/* =================================================
-            TABLEAU COMMANDES (today + history)
+            TABLEAU COMMANDES
         ================================================= */}
         {tab !== "movements" && (
           <div className="mt-5 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
@@ -606,8 +885,9 @@ export default function Page() {
                 <tbody className="divide-y divide-slate-100">
                   {rows.map((order) => {
                     const firstItem = order.items?.[0];
-                    const firstImage =
-                      firstItem?.image || firstItem?.image_url || null;
+                    const firstImage = backendUrl(
+                      firstItem?.image || firstItem?.image_url || null
+                    );
 
                     return (
                       <tr
@@ -787,8 +1067,14 @@ export default function Page() {
                 </div>
                 <h3 className="mt-4 text-sm font-black text-slate-700">
                   {tab === "today"
-                    ? text("Aucune commande aujourd'hui", "لا توجد طلبات اليوم")
-                    : text("Aucune commande sur cette période", "لا توجد طلبات في هذه الفترة")}
+                    ? text(
+                        "Aucune commande aujourd'hui",
+                        "لا توجد طلبات اليوم"
+                      )
+                    : text(
+                        "Aucune commande sur cette période",
+                        "لا توجد طلبات في هذه الفترة"
+                      )}
                 </h3>
                 <p className="mt-1 max-w-sm text-[10px] font-semibold leading-5 text-slate-400">
                   {text(
@@ -846,6 +1132,66 @@ export default function Page() {
             isArabic={isArabic}
           />
         )}
+
+        {/* =================================================
+            TOAST NOUVELLE COMMANDE
+        ================================================= */}
+        {liveToast && (
+          <div
+            className="fixed right-4 top-4 z-[9999] w-[calc(100vw-32px)] max-w-[380px] animate-[slideIn_.35s_ease-out]"
+            dir="auto"
+          >
+            <div className="relative overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_25px_80px_rgba(15,23,42,.20)]">
+              <div className="h-1.5 bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-[#FE5737]" />
+
+              <div className="flex items-start gap-3 p-4">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
+                  <Bell size={19} />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-black uppercase tracking-[.14em] text-[#2563EB]">
+                    {text("Nouvelle commande", "طلب جديد")}
+                  </p>
+                  <p className="mt-0.5 truncate text-sm font-black text-slate-900">
+                    {liveToast.code}
+                  </p>
+                  <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-500">
+                    {liveToast.client}
+                  </p>
+                  <p className="mt-1 text-xs font-black text-[#2563EB]">
+                    {formatPrice(liveToast.total)}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setLiveToast(null)}
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                  aria-label="Fermer"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* =================================================
+            ANIMATION STYLE
+        ================================================= */}
+        <style jsx global>{`
+          @keyframes slideIn {
+            from {
+              opacity: 0;
+              transform: translate3d(30px, -10px, 0) scale(0.96);
+            }
+            to {
+              opacity: 1;
+              transform: translate3d(0, 0, 0) scale(1);
+            }
+          }
+        `}</style>
       </div>
     </div>
   );
@@ -985,7 +1331,9 @@ function MovementsTable({
                     </div>
                     <span className="text-[10px] font-bold text-slate-600">
                       {m.user_name ||
-                        (m.user_id ? `#${m.user_id}` : text("Système", "النظام"))}
+                        (m.user_id
+                          ? `#${m.user_id}`
+                          : text("Système", "النظام"))}
                     </span>
                   </div>
                 </td>
@@ -1248,7 +1596,9 @@ function OrderDetailModal({
             <div className="mt-3 space-y-2">
               {(detail.items || []).length ? (
                 (detail.items || []).map((item, index) => {
-                  const image = item.image || item.image_url || null;
+                  const image = backendUrl(
+                    item.image || item.image_url || null
+                  );
                   return (
                     <div
                       key={item.id ?? item.article_id ?? index}

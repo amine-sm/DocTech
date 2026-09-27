@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -10,9 +9,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   FolderTree,
-  Gauge,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -25,7 +22,6 @@ import {
   ShieldCheck,
   ShoppingCart,
   Tags,
-  Truck,
   Users,
   X,
   ExternalLink,
@@ -78,9 +74,11 @@ type NotificationItem = {
 
   code?: string;
   clientName?: string;
+  customer_name?: string;
   wilaya?: string;
   commune?: string;
   total?: number | string;
+  phone?: string;
 };
 
 type AdminShellProps = {
@@ -188,9 +186,7 @@ const nav: NavItem[] = [
 
 function getPermissionCodes(user: SessionUser | null): Set<string> {
   const permissions =
-    user?.role?.permissions ??
-    user?.permissions ??
-    [];
+    user?.role?.permissions ?? user?.permissions ?? [];
 
   if (!Array.isArray(permissions)) {
     return new Set();
@@ -202,11 +198,7 @@ function getPermissionCodes(user: SessionUser | null): Set<string> {
         return permission.trim();
       }
 
-      return String(
-        permission?.code ??
-          permission?.name ??
-          ""
-      ).trim();
+      return String(permission?.code ?? permission?.name ?? "").trim();
     })
     .filter(Boolean);
 
@@ -225,13 +217,12 @@ function formatDZD(value: unknown): string {
 
 function getSocketUrl(): string {
   try {
-    const value = backendUrl();
+    const raw =
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "https://backenddoctech.aladinnutritiondz.com";
 
-    if (!value) {
-      return "";
-    }
-
-    return String(value)
+    return String(raw)
       .replace(/\/api\/?$/, "")
       .replace(/\/+$/, "");
   } catch {
@@ -239,15 +230,34 @@ function getSocketUrl(): string {
   }
 }
 
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return (
+    sessionStorage.getItem("doctech_access_token") ||
+    localStorage.getItem("doctech_access_token")
+  );
+}
+
 /* =========================================================
    COMPONENT
 ========================================================= */
 
-export default function AdminShell({
-  children,
-}: AdminShellProps) {
+export default function AdminShell({ children }: AdminShellProps) {
   const router = useRouter();
-  const pathname = usePathname();
+
+  /* =======================================================
+     PATHNAME NORMALISÉ
+  ======================================================= */
+
+  const rawPathname = usePathname();
+
+  const pathname = useMemo(
+    () => rawPathname.replace(/\/+$/, "") || "/",
+    [rawPathname]
+  );
 
   const { locale } = useLocale();
 
@@ -255,47 +265,39 @@ export default function AdminShell({
      USER
   ======================================================= */
 
-  const [user, setUser] =
-    useState<SessionUser | null>(null);
-
-  const [loadingUser, setLoadingUser] =
-    useState(true);
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
 
   /* =======================================================
      SIDEBAR
   ======================================================= */
 
-  const [sidebarOpen, setSidebarOpen] =
-    useState(false);
-
-  const [sidebarCollapsed, setSidebarCollapsed] =
-    useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   /* =======================================================
      NOTIFICATIONS
   ======================================================= */
 
-  const [notificationsOpen, setNotificationsOpen] =
-    useState(false);
-
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>([]);
-
-  const [newOrdersCount, setNewOrdersCount] =
-    useState(0);
-
-  const [socketConnected, setSocketConnected] =
-    useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   /* =======================================================
-     NEW ORDER TOAST
+     COMPTEUR COMMANDES (badge sur le menu)
   ======================================================= */
+
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
+
+  /* =======================================================
+     SOCKET
+  ======================================================= */
+
+  const [socketConnected, setSocketConnected] = useState(false);
 
   const [notification, setNotification] =
     useState<NotificationItem | null>(null);
 
-  const [socket, setSocket] =
-    useState<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   const [notificationTimer, setNotificationTimer] =
     useState<ReturnType<typeof setTimeout> | null>(null);
@@ -304,8 +306,7 @@ export default function AdminShell({
      LOGIN PAGE
   ======================================================= */
 
-  const isLoginPage =
-    pathname === "/admin/connexion";
+  const isLoginPage = pathname === "/admin/connexion";
 
   /* =======================================================
      LOAD USER
@@ -322,39 +323,6 @@ export default function AdminShell({
 
       const response = await getMe();
 
-      console.log(
-        "========== ADMIN SHELL =========="
-      );
-
-      console.log(
-        "GET ME RESPONSE :",
-        response
-      );
-
-      console.log(
-        "USER :",
-        response?.user
-      );
-
-      console.log(
-        "ROLE :",
-        response?.user?.role
-      );
-
-      console.log(
-        "ROLE CODE :",
-        response?.user?.role?.code
-      );
-
-      console.log(
-        "PERMISSIONS :",
-        response?.user?.role?.permissions
-      );
-
-      console.log(
-        "================================"
-      );
-
       if (!response?.user) {
         setUser(null);
         router.replace("/admin/connexion");
@@ -363,10 +331,7 @@ export default function AdminShell({
 
       setUser(response.user);
     } catch (error) {
-      console.error(
-        "Erreur récupération utilisateur :",
-        error
-      );
+      console.error("Erreur récupération utilisateur :", error);
 
       setUser(null);
       router.replace("/admin/connexion");
@@ -389,20 +354,12 @@ export default function AdminShell({
   );
 
   const isAdmin =
-    String(
-      user?.role?.code ?? ""
-    ).toUpperCase() === "ADMIN";
+    String(user?.role?.code ?? "").toUpperCase() === "ADMIN";
 
   const hasPermission = useCallback(
     (permission?: string) => {
-      if (!permission) {
-        return true;
-      }
-
-      if (isAdmin) {
-        return true;
-      }
-
+      if (!permission) return true;
+      if (isAdmin) return true;
       return permissionSet.has(permission);
     },
     [isAdmin, permissionSet]
@@ -413,9 +370,7 @@ export default function AdminShell({
   ======================================================= */
 
   const visibleNav = useMemo(() => {
-    return nav.filter((item) =>
-      hasPermission(item.permission)
-    );
+    return nav.filter((item) => hasPermission(item.permission));
   }, [hasPermission]);
 
   /* =======================================================
@@ -423,17 +378,16 @@ export default function AdminShell({
   ======================================================= */
 
   const groups = useMemo(() => {
-    return visibleNav.reduce<
-      Record<string, NavItem[]>
-    >((result, item) => {
-      if (!result[item.group]) {
-        result[item.group] = [];
-      }
-
-      result[item.group].push(item);
-
-      return result;
-    }, {});
+    return visibleNav.reduce<Record<string, NavItem[]>>(
+      (result, item) => {
+        if (!result[item.group]) {
+          result[item.group] = [];
+        }
+        result[item.group].push(item);
+        return result;
+      },
+      {}
+    );
   }, [visibleNav]);
 
   /* =======================================================
@@ -441,182 +395,133 @@ export default function AdminShell({
   ======================================================= */
 
   useEffect(() => {
-    if (
-      isLoginPage ||
-      !user
-    ) {
-      return;
-    }
+    if (isLoginPage || !user) return;
 
     const current = nav.find(
       (item) =>
         pathname === item.href ||
-        pathname.startsWith(
-          `${item.href}/`
-        )
+        pathname.startsWith(`${item.href}/`)
     );
 
-    if (
-      current &&
-      !hasPermission(current.permission)
-    ) {
+    if (current && !hasPermission(current.permission)) {
       router.replace("/admin/dashboard");
     }
-  }, [
-    pathname,
-    user,
-    isLoginPage,
-    hasPermission,
-    router,
-  ]);
+  }, [pathname, user, isLoginPage, hasPermission, router]);
 
   /* =======================================================
-     SOCKET.IO
+     SOCKET.IO — TEMPS RÉEL
   ======================================================= */
 
   useEffect(() => {
-    if (
-      isLoginPage ||
-      !user?.id
-    ) {
-      return;
-    }
+    if (isLoginPage || !user?.id) return;
 
     const url = getSocketUrl();
-
     if (!url) {
-      console.warn(
-        "[ADMIN SOCKET] URL backend introuvable."
-      );
-
+      console.warn("[ADMIN SOCKET] URL backend introuvable.");
       return;
     }
 
-    console.log(
-      "[ADMIN SOCKET] URL :",
-      url
-    );
+    const token = getStoredToken();
+    if (!token) {
+      console.warn("[ADMIN SOCKET] Pas de token JWT.");
+      return;
+    }
+
+    console.log("[ADMIN SOCKET] Connexion à", url);
 
     const newSocket = io(url, {
+      /* 🔥 Doit correspondre au backend */
+      path: "/api/socket.io",
+
       withCredentials: true,
-      transports: [
-        "websocket",
-        "polling",
-      ],
+
+      /* 🔥 JWT envoyé pour l'auth socket */
+      auth: { token },
+
+      /* Polling d'abord → plus fiable derrière Nginx/cPanel */
+      transports: ["polling", "websocket"],
+      upgrade: true,
+
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
     });
 
     setSocket(newSocket);
 
-    newSocket.on(
-      "connect",
-      () => {
-        console.log(
-          "[ADMIN SOCKET] Connecté :",
-          newSocket.id
-        );
+    newSocket.on("connect", () => {
+      console.log("[ADMIN SOCKET] ✅ Connecté :", newSocket.id);
+      setSocketConnected(true);
 
-        setSocketConnected(true);
+      newSocket.emit("join-user", user.id);
+      newSocket.emit("admin:join");
+    });
 
-        newSocket.emit(
-          "join-user",
-          user.id
-        );
+    newSocket.on("disconnect", (reason) => {
+      console.log("[ADMIN SOCKET] ❌ Déconnecté :", reason);
+      setSocketConnected(false);
+    });
 
-        newSocket.emit(
-          "admin:join"
-        );
-      }
-    );
-
-    newSocket.on(
-      "disconnect",
-      () => {
-        console.log(
-          "[ADMIN SOCKET] Déconnecté"
-        );
-
-        setSocketConnected(false);
-      }
-    );
-
-    newSocket.on(
-      "connect_error",
-      (error) => {
-        console.error(
-          "[ADMIN SOCKET] Erreur :",
-          error.message
-        );
-
-        setSocketConnected(false);
-      }
-    );
+    newSocket.on("connect_error", (error) => {
+      console.error("[ADMIN SOCKET] ❌ Erreur :", error.message);
+      setSocketConnected(false);
+    });
 
     /* =====================================================
-       GENERIC NOTIFICATION
+       NOTIFICATION GÉNÉRIQUE
     ===================================================== */
 
-    newSocket.on(
-      "notification",
-      (
-        incoming: NotificationItem
-      ) => {
-        const item: NotificationItem = {
-          ...incoming,
-          id:
-            incoming?.id ??
-            `${Date.now()}-${Math.random()}`,
-          read: false,
-        };
-
-        setNotifications(
-          (previous) => [
-            item,
-            ...previous,
-          ]
-        );
-      }
-    );
-
-    /* =====================================================
-       NEW ORDER
-    ===================================================== */
-
-    const handleNewOrder = (
-      incoming: NotificationItem
-    ) => {
-      console.log(
-        "[ADMIN SOCKET] Nouvelle commande :",
-        incoming
-      );
-
+    newSocket.on("notification", (incoming: NotificationItem) => {
       const item: NotificationItem = {
         ...incoming,
         id:
-          incoming?.id ??
-          `order-${Date.now()}`,
-        title:
-          incoming?.title ??
-          "Nouvelle commande",
-        message:
-          incoming?.message ??
-          "Une nouvelle commande a été reçue.",
+          incoming?.id ?? `${Date.now()}-${Math.random()}`,
         read: false,
       };
 
-      setNotifications(
-        (previous) => [
-          item,
-          ...previous,
-        ]
-      );
+      setNotifications((previous) => [item, ...previous]);
+    });
 
-      setNewOrdersCount(
-        (current) => current + 1
-      );
+    /* =====================================================
+       NOUVELLE COMMANDE
+       → incrémente le badge + affiche le toast
+    ===================================================== */
 
+    const handleNewOrder = (incoming: any) => {
+      console.log("[ADMIN SOCKET] Nouvelle commande :", incoming);
+
+      const item: NotificationItem = {
+        id: incoming?.id ?? `order-${Date.now()}`,
+        title: incoming?.title ?? "Nouvelle commande",
+        message:
+          incoming?.message ??
+          "Une nouvelle commande a été reçue.",
+        code:
+          incoming?.tracking_number ??
+          incoming?.code ??
+          `#${incoming?.id ?? "?"}`,
+        clientName:
+          incoming?.customer_name ??
+          incoming?.clientName ??
+          "Client",
+        customer_name:
+          incoming?.customer_name ?? incoming?.clientName,
+        phone: incoming?.phone,
+        wilaya: incoming?.wilaya,
+        commune: incoming?.commune,
+        total: incoming?.total,
+        read: false,
+      };
+
+      /* 1) Ajoute dans la liste des notifications */
+      setNotifications((previous) => [item, ...previous]);
+
+      /* 2) Incrémente le badge du menu Commandes */
+      setNewOrdersCount((current) => current + 1);
+
+      /* 3) Affiche le toast */
       setNotification(item);
 
       if (notificationTimer) {
@@ -629,77 +534,44 @@ export default function AdminShell({
 
       setNotificationTimer(timer);
 
+      /* 4) Son */
       try {
-        const audio = new Audio(
-          "/sounds/new-order.mp3"
-        );
-
+        const audio = new Audio("/sounds/new-order.mp3");
         audio.volume = 0.45;
-
-        audio
-          .play()
-          .catch(() => {});
+        audio.play().catch(() => {});
       } catch {
-        // Audio indisponible
+        /* ignore */
       }
     };
 
-    newSocket.on(
-      "new-order",
-      handleNewOrder
-    );
-
-    newSocket.on(
-      "order:new",
-      handleNewOrder
-    );
-
-    newSocket.on(
-      "new_order",
-      handleNewOrder
-    );
-
-    newSocket.on(
-      "commande:new",
-      handleNewOrder
-    );
-
-    newSocket.on(
-      "commande:nouvelle",
-      handleNewOrder
-    );
+    newSocket.on("new-order", handleNewOrder);
+    newSocket.on("order:new", handleNewOrder);
+    newSocket.on("new_order", handleNewOrder);
+    newSocket.on("commande:new", handleNewOrder);
+    newSocket.on("commande:nouvelle", handleNewOrder);
+    newSocket.on("order:created", handleNewOrder);
 
     /* =====================================================
-       NEW TICKET
+       NOUVEAU TICKET
     ===================================================== */
 
-    newSocket.on(
-      "new-ticket",
-      (
-        incoming: NotificationItem
-      ) => {
-        const item: NotificationItem = {
-          ...incoming,
-          id:
-            incoming?.id ??
-            `ticket-${Date.now()}`,
-          title:
-            incoming?.title ??
-            "Nouveau ticket",
-          message:
-            incoming?.message ??
-            "Un nouveau ticket nécessite votre attention.",
-          read: false,
-        };
+    newSocket.on("new-ticket", (incoming: NotificationItem) => {
+      const item: NotificationItem = {
+        ...incoming,
+        id: incoming?.id ?? `ticket-${Date.now()}`,
+        title: incoming?.title ?? "Nouveau ticket",
+        message:
+          incoming?.message ??
+          "Un nouveau ticket nécessite votre attention.",
+        read: false,
+      };
 
-        setNotifications(
-          (previous) => [
-            item,
-            ...previous,
-          ]
-        );
-      }
-    );
+      setNotifications((previous) => [item, ...previous]);
+    });
+
+    /* =====================================================
+       CLEANUP
+    ===================================================== */
 
     return () => {
       if (notificationTimer) {
@@ -707,52 +579,30 @@ export default function AdminShell({
       }
 
       newSocket.off("notification");
-
-      newSocket.off(
-        "new-order",
-        handleNewOrder
-      );
-
-      newSocket.off(
-        "order:new",
-        handleNewOrder
-      );
-
-      newSocket.off(
-        "new_order",
-        handleNewOrder
-      );
-
-      newSocket.off(
-        "commande:new",
-        handleNewOrder
-      );
-
-      newSocket.off(
-        "commande:nouvelle",
-        handleNewOrder
-      );
+      newSocket.off("new-order", handleNewOrder);
+      newSocket.off("order:new", handleNewOrder);
+      newSocket.off("new_order", handleNewOrder);
+      newSocket.off("commande:new", handleNewOrder);
+      newSocket.off("commande:nouvelle", handleNewOrder);
+      newSocket.off("order:created", handleNewOrder);
+      newSocket.off("new-ticket");
 
       newSocket.disconnect();
 
       setSocket(null);
       setSocketConnected(false);
     };
-  }, [
-    user?.id,
-    isLoginPage,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isLoginPage]);
 
   /* =======================================================
-     RESET ORDER COUNT
+     RESET DU COMPTEUR QUAND ON VA SUR /admin/commandes
   ======================================================= */
 
   useEffect(() => {
     if (
       pathname === "/admin/commandes" ||
-      pathname.startsWith(
-        "/admin/commandes/"
-      )
+      pathname.startsWith("/admin/commandes/")
     ) {
       setNewOrdersCount(0);
     }
@@ -763,10 +613,7 @@ export default function AdminShell({
   ======================================================= */
 
   const unreadCount = useMemo(
-    () =>
-      notifications.filter(
-        (item) => !item.read
-      ).length,
+    () => notifications.filter((item) => !item.read).length,
     [notifications]
   );
 
@@ -774,48 +621,29 @@ export default function AdminShell({
      NOTIFICATION ACTIONS
   ======================================================= */
 
-  const markAllNotificationsRead =
-    () => {
-      setNotifications(
-        (previous) =>
-          previous.map(
-            (item) => ({
-              ...item,
-              read: true,
-            })
-          )
-      );
-    };
+  const markAllNotificationsRead = () => {
+    setNotifications((previous) =>
+      previous.map((item) => ({ ...item, read: true }))
+    );
+  };
 
-  const markNotificationRead = (
-    id: string | number
-  ) => {
-    setNotifications(
-      (previous) =>
-        previous.map(
-          (item) =>
-            item.id === id
-              ? {
-                  ...item,
-                  read: true,
-                }
-              : item
-        )
+  const markNotificationRead = (id: string | number) => {
+    setNotifications((previous) =>
+      previous.map((item) =>
+        item.id === id ? { ...item, read: true } : item
+      )
     );
   };
 
   /* =======================================================
-     ORDERS
+     OPEN ORDERS (depuis le toast)
   ======================================================= */
 
   const openOrders = () => {
     setNotification(null);
     setNotificationsOpen(false);
     setNewOrdersCount(0);
-
-    router.push(
-      "/admin/commandes"
-    );
+    router.push("/admin/commandes");
   };
 
   /* =======================================================
@@ -826,16 +654,10 @@ export default function AdminShell({
     try {
       await logout();
     } catch (error) {
-      console.error(
-        "Erreur logout :",
-        error
-      );
+      console.error("Erreur logout :", error);
     } finally {
       setUser(null);
-
-      router.replace(
-        "/admin/connexion"
-      );
+      router.replace("/admin/connexion");
     }
   };
 
@@ -843,21 +665,13 @@ export default function AdminShell({
      ACTIVE MENU
   ======================================================= */
 
-  const isActive = (
-    href: string
-  ) => {
-    if (
-      href ===
-      "/admin/dashboard"
-    ) {
+  const isActive = (href: string) => {
+    if (href === "/admin/dashboard") {
       return pathname === href;
     }
 
     return (
-      pathname === href ||
-      pathname.startsWith(
-        `${href}/`
-      )
+      pathname === href || pathname.startsWith(`${href}/`)
     );
   };
 
@@ -886,7 +700,6 @@ export default function AdminShell({
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-
           <p className="text-sm font-medium text-slate-500">
             Chargement...
           </p>
@@ -920,9 +733,7 @@ export default function AdminShell({
         <button
           type="button"
           aria-label="Fermer le menu"
-          onClick={
-            closeMobileSidebar
-          }
+          onClick={closeMobileSidebar}
           className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm lg:hidden"
         />
       )}
@@ -933,54 +744,24 @@ export default function AdminShell({
 
       <aside
         className={`
-          fixed
-          inset-y-0
-          z-50
-          flex
-          w-[270px]
-          flex-col
-          bg-white
-          shadow-xl
-          shadow-slate-200/50
-          transition-all
-          duration-300
-          ${
-            locale === "ar"
-              ? "right-0"
-              : "left-0"
-          }
-
+          fixed inset-y-0 z-50 flex w-[270px] flex-col bg-white
+          shadow-xl shadow-slate-200/50 transition-all duration-300
+          ${locale === "ar" ? "right-0" : "left-0"}
           ${
             sidebarOpen
               ? "translate-x-0"
               : locale === "ar"
-                ? "translate-x-full"
-                : "-translate-x-full"
+              ? "translate-x-full"
+              : "-translate-x-full"
           }
-
           lg:translate-x-0
-
-          ${
-            sidebarCollapsed
-              ? "lg:w-[88px]"
-              : "lg:w-[270px]"
-          }
+          ${sidebarCollapsed ? "lg:w-[88px]" : "lg:w-[270px]"}
         `}
       >
-        {/* =================================================
-            LOGO
-        ================================================= */}
-
+        {/* LOGO */}
         <div
           className={`
-            flex
-            h-[76px]
-            shrink-0
-            items-center
-            border-b
-            border-slate-100
-            px-4
-
+            flex h-[76px] shrink-0 items-center border-b border-slate-100 px-4
             ${
               sidebarCollapsed
                 ? "lg:justify-center"
@@ -990,9 +771,7 @@ export default function AdminShell({
         >
           <Link
             href="/admin/dashboard"
-            onClick={
-              closeMobileSidebar
-            }
+            onClick={closeMobileSidebar}
             className="flex items-center gap-3"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm">
@@ -1010,11 +789,8 @@ export default function AdminShell({
               <div className="text-left">
                 <div className="text-lg font-black tracking-tight text-slate-900">
                   DOC
-                  <span className="text-[#2563EB]">
-                    TECH
-                  </span>
+                  <span className="text-[#2563EB]">TECH</span>
                 </div>
-
                 <div className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400">
                   Administration
                 </div>
@@ -1024,9 +800,7 @@ export default function AdminShell({
 
           <button
             type="button"
-            onClick={
-              closeMobileSidebar
-            }
+            onClick={closeMobileSidebar}
             className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
             aria-label="Fermer"
           >
@@ -1034,136 +808,97 @@ export default function AdminShell({
           </button>
         </div>
 
-        {/* =================================================
-            NAVIGATION
-        ================================================= */}
-
+        {/* NAVIGATION */}
         <div className="flex-1 overflow-y-auto px-3 py-5">
           <nav className="space-y-6">
-            {Object.entries(
-              groups
-            ).map(
-              ([
-                groupName,
-                items,
-              ]) => (
-                <div
-                  key={groupName}
-                >
-                  {!sidebarCollapsed && (
-                    <div className="mb-2 px-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
-                      {groupName}
-                    </div>
-                  )}
-
-                  <div className="space-y-1">
-                    {items.map(
-                      (item) => {
-                        const Icon =
-                          item.icon;
-
-                        const active =
-                          isActive(
-                            item.href
-                          );
-
-                        const isOrders =
-                          item.href ===
-                          "/admin/commandes";
-
-                        return (
-                          <button
-                            key={
-                              item.href
-                            }
-                            type="button"
-                            onClick={() => {
-                              router.push(
-                                item.href
-                              );
-
-                              closeMobileSidebar();
-                            }}
-                            title={
-                              sidebarCollapsed
-                                ? item.label
-                                : undefined
-                            }
-                            className={`
-                              group
-                              flex
-                              w-full
-                              items-center
-                              gap-3
-                              rounded-xl
-                              px-3
-                              py-3
-                              text-left
-                              transition-all
-                              duration-200
-
-                              ${
-                                active
-                                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
-                                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                              }
-
-                              ${
-                                sidebarCollapsed
-                                  ? "lg:justify-center"
-                                  : ""
-                              }
-                            `}
-                          >
-                            <Icon
-                              size={19}
-                              strokeWidth={
-                                active
-                                  ? 2.5
-                                  : 2
-                              }
-                              className="shrink-0"
-                            />
-
-                            {!sidebarCollapsed && (
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-sm font-semibold">
-                                  {locale ===
-                                  "ar"
-                                    ? item.ar
-                                    : item.label}
-                                </div>
-                              </div>
-                            )}
-
-                            {!sidebarCollapsed &&
-                              isOrders &&
-                              newOrdersCount >
-                                0 && (
-                                <span className="relative flex min-w-6 h-6 items-center justify-center rounded-full bg-[#FE5737] px-1.5 text-[10px] font-black text-white">
-                                  {newOrdersCount >
-                                  99
-                                    ? "99+"
-                                    : newOrdersCount}
-                                </span>
-                              )}
-                          </button>
-                        );
-                      }
-                    )}
+            {Object.entries(groups).map(([groupName, items]) => (
+              <div key={groupName}>
+                {!sidebarCollapsed && (
+                  <div className="mb-2 px-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+                    {groupName}
                   </div>
-                </div>
-              )
-            )}
+                )}
 
-            {visibleNav.length ===
-              0 && (
+                <div className="space-y-1">
+                  {items.map((item) => {
+                    const Icon = item.icon;
+                    const active = isActive(item.href);
+                    const isOrders =
+                      item.href === "/admin/commandes";
+
+                    return (
+                      <button
+                        key={item.href}
+                        type="button"
+                        onClick={() => {
+                          router.push(item.href);
+                          closeMobileSidebar();
+                        }}
+                        title={
+                          sidebarCollapsed ? item.label : undefined
+                        }
+                        className={`
+                          group relative flex w-full items-center gap-3
+                          rounded-xl px-3 py-3 text-left transition-all duration-200
+                          ${
+                            active
+                              ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                              : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                          }
+                          ${sidebarCollapsed ? "lg:justify-center" : ""}
+                        `}
+                      >
+                        {/* ICÔNE + BADGE EN MODE RÉDUIT */}
+                        <div className="relative shrink-0">
+                          <Icon
+                            size={19}
+                            strokeWidth={active ? 2.5 : 2}
+                          />
+
+                          {sidebarCollapsed &&
+                            isOrders &&
+                            newOrdersCount > 0 && (
+                              <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FE5737] px-1 text-[9px] font-black text-white ring-2 ring-white">
+                                {newOrdersCount > 99
+                                  ? "99+"
+                                  : newOrdersCount}
+                              </span>
+                            )}
+                        </div>
+
+                        {!sidebarCollapsed && (
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-semibold">
+                              {locale === "ar"
+                                ? item.ar
+                                : item.label}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* BADGE SUR LE MENU COMMANDES */}
+                        {!sidebarCollapsed &&
+                          isOrders &&
+                          newOrdersCount > 0 && (
+                            <span className="relative flex h-6 min-w-6 items-center justify-center rounded-full bg-[#FE5737] px-1.5 text-[10px] font-black text-white shadow-md shadow-[#FE5737]/40">
+                              {newOrdersCount > 99
+                                ? "99+"
+                                : newOrdersCount}
+                            </span>
+                          )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {visibleNav.length === 0 && (
               <div className="rounded-2xl bg-slate-50 px-4 py-5 text-center">
                 <Shield
                   size={28}
                   className="mx-auto mb-2 text-slate-300"
                 />
-
                 {!sidebarCollapsed && (
                   <p className="text-xs font-medium leading-5 text-slate-500">
                     Aucune permission disponible.
@@ -1174,30 +909,20 @@ export default function AdminShell({
           </nav>
         </div>
 
-        {/* =================================================
-            COLLAPSE
-        ================================================= */}
-
+        {/* COLLAPSE */}
         <div className="hidden border-t border-slate-100 p-3 lg:block">
           <button
             type="button"
             onClick={() =>
-              setSidebarCollapsed(
-                (value) => !value
-              )
+              setSidebarCollapsed((value) => !value)
             }
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-50 py-2.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
           >
             {sidebarCollapsed ? (
-              <ChevronRight
-                size={18}
-              />
+              <ChevronRight size={18} />
             ) : (
               <>
-                <ChevronLeft
-                  size={18}
-                />
-
+                <ChevronLeft size={18} />
                 <span className="text-xs font-semibold">
                   Réduire
                 </span>
@@ -1206,20 +931,11 @@ export default function AdminShell({
           </button>
         </div>
 
-        {/* =================================================
-            USER
-        ================================================= */}
-
+        {/* USER */}
         <div className="border-t border-slate-100 p-3">
           <div
             className={`
-              flex
-              items-center
-              gap-3
-              rounded-2xl
-              bg-slate-50
-              p-3
-
+              flex items-center gap-3 rounded-2xl bg-slate-50 p-3
               ${
                 sidebarCollapsed
                   ? "lg:justify-center lg:p-2"
@@ -1238,10 +954,8 @@ export default function AdminShell({
             {!sidebarCollapsed && (
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-bold text-slate-900">
-                  {user.firstName ||
-                    user.email}
+                  {user.firstName || user.email}
                 </div>
-
                 <div className="mt-0.5 truncate text-xs font-medium text-slate-500">
                   {user.role?.name ||
                     user.role?.code ||
@@ -1259,32 +973,24 @@ export default function AdminShell({
 
       <div
         className={`
-          min-h-screen
-          transition-all
-          duration-300
-
+          min-h-screen transition-all duration-300
           ${
             locale === "ar"
               ? sidebarCollapsed
                 ? "lg:pr-[88px]"
                 : "lg:pr-[270px]"
               : sidebarCollapsed
-                ? "lg:pl-[88px]"
-                : "lg:pl-[270px]"
+              ? "lg:pl-[88px]"
+              : "lg:pl-[270px]"
           }
         `}
       >
-        {/* =================================================
-            HEADER
-        ================================================= */}
-
+        {/* HEADER */}
         <header className="sticky top-0 z-30 flex h-[76px] items-center justify-between border-b border-slate-100 bg-white/95 px-4 shadow-sm backdrop-blur-xl sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() =>
-                setSidebarOpen(true)
-              }
+              onClick={() => setSidebarOpen(true)}
               className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 lg:hidden"
               aria-label="Ouvrir le menu"
             >
@@ -1295,7 +1001,6 @@ export default function AdminShell({
               <div className="text-sm font-bold text-slate-900">
                 Administration
               </div>
-
               <div className="text-xs text-slate-400">
                 Gestion de votre espace DOCTECH
               </div>
@@ -1304,11 +1009,9 @@ export default function AdminShell({
 
           <div className="flex items-center gap-2">
             {/* SEARCH */}
-
             <div className="mx-auto hidden max-w-md flex-1 px-4 md:block">
               <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-slate-400">
                 <Search size={15} />
-
                 <input
                   aria-label="Recherche"
                   placeholder="Rechercher..."
@@ -1318,11 +1021,9 @@ export default function AdminShell({
             </div>
 
             {/* LANGUAGE */}
-
             <LanguageSwitcher />
 
             {/* SOCKET STATUS */}
-
             <div
               title={
                 socketConnected
@@ -1333,10 +1034,7 @@ export default function AdminShell({
             >
               <span
                 className={`
-                  h-1.5
-                  w-1.5
-                  rounded-full
-
+                  h-1.5 w-1.5 rounded-full
                   ${
                     socketConnected
                       ? "animate-pulse bg-emerald-500"
@@ -1344,39 +1042,28 @@ export default function AdminShell({
                   }
                 `}
               />
-
-              {socketConnected
-                ? "Temps réel"
-                : "Connexion"}
+              {socketConnected ? "Temps réel" : "Connexion"}
             </div>
 
             {/* NOTIFICATIONS */}
-
             <div className="relative">
               <button
                 type="button"
                 onClick={() =>
-                  setNotificationsOpen(
-                    (value) => !value
-                  )
+                  setNotificationsOpen((value) => !value)
                 }
                 className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
                 aria-label="Notifications"
               >
                 <Bell size={19} />
 
-                {unreadCount >
-                  0 && (
+                {unreadCount > 0 && (
                   <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-black text-white">
-                    {unreadCount >
-                    9
-                      ? "9+"
-                      : unreadCount}
+                    {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
 
-                {newOrdersCount >
-                  0 && (
+                {newOrdersCount > 0 && (
                   <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-[#FE5737] ring-2 ring-white" />
                 )}
               </button>
@@ -1387,9 +1074,7 @@ export default function AdminShell({
                     type="button"
                     aria-label="Fermer notifications"
                     onClick={() =>
-                      setNotificationsOpen(
-                        false
-                      )
+                      setNotificationsOpen(false)
                     }
                     className="fixed inset-0 z-40 cursor-default"
                   />
@@ -1400,23 +1085,16 @@ export default function AdminShell({
                         <h3 className="text-sm font-extrabold text-slate-900">
                           Notifications
                         </h3>
-
                         <p className="mt-0.5 text-xs text-slate-400">
                           {unreadCount} non lue
-                          {unreadCount >
-                          1
-                            ? "s"
-                            : ""}
+                          {unreadCount > 1 ? "s" : ""}
                         </p>
                       </div>
 
-                      {unreadCount >
-                        0 && (
+                      {unreadCount > 0 && (
                         <button
                           type="button"
-                          onClick={
-                            markAllNotificationsRead
-                          }
+                          onClick={markAllNotificationsRead}
                           className="text-xs font-bold text-blue-600 hover:text-blue-700"
                         >
                           Tout lire
@@ -1425,105 +1103,69 @@ export default function AdminShell({
                     </div>
 
                     <div className="max-h-[420px] overflow-y-auto">
-                      {notifications.length ===
-                      0 ? (
+                      {notifications.length === 0 ? (
                         <div className="px-5 py-10 text-center">
                           <Bell
                             size={28}
                             className="mx-auto mb-3 text-slate-300"
                           />
-
                           <p className="text-sm font-semibold text-slate-500">
                             Aucune notification
                           </p>
                         </div>
                       ) : (
-                        notifications.map(
-                          (
-                            item
-                          ) => (
-                            <button
-                              key={
-                                item.id
+                        notifications.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() =>
+                              markNotificationRead(item.id)
+                            }
+                            className={`
+                              flex w-full gap-3 border-b border-slate-50 px-4 py-4 text-left transition hover:bg-slate-50
+                              ${
+                                !item.read
+                                  ? "bg-blue-50/40"
+                                  : "bg-white"
                               }
-                              type="button"
-                              onClick={() =>
-                                markNotificationRead(
-                                  item.id
-                                )
-                              }
+                            `}
+                          >
+                            <div
                               className={`
-                                flex
-                                w-full
-                                gap-3
-                                border-b
-                                border-slate-50
-                                px-4
-                                py-4
-                                text-left
-                                transition
-                                hover:bg-slate-50
-
+                                mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl
                                 ${
                                   !item.read
-                                    ? "bg-blue-50/40"
-                                    : "bg-white"
+                                    ? "bg-blue-100 text-blue-600"
+                                    : "bg-slate-100 text-slate-400"
                                 }
                               `}
                             >
-                              <div
-                                className={`
-                                  mt-0.5
-                                  flex
-                                  h-9
-                                  w-9
-                                  shrink-0
-                                  items-center
-                                  justify-center
-                                  rounded-xl
+                              <Bell size={17} />
+                            </div>
 
-                                  ${
-                                    !item.read
-                                      ? "bg-blue-100 text-blue-600"
-                                      : "bg-slate-100 text-slate-400"
-                                  }
-                                `}
-                              >
-                                <Bell
-                                  size={
-                                    17
-                                  }
-                                />
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <p className="truncate text-sm font-bold text-slate-800">
-                                    {item.title ||
-                                      "Notification"}
-                                  </p>
-
-                                  {!item.read && (
-                                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
-                                  )}
-                                </div>
-
-                                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
-                                  {item.message ||
-                                    "Nouvelle notification."}
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="truncate text-sm font-bold text-slate-800">
+                                  {item.title || "Notification"}
                                 </p>
-
-                                {item.createdAt && (
-                                  <p className="mt-1 text-[10px] font-medium text-slate-400">
-                                    {
-                                      item.createdAt
-                                    }
-                                  </p>
+                                {!item.read && (
+                                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
                                 )}
                               </div>
-                            </button>
-                          )
-                        )
+
+                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                                {item.message ||
+                                  "Nouvelle notification."}
+                              </p>
+
+                              {item.createdAt && (
+                                <p className="mt-1 text-[10px] font-medium text-slate-400">
+                                  {item.createdAt}
+                                </p>
+                              )}
+                            </div>
+                          </button>
+                        ))
                       )}
                     </div>
                   </div>
@@ -1532,7 +1174,6 @@ export default function AdminShell({
             </div>
 
             {/* ADMIN */}
-
             <button className="hidden h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2.5 text-xs font-black text-slate-600 shadow-sm lg:flex">
               <Settings2 size={15} />
               <span>Admin</span>
@@ -1540,26 +1181,18 @@ export default function AdminShell({
             </button>
 
             {/* LOGOUT */}
-
             <button
               type="button"
-              onClick={
-                handleLogout
-              }
+              onClick={handleLogout}
               title="Déconnexion"
               className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600 transition hover:bg-red-50 hover:text-red-600"
             >
-              <LogOut
-                size={19}
-              />
+              <LogOut size={19} />
             </button>
           </div>
         </header>
 
-        {/* =================================================
-            CONTENT
-        ================================================= */}
-
+        {/* CONTENT */}
         <main className="min-h-[calc(100vh-76px)] p-4 sm:p-6 lg:p-8">
           {children}
         </main>
@@ -1581,11 +1214,8 @@ export default function AdminShell({
               <div className="flex items-start gap-3">
                 <div className="relative shrink-0">
                   <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#2563EB]/10 text-[#2563EB]">
-                    <ShoppingCart
-                      size={22}
-                    />
+                    <ShoppingCart size={22} />
                   </div>
-
                   <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-[#FE5737] text-[10px] font-black text-white ring-2 ring-white">
                     !
                   </span>
@@ -1597,20 +1227,14 @@ export default function AdminShell({
                       <p className="text-[10px] font-black uppercase tracking-[.14em] text-[#2563EB]">
                         Nouvelle commande
                       </p>
-
                       <h3 className="mt-0.5 truncate text-sm font-black text-slate-900">
-                        {notification.code ||
-                          notification.id}
+                        {notification.code || notification.id}
                       </h3>
                     </div>
 
                     <button
                       type="button"
-                      onClick={() =>
-                        setNotification(
-                          null
-                        )
-                      }
+                      onClick={() => setNotification(null)}
                       className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                       aria-label="Fermer"
                     >
@@ -1623,33 +1247,27 @@ export default function AdminShell({
               <div className="mt-4 rounded-2xl bg-slate-50 p-3">
                 <div className="flex items-center gap-3">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-slate-500 shadow-sm">
-                    <CircleUserRound
-                      size={17}
-                    />
+                    <CircleUserRound size={17} />
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-black text-slate-800">
                       {notification.clientName ||
+                        notification.customer_name ||
                         "Client"}
                     </p>
 
                     {(notification.wilaya ||
                       notification.commune) && (
                       <div className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-slate-500">
-                        <MapPin
-                          size={11}
-                        />
-
+                        <MapPin size={11} />
                         <span className="truncate">
                           {[
                             notification.commune,
                             notification.wilaya,
                           ]
                             .filter(Boolean)
-                            .join(
-                              " • "
-                            )}
+                            .join(" • ")}
                         </span>
                       </div>
                     )}
@@ -1659,11 +1277,8 @@ export default function AdminShell({
                     <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                       Total
                     </p>
-
                     <p className="text-sm font-black text-[#2563EB]">
-                      {formatDZD(
-                        notification.total
-                      )}
+                      {formatDZD(notification.total)}
                     </p>
                   </div>
                 </div>
@@ -1671,15 +1286,11 @@ export default function AdminShell({
 
               <button
                 type="button"
-                onClick={
-                  openOrders
-                }
+                onClick={openOrders}
                 className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#2563EB] text-[11px] font-black text-white shadow-lg shadow-[#2563EB]/20 transition hover:bg-[#1D4ED8] active:scale-[.98]"
               >
                 Voir la commande
-                <ExternalLink
-                  size={14}
-                />
+                <ExternalLink size={14} />
               </button>
             </div>
 
@@ -1690,22 +1301,16 @@ export default function AdminShell({
         </div>
       )}
 
-      {/* ===================================================
-          GLOBAL STYLES
-      =================================================== */}
-
+      {/* GLOBAL STYLES */}
       <style jsx global>{`
         @keyframes slideIn {
           from {
             opacity: 0;
-            transform: translate3d(30px, -10px, 0)
-              scale(0.96);
+            transform: translate3d(30px, -10px, 0) scale(0.96);
           }
-
           to {
             opacity: 1;
-            transform: translate3d(0, 0, 0)
-              scale(1);
+            transform: translate3d(0, 0, 0) scale(1);
           }
         }
 
@@ -1713,7 +1318,6 @@ export default function AdminShell({
           from {
             transform: scaleX(1);
           }
-
           to {
             transform: scaleX(0);
           }
@@ -1724,8 +1328,7 @@ export default function AdminShell({
           border-radius: 24px;
           overflow: hidden;
           background: #fff;
-          box-shadow:
-            0 8px 30px rgba(15, 23, 42, 0.04);
+          box-shadow: 0 8px 30px rgba(15, 23, 42, 0.04);
         }
 
         .admin-page table thead {
@@ -1749,17 +1352,8 @@ export default function AdminShell({
         .admin-page input:focus,
         .admin-page select:focus,
         .admin-page textarea:focus {
-          border-color: rgba(
-            48,
-            183,
-            175,
-            0.55
-          ) !important;
-
-          box-shadow:
-            0 0 0 4px
-            rgba(48, 183, 175, 0.08);
-
+          border-color: rgba(48, 183, 175, 0.55) !important;
+          box-shadow: 0 0 0 4px rgba(48, 183, 175, 0.08);
           outline: none;
         }
 
@@ -1771,4 +1365,3 @@ export default function AdminShell({
     </div>
   );
 }
-
