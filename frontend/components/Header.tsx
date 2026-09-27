@@ -1706,16 +1706,16 @@ export default function Header() {
                       duration: 0.32,
                       ease: "easeOut",
                     }}
-                    className="relative flex h-11 w-[132px] shrink-0 items-center rounded-[15px] bg-white px-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+                    className="relative flex h-11 w-[115px] shrink-0 items-center rounded-[15px] bg-white px-2 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
                   >
-                    <div className="relative h-8 w-full overflow-visible">
+                    <div className="relative h-8 w-full overflow-hidden">
                       <Image
                         src="/images/logo-doctech.webp"
                         alt="DOCTECH"
                         fill
                         priority
-                        sizes="132px"
-                        className="object-contain object-left scale-[1.45] origin-left"
+                        sizes="115px"
+                        className="object-contain object-center"
                       />
                     </div>
                   </motion.div>
