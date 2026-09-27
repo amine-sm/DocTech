@@ -143,7 +143,7 @@ const nav: NavItem[] = [
     ar: "العروض",
     href: "/admin/promotions",
     icon: Percent,
-    group: "Ventes",
+    group: "Catalogue",
     permission: "promotions.view",
   },
   {

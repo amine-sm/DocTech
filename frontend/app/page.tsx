@@ -56,6 +56,8 @@ const stagger = {
   show: { transition: { staggerChildren: 0.1 } },
 };
 
+const STARS = [0, 1, 2, 3, 4] as const;
+
 /* =========================================================
    PAGE WRAPPER
 ========================================================= */
@@ -73,10 +75,11 @@ export default function HomePage() {
 function HomePageSkeleton() {
   return (
     <div className="min-h-screen bg-white">
-      <div className="h-20 w-full bg-white" />
+      <Header />
       <div className="mx-auto max-w-[1450px] px-4 py-10 sm:px-6 lg:px-8">
         <div className="h-[420px] w-full animate-pulse rounded-[28px] bg-gradient-to-br from-slate-100 to-slate-50" />
       </div>
+      <Footer />
     </div>
   );
 }
@@ -95,10 +98,9 @@ function HomePageContent() {
   const [showBackToTop, setShowBackToTop] = useState(false);
 
   /* =========================================================
-     LOAD CATALOG (avec AbortController)
+     LOAD CATALOG
   ========================================================= */
   useEffect(() => {
-    const controller = new AbortController();
     let mounted = true;
 
     Promise.all([
@@ -132,7 +134,6 @@ function HomePageContent() {
 
     return () => {
       mounted = false;
-      controller.abort();
     };
   }, [locale]);
 
@@ -150,10 +151,22 @@ function HomePageContent() {
   }, []);
 
   /* =========================================================
+     NEWSLETTER
+  ========================================================= */
+  const handleNewsletterSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      // TODO: brancher votre API newsletter
+      // const email = new FormData(event.currentTarget).get("email");
+    },
+    []
+  );
+
+  /* =========================================================
      RENDER
   ========================================================= */
   return (
-    <div className="min-h-screen scroll-smooth bg-white pb-[76px] text-slate-950 md:pb-0">
+    <div className="min-h-screen bg-white pb-[76px] text-slate-950 md:pb-0">
       <Header />
 
       {/* =====================================================
@@ -173,7 +186,12 @@ function HomePageContent() {
           >
             <div className="mx-auto flex max-w-[1450px] items-center justify-center gap-3 px-4 py-2.5 text-xs font-semibold sm:text-sm">
               <Sparkles size={15} className="shrink-0" />
-       
+              <span className="truncate">
+                {text(
+                  "Offres spéciales jusqu'à -30% sur une sélection de produits",
+                  "عروض خاصة حتى -30% على مجموعة مختارة من المنتجات"
+                )}
+              </span>
               <Link
                 href="/promotions"
                 className="
@@ -283,8 +301,6 @@ function HomePageContent() {
                 )}
               </motion.p>
 
-      
-
               <motion.div
                 variants={fadeUp}
                 transition={{ duration: 0.9, ease: "easeOut" }}
@@ -296,7 +312,7 @@ function HomePageContent() {
                 <Link
                   href="/articles"
                   className="
-                    group inline-flex min-h-12 w-full items-center justify-center
+                    group inline-flex h-12 w-full items-center justify-center
                     gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-extrabold
                     text-white shadow-[0_18px_45px_rgba(37,99,235,0.25)]
                     transition-all duration-300
@@ -315,7 +331,7 @@ function HomePageContent() {
                 <Link
                   href="#categories"
                   className="
-                    inline-flex min-h-12 w-full items-center justify-center
+                    inline-flex h-12 w-full items-center justify-center
                     rounded-2xl border border-slate-200 bg-white/90 px-6
                     text-sm font-extrabold text-slate-800 shadow-sm
                     transition-all duration-300
@@ -428,7 +444,7 @@ function HomePageContent() {
                 "
               >
                 <div className="flex items-center gap-0.5 text-amber-400">
-                  {Array.from({ length: 5 }).map((_, i) => (
+                  {STARS.map((i) => (
                     <Star key={i} size={13} fill="currentColor" />
                   ))}
                 </div>
@@ -546,7 +562,7 @@ function HomePageContent() {
         <BrandCarousel />
 
         {/* =====================================================
-            NOUVEAUTÉS — Modale plein écran
+            NOUVEAUTÉS
         ====================================================== */}
         <section
           aria-labelledby="new-products-title"
@@ -583,7 +599,7 @@ function HomePageContent() {
         </section>
 
         {/* =====================================================
-            PROMOTIONS — Modale plein écran
+            PROMOTIONS
         ====================================================== */}
         {promotionProducts.length > 0 && (
           <section
@@ -722,9 +738,13 @@ function HomePageContent() {
                 )}
               </p>
 
-              <form className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row">
+              <form
+                onSubmit={handleNewsletterSubmit}
+                className="mx-auto mt-6 flex max-w-md flex-col gap-2 sm:flex-row"
+              >
                 <input
                   type="email"
+                  name="email"
                   required
                   placeholder={text(
                     "Votre adresse email",
