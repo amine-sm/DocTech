@@ -25,6 +25,8 @@ import {
   Wifi,
   WifiOff,
   Bell,
+  FileSpreadsheet,
+  Filter,
 } from "lucide-react";
 
 import { io, type Socket } from "socket.io-client";
@@ -33,6 +35,7 @@ import { apiFetch, backendUrl } from "@/lib/api";
 import { formatPrice } from "@/lib/catalog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { useLocale } from "@/components/LocaleProvider";
+import logoDoctech from "@/app/logo-doctech.webp";
 
 /* =========================================================
    CONSTANTES
@@ -90,9 +93,11 @@ type Order = {
   delivery_type?: string;
   delivery_fee?: number;
   delivery_agency_name?: string;
+  subtotal?: number;
   total?: number;
   status?: string;
   created_at?: string;
+  note?: string;           // ← ADD THIS
   items?: OrderItem[];
   history?: OrderStatusHistoryEntry[];
 };
@@ -152,6 +157,26 @@ function getStoredToken(): string | null {
 }
 
 /* =========================================================
+   HELPERS — IMPRESSION A4 / EXPORT EXCEL
+========================================================= */
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatPrintPrice(value: number): string {
+  return `${Number(value || 0).toLocaleString("fr-DZ", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} DA`;
+}
+
+/* =========================================================
    PAGE
 ========================================================= */
 
@@ -179,8 +204,8 @@ export default function Page() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  /* Filtre mouvements */
-  const [movStatus, setMovStatus] = useState("");
+  /* Filtre statut (commun pour historique et mouvements) */
+  const [filterStatus, setFilterStatus] = useState("");
 
   /* =========================================================
      SOCKET TEMPS RÉEL
@@ -201,10 +226,10 @@ export default function Page() {
 
   /* Référence aux filtres pour que le listener utilise les
      valeurs fraîches */
-  const filtersRef = useRef({ singleDate, dateFrom, dateTo, movStatus });
+  const filtersRef = useRef({ singleDate, dateFrom, dateTo, filterStatus });
   useEffect(() => {
-    filtersRef.current = { singleDate, dateFrom, dateTo, movStatus };
-  }, [singleDate, dateFrom, dateTo, movStatus]);
+    filtersRef.current = { singleDate, dateFrom, dateTo, filterStatus };
+  }, [singleDate, dateFrom, dateTo, filterStatus]);
 
   /* =========================================================
      SOCKET CONNEXION
@@ -409,6 +434,8 @@ export default function Page() {
           if (dateFrom) params.set("date_from", dateFrom);
           if (dateTo) params.set("date_to", dateTo);
         }
+        // Ajout du filtre statut pour l'historique
+        if (filterStatus) params.set("status", filterStatus);
       }
 
       const r = await apiFetch<any>(`/commandes?${params.toString()}`);
@@ -440,7 +467,7 @@ export default function Page() {
         if (dateTo) params.set("date_to", dateTo);
       }
 
-      if (movStatus) params.set("status", movStatus);
+      if (filterStatus) params.set("status", filterStatus);
 
       const r = await apiFetch<any>(
         `/commandes/mouvements?${params.toString()}`
@@ -464,7 +491,7 @@ export default function Page() {
       load();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, singleDate, dateFrom, dateTo, movStatus]);
+  }, [tab, singleDate, dateFrom, dateTo, filterStatus]);
 
   /* =========================================================
      UPDATE STATUS
@@ -559,6 +586,265 @@ export default function Page() {
   }
 
   /* =========================================================
+     EXPORT EXCEL
+  ========================================================= */
+
+  async function exportExcel() {
+    try {
+      const params = new URLSearchParams();
+
+      if (tab === "today") {
+        params.set("today", "true");
+      } else if (tab === "history") {
+        if (singleDate) {
+          params.set("date_from", singleDate);
+          params.set("date_to", singleDate);
+        } else {
+          if (dateFrom) params.set("date_from", dateFrom);
+          if (dateTo) params.set("date_to", dateTo);
+        }
+        if (filterStatus) params.set("status", filterStatus);
+      }
+
+      const token = getStoredToken();
+      const apiBase =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "https://backenddoctech.aladinnutritiondz.com/api";
+
+      const response = await fetch(
+        `${apiBase}/commandes/export/excel?${params.toString()}`,
+        {
+          method: "GET",
+          headers: token
+            ? { Authorization: `Bearer ${token}` }
+            : {},
+        }
+      );
+
+      if (!response.ok) {
+        let message = text(
+          "Impossible d'exporter les commandes.",
+          "تعذر تصدير الطلبات."
+        );
+
+        try {
+          const data = await response.json();
+          message = data?.message || message;
+        } catch {}
+
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `commandes-${new Date()
+        .toISOString()
+        .slice(0, 10)}.xlsx`;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(
+        e?.message ||
+          text(
+            "Impossible d'exporter les commandes.",
+            "تعذر تصدير الطلبات."
+          )
+      );
+    }
+  }
+
+  /* =========================================================
+     IMPRESSION A4
+  ========================================================= */
+
+  function printOrderA4(order: Order) {
+    const printWindow = window.open(
+      "",
+      "_blank",
+      "width=900,height=1100"
+    );
+
+    if (!printWindow) {
+      alert(
+        text(
+          "Impossible d'ouvrir la fenêtre d'impression.",
+          "تعذر فتح نافذة الطباعة."
+        )
+      );
+      return;
+    }
+
+    const logoUrl =
+      typeof logoDoctech === "string" ? logoDoctech : logoDoctech.src;
+
+    const itemsHtml = (order.items || [])
+      .map(
+        (item) => `
+          <tr>
+            <td>${escapeHtml(item.product_name || "Article")}</td>
+            <td>${escapeHtml(item.sku || "—")}</td>
+            <td class="center">${Number(item.quantity || 0)}</td>
+            <td class="right">${formatPrintPrice(Number(item.unit_price || 0))}</td>
+            <td class="right">${formatPrintPrice(Number(item.line_total || 0))}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="fr">
+        <head>
+          <meta charset="UTF-8" />
+          <title>Commande ${escapeHtml(order.tracking_number || `#${order.id}`)}</title>
+          <style>
+            @page { size: A4; margin: 12mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              color: #111827;
+              font-family: Arial, Helvetica, sans-serif;
+            }
+            .page { width: 100%; max-width: 210mm; margin: 0 auto; }
+            .header {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 20px;
+              padding-bottom: 18px;
+              border-bottom: 3px solid #2563EB;
+            }
+            .logo { max-width: 180px; max-height: 75px; object-fit: contain; }
+            .company { text-align: right; }
+            .company-name { font-size: 20px; font-weight: 900; color: #1B4F59; }
+            .company-subtitle { margin-top: 4px; font-size: 10px; color: #64748B; }
+            .title {
+              margin-top: 25px;
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            }
+            .title h1 { margin: 0; font-size: 25px; font-weight: 900; }
+            .tracking {
+              padding: 8px 13px;
+              border-radius: 10px;
+              background: #EFF6FF;
+              color: #2563EB;
+              font-size: 12px;
+              font-weight: 900;
+            }
+            .section { margin-top: 22px; }
+            .section-title {
+              margin-bottom: 9px;
+              font-size: 11px;
+              font-weight: 900;
+              text-transform: uppercase;
+              color: #2563EB;
+              letter-spacing: .08em;
+            }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+            .info { padding: 10px 12px; border: 1px solid #E5E7EB; border-radius: 10px; }
+            .label { font-size: 8px; font-weight: 800; text-transform: uppercase; color: #94A3B8; }
+            .value { margin-top: 4px; font-size: 11px; font-weight: 800; color: #111827; }
+            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+            th { padding: 9px 7px; background: #1B4F59; color: white; font-size: 9px; text-align: left; }
+            td { padding: 9px 7px; border-bottom: 1px solid #E5E7EB; font-size: 9px; vertical-align: middle; }
+            .center { text-align: center; }
+            .right { text-align: right; }
+            .totals { width: 300px; margin-left: auto; margin-top: 18px; }
+            .total-row { display: flex; justify-content: space-between; gap: 20px; padding: 7px 0; font-size: 10px; }
+            .total-final { margin-top: 7px; padding: 12px; border-radius: 10px; background: #2563EB; color: white; font-size: 15px; font-weight: 900; }
+            .note { margin-top: 18px; padding: 12px; border-radius: 10px; background: #F8FAFC; border: 1px solid #E2E8F0; font-size: 10px; }
+            .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #E5E7EB; text-align: center; color: #94A3B8; font-size: 8px; }
+          </style>
+        </head>
+        <body>
+          <div class="page">
+            <div class="header">
+              <img src="${logoUrl}" class="logo" alt="DOC TECH" />
+              <div class="company">
+                <div class="company-name">DOC TECH</div>
+                <div class="company-subtitle">Bon de commande</div>
+              </div>
+            </div>
+
+            <div class="title">
+              <h1>COMMANDE</h1>
+              <div class="tracking">${escapeHtml(order.tracking_number || `#${order.id}`)}</div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">Informations client</div>
+              <div class="info-grid">
+                <div class="info"><div class="label">Client</div><div class="value">${escapeHtml(order.customer_name || "—")}</div></div>
+                <div class="info"><div class="label">Téléphone</div><div class="value">${escapeHtml(order.phone || "—")}</div></div>
+                <div class="info"><div class="label">Wilaya</div><div class="value">${escapeHtml(order.wilaya || "—")}</div></div>
+                <div class="info"><div class="label">Commune</div><div class="value">${escapeHtml(order.commune || "—")}</div></div>
+                <div class="info"><div class="label">Type livraison</div><div class="value">${escapeHtml(order.delivery_type || "—")}</div></div>
+                <div class="info"><div class="label">Statut</div><div class="value">${escapeHtml(order.status || "NOUVELLE")}</div></div>
+                <div class="info"><div class="label">Tracking Elogistia</div><div class="value">${escapeHtml(order.delivery_tracking || "—")}</div></div>
+                <div class="info"><div class="label">Date</div><div class="value">${order.created_at ? new Date(order.created_at).toLocaleString("fr-FR") : "—"}</div></div>
+              </div>
+            </div>
+
+            ${order.address ? `
+              <div class="section">
+                <div class="section-title">Adresse de livraison</div>
+                <div class="info"><div class="value">${escapeHtml(order.address)}</div></div>
+              </div>
+            ` : ""}
+
+            <div class="section">
+              <div class="section-title">Articles commandés</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Article</th>
+                    <th>SKU</th>
+                    <th style="text-align:center">Qté</th>
+                    <th style="text-align:right">Prix unitaire</th>
+                    <th style="text-align:right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemsHtml || `<tr><td colspan="5">Aucun article</td></tr>`}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="totals">
+              <div class="total-row"><span>Sous-total</span><strong>${formatPrintPrice(Number(order.subtotal || 0))}</strong></div>
+              <div class="total-row"><span>Livraison</span><strong>${formatPrintPrice(Number(order.delivery_fee || 0))}</strong></div>
+              <div class="total-final">
+                <div style="display:flex;justify-content:space-between;gap:20px;"><span>Total</span><span>${formatPrintPrice(Number(order.total || 0))}</span></div>
+              </div>
+            </div>
+
+            ${order.note ? `<div class="note"><strong>Note :</strong> ${escapeHtml(order.note)}</div>` : ""}
+
+            <div class="footer">DOC TECH — Bon de commande généré le ${new Date().toLocaleString("fr-FR")}</div>
+          </div>
+          <script>
+            window.onload = function () {
+              setTimeout(function () { window.print(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  }
+
+  /* =========================================================
      RESET FILTRES
   ========================================================= */
 
@@ -566,7 +852,7 @@ export default function Page() {
     setSingleDate("");
     setDateFrom("");
     setDateTo("");
-    setMovStatus("");
+    setFilterStatus("");
   }
 
   /* =========================================================
@@ -645,31 +931,57 @@ export default function Page() {
         </div>
 
         {/* =================================================
-            ONGLETS
+            ONGLETS + EXPORT EXCEL (ALIGNÉS)
         ================================================= */}
-        <div className="mt-6 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
-          <TabButton
-            active={tab === "today"}
-            onClick={() => setTab("today")}
-            icon={<Calendar size={14} />}
-            label={text("Commandes du jour", "طلبات اليوم")}
-          />
-          <TabButton
-            active={tab === "history"}
-            onClick={() => setTab("history")}
-            icon={<CalendarRange size={14} />}
-            label={text("Historique", "السجل")}
-          />
-          <TabButton
-            active={tab === "movements"}
-            onClick={() => setTab("movements")}
-            icon={<History size={14} />}
-            label={text("Mouvements de statut", "حركات الحالة")}
-          />
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          {/* Onglets */}
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm">
+            <TabButton
+              active={tab === "today"}
+              onClick={() => setTab("today")}
+              icon={<Calendar size={14} />}
+              label={text("Commandes du jour", "طلبات اليوم")}
+            />
+            <TabButton
+              active={tab === "history"}
+              onClick={() => setTab("history")}
+              icon={<CalendarRange size={14} />}
+              label={text("Historique", "السجل")}
+            />
+            <TabButton
+              active={tab === "movements"}
+              onClick={() => setTab("movements")}
+              icon={<History size={14} />}
+              label={text("Mouvements de statut", "حركات الحالة")}
+            />
+          </div>
+
+          {/* Boutons d'action à droite */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={exportExcel}
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-[10px] font-black text-white shadow-sm transition hover:bg-emerald-700"
+            >
+              <FileSpreadsheet size={14} />
+              {text("Exporter Excel", "تصدير Excel")}
+            </button>
+
+            {detail && (
+              <button
+                type="button"
+                onClick={() => printOrderA4(detail)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-[10px] font-black text-white shadow-sm transition hover:bg-slate-800"
+              >
+                <Printer size={14} />
+                {text("Imprimer A4", "طباعة A4")}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* =================================================
-            FILTRES DATE
+            FILTRES DATE + STATUT
         ================================================= */}
         {(tab === "history" || tab === "movements") && (
           <div className="mt-4 rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
@@ -716,31 +1028,30 @@ export default function Page() {
                 />
               </div>
 
-              {tab === "movements" && (
-                <div>
-                  <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">
-                    {text("Nouveau statut", "الحالة الجديدة")}
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={movStatus}
-                      onChange={(e) => setMovStatus(e.target.value)}
-                      className="mt-1 h-10 w-full appearance-none rounded-xl border border-slate-200 px-3 pe-8 text-xs font-bold text-slate-700 outline-none focus:border-[#2563EB]"
-                    >
-                      <option value="">{text("Tous", "الكل")}</option>
-                      {statuses.map((s) => (
-                        <option key={s} value={s}>
-                          {statusLabel(s, isArabic ? "ar" : "fr")}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown
-                      size={13}
-                      className="pointer-events-none absolute right-3 top-1/2 mt-0.5 -translate-y-1/2 text-slate-400"
-                    />
-                  </div>
+              {/* Filtre Statut (visible pour historique et mouvements) */}
+              <div>
+                <label className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+                  {text("Filtrer par statut", "تصفية حسب الحالة")}
+                </label>
+                <div className="relative">
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="mt-1 h-10 w-full appearance-none rounded-xl border border-slate-200 px-3 pe-8 text-xs font-bold text-slate-700 outline-none focus:border-[#2563EB]"
+                  >
+                    <option value="">{text("Tous les statuts", "كل الحالات")}</option>
+                    {statuses.map((s) => (
+                      <option key={s} value={s}>
+                        {statusLabel(s, isArabic ? "ar" : "fr")}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    size={13}
+                    className="pointer-events-none absolute right-3 top-1/2 mt-0.5 -translate-y-1/2 text-slate-400"
+                  />
                 </div>
-              )}
+              </div>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -783,6 +1094,13 @@ export default function Page() {
                 <span className="rounded-full bg-[#2563EB]/10 px-3 py-1.5 text-[9px] font-black text-[#2563EB]">
                   {dateFrom || "…"} <ArrowRight size={10} className="inline" />{" "}
                   {dateTo || "…"}
+                </span>
+              )}
+
+              {filterStatus && (
+                <span className="rounded-full bg-[#2563EB]/10 px-3 py-1.5 text-[9px] font-black text-[#2563EB]">
+                  <Filter size={10} className="inline mr-1" />
+                  {statusLabel(filterStatus, isArabic ? "ar" : "fr")}
                 </span>
               )}
             </div>
@@ -858,7 +1176,7 @@ export default function Page() {
         {tab !== "movements" && (
           <div className="mt-5 overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[1050px]">
+              <table className="w-full min-w-[1100px]">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/80">
                     <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
@@ -1029,14 +1347,26 @@ export default function Page() {
                         </td>
 
                         <td className="px-5 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => openOrder(order.id)}
-                            className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#2563EB]/10 px-3 text-[9px] font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
-                          >
-                            <Eye size={14} />
-                            <span className="hidden lg:inline">Détails</span>
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openOrder(order.id)}
+                              className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#2563EB]/10 px-3 text-[9px] font-black text-[#2563EB] transition hover:bg-[#2563EB] hover:text-white"
+                              title="Voir les détails"
+                            >
+                              <Eye size={14} />
+                              <span className="hidden lg:inline">Détails</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => printOrderA4(order)}
+                              className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-900 px-3 text-[9px] font-black text-white transition hover:bg-slate-800"
+                              title="Imprimer A4"
+                            >
+                              <Printer size={14} />
+                              <span className="hidden lg:inline">Imprimer</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1128,6 +1458,7 @@ export default function Page() {
             onSync={syncDelivery}
             syncingDelivery={syncingDelivery}
             onPrint={printBordereau}
+            onPrintA4={printOrderA4}
             text={text}
             isArabic={isArabic}
           />
@@ -1395,6 +1726,7 @@ function OrderDetailModal({
   onSync,
   syncingDelivery,
   onPrint,
+  onPrintA4,
   text,
   isArabic,
 }: {
@@ -1403,6 +1735,7 @@ function OrderDetailModal({
   onSync: (id: number) => void;
   syncingDelivery: number | null;
   onPrint: (order: Order) => void;
+  onPrintA4: (order: Order) => void;
   text: (fr: string, ar: string) => string;
   isArabic: boolean;
 }) {
@@ -1544,7 +1877,17 @@ function OrderDetailModal({
                 </p>
               </div>
 
-              {detail.delivery_tracking && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onPrintA4(detail)}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-[9px] font-black text-[#2563EB] shadow-sm ring-1 ring-inset ring-blue-100"
+                >
+                  <Printer size={13} />
+                  {text("Imprimer A4", "طباعة A4")}
+                </button>
+
+                {detail.delivery_tracking && (
                 <button
                   type="button"
                   onClick={() => onPrint(detail)}
@@ -1553,7 +1896,8 @@ function OrderDetailModal({
                   <Printer size={13} />
                   {text("Imprimer le bon", "طباعة الوصل")}
                 </button>
-              )}
+                )}
+              </div>
 
               {!detail.delivery_tracking && (
                 <button
@@ -1859,13 +2203,13 @@ function StatusSelect({
     }[value] || "bg-slate-50 text-slate-500 border-slate-200";
 
   return (
-    <div className="relative inline-flex">
-      <StatusDot status={value} />
+    <div className="relative inline-flex items-center">
+      {/* Le point est maintenant DANS le select, aligné avec le texte */}
       <select
         value={value}
         disabled={loading}
         onChange={(e) => onChange(e.target.value)}
-        className={`h-9 min-w-[145px] appearance-none rounded-xl border px-3 pe-8 text-[9px] font-black outline-none transition focus:ring-2 focus:ring-[#2563EB]/20 disabled:cursor-not-allowed disabled:opacity-60 ${styles}`}
+        className={`h-9 min-w-[145px] appearance-none rounded-xl border px-3 pe-8 text-[9px] font-black outline-none transition focus:ring-2 focus:ring-[#2563EB]/20 disabled:cursor-not-allowed disabled:opacity-60 ${styles} flex items-center gap-2`}
       >
         {statuses.map((status) => (
           <option key={status} value={status}>
@@ -1873,6 +2217,12 @@ function StatusSelect({
           </option>
         ))}
       </select>
+      
+      {/* Point de couleur positionné de manière absolue pour ne pas décaler le texte */}
+      <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
+        <StatusDot status={value} />
+      </div>
+
       <ChevronDown
         size={12}
         className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50"

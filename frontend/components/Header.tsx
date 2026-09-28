@@ -21,6 +21,7 @@ import {
 
 import {
   FormEvent,
+  Suspense,
   type ReactNode,
   useEffect,
   useMemo,
@@ -96,7 +97,7 @@ function getCategoryIcon(slug: string) {
    HEADER
 ========================================================= */
 
-export default function Header() {
+function HeaderContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -2158,6 +2159,15 @@ export default function Header() {
         }
       />
     </>
+  );
+}
+
+
+export default function Header() {
+  return (
+    <Suspense fallback={null}>
+      <HeaderContent />
+    </Suspense>
   );
 }
 
