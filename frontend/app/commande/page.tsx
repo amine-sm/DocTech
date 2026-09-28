@@ -32,6 +32,7 @@ import {
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import CheckoutHero from "@/components/CheckoutHero";
+import MobileOrderBar from "@/components/MobileOrderBar";
 import {
   clearCart,
   getCart,
@@ -41,6 +42,7 @@ import {
 import { formatPrice } from "@/lib/catalog";
 import { apiFetch } from "@/lib/api";
 import { useLocale } from "@/components/LocaleProvider";
+import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
 
 /* =========================================================
    TYPES
@@ -104,15 +106,9 @@ function normalizeWilayas(response: any): DeliveryWilaya[] {
   return getElogistiaBody(response)
     .map((item: any): DeliveryWilaya | null => {
       const id = item?.Id ?? item?.id ?? item?.ID ?? item?.code;
-      const name =
-        item?.wilaya ?? item?.Wilaya ?? item?.name ?? item?.nom;
-
+      const name = item?.wilaya ?? item?.Wilaya ?? item?.name ?? item?.nom;
       if (id === undefined || id === null || !name) return null;
-
-      return {
-        id: String(id),
-        name: String(name).trim(),
-      };
+      return { id: String(id), name: String(name).trim() };
     })
     .filter((item): item is DeliveryWilaya => item !== null);
 }
@@ -127,20 +123,14 @@ function normalizeCommunes(response: any): DeliveryCommune[] {
         item?.code ??
         item?.communeID ??
         item?.communeId;
-
       const name =
         item?.commune ??
         item?.Commune ??
         item?.communeLabel ??
         item?.name ??
         item?.nom;
-
       if (id === undefined || id === null || !name) return null;
-
-      return {
-        id: String(id),
-        name: String(name).trim(),
-      };
+      return { id: String(id), name: String(name).trim() };
     })
     .filter((item): item is DeliveryCommune => item !== null);
 }
@@ -157,29 +147,17 @@ function normalizeShippingCosts(response: any): ShippingCost[] {
         item?.code;
 
       const name =
-        item?.wilayaLabel ??
-        item?.wilaya ??
-        item?.name ??
-        item?.nom ??
-        "";
+        item?.wilayaLabel ?? item?.wilaya ?? item?.name ?? item?.nom ?? "";
 
       const homeRaw = item?.home;
-      const deskRaw =
-        item?.stopdesk ??
-        item?.stopDesk ??
-        item?.desk;
+      const deskRaw = item?.stopdesk ?? item?.stopDesk ?? item?.desk;
 
       const home =
-        homeRaw !== undefined &&
-        homeRaw !== null &&
-        String(homeRaw) !== ""
+        homeRaw !== undefined && homeRaw !== null && String(homeRaw) !== ""
           ? Number(homeRaw)
           : null;
-
       const desk =
-        deskRaw !== undefined &&
-        deskRaw !== null &&
-        String(deskRaw) !== ""
+        deskRaw !== undefined && deskRaw !== null && String(deskRaw) !== ""
           ? Number(deskRaw)
           : null;
 
@@ -201,49 +179,39 @@ function normalizeShippingCosts(response: any): ShippingCost[] {
 
 export default function OrderPage() {
   const { text } = useLocale();
+  const keyboardVisible = useKeyboardVisible();
 
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
 
-  const [deliveryType, setDeliveryType] =
-    useState<"home" | "store">("home");
-
-  const [shippingMode, setShippingMode] =
-    useState<"home" | "desk">("home");
+  const [deliveryType, setDeliveryType] = useState<"home" | "store">("home");
+  const [shippingMode, setShippingMode] = useState<"home" | "desk">("home");
 
   const [submitted, setSubmitted] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
-  const [submittedOrder, setSubmittedOrder] =
-    useState<SubmittedOrder | null>(null);
+  const [submittedOrder, setSubmittedOrder] = useState<SubmittedOrder | null>(
+    null
+  );
   const [showOrderAlert, setShowOrderAlert] = useState(false);
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<FormData | null>(
-    null
-  );
+  const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
-  const [deliveryWilayas, setDeliveryWilayas] =
-    useState<DeliveryWilaya[]>([]);
+  const [deliveryWilayas, setDeliveryWilayas] = useState<DeliveryWilaya[]>([]);
+  const [deliveryCommunes, setDeliveryCommunes] = useState<DeliveryCommune[]>(
+    []
+  );
+  const [shippingCosts, setShippingCosts] = useState<
+    Record<string, ShippingCost>
+  >({});
 
-  const [deliveryCommunes, setDeliveryCommunes] =
-    useState<DeliveryCommune[]>([]);
+  const [selectedWilayaId, setSelectedWilayaId] = useState("");
+  const [selectedCommuneId, setSelectedCommuneId] = useState("");
 
-  const [shippingCosts, setShippingCosts] =
-    useState<Record<string, ShippingCost>>({});
-
-  const [selectedWilayaId, setSelectedWilayaId] =
-    useState("");
-
-  const [selectedCommuneId, setSelectedCommuneId] =
-    useState("");
-
-  const [loadingDelivery, setLoadingDelivery] =
-    useState(true);
-
-  const [loadingCommunes, setLoadingCommunes] =
-    useState(false);
+  const [loadingDelivery, setLoadingDelivery] = useState(true);
+  const [loadingCommunes, setLoadingCommunes] = useState(false);
 
   /* -------------------------------------------------------
      PANIER + DONNEES LIVRAISON
@@ -257,44 +225,29 @@ export default function OrderPage() {
 
     async function loadDelivery() {
       setLoadingDelivery(true);
-
       try {
-        const [wilayaResponse, shippingResponse] =
-          await Promise.all([
-            apiFetch<any>("/elogistia/wilayas", {
-              cache: "no-store",
-            }),
-            apiFetch<any>("/elogistia/shipping-costs", {
-              cache: "no-store",
-            }),
-          ]);
+        const [wilayaResponse, shippingResponse] = await Promise.all([
+          apiFetch<any>("/elogistia/wilayas", { cache: "no-store" }),
+          apiFetch<any>("/elogistia/shipping-costs", { cache: "no-store" }),
+        ]);
 
         if (cancelled) return;
 
         const wilayaRows = normalizeWilayas(wilayaResponse);
-        const shippingRows =
-          normalizeShippingCosts(shippingResponse);
+        const shippingRows = normalizeShippingCosts(shippingResponse);
 
         const costs: Record<string, ShippingCost> = {};
 
         for (const row of shippingRows) {
           const key = String(row.wilayaId).trim();
-
-          if (key) {
-            costs[key] = row;
-          }
+          if (key) costs[key] = row;
 
           const rowName = row.name.trim().toLowerCase();
-
           if (rowName) {
             const matchingWilaya = wilayaRows.find(
-              (w) =>
-                w.name.trim().toLowerCase() === rowName
+              (w) => w.name.trim().toLowerCase() === rowName
             );
-
-            if (matchingWilaya) {
-              costs[String(matchingWilaya.id)] = row;
-            }
+            if (matchingWilaya) costs[String(matchingWilaya.id)] = row;
           }
         }
 
@@ -302,15 +255,12 @@ export default function OrderPage() {
         setShippingCosts(costs);
       } catch (error) {
         console.error("Elogistia delivery data:", error);
-
         if (!cancelled) {
           setDeliveryWilayas([]);
           setShippingCosts({});
         }
       } finally {
-        if (!cancelled) {
-          setLoadingDelivery(false);
-        }
+        if (!cancelled) setLoadingDelivery(false);
       }
     }
 
@@ -344,29 +294,16 @@ export default function OrderPage() {
           `/elogistia/municipalities?wilaya=${encodeURIComponent(
             selectedWilayaId
           )}`,
-          {
-            cache: "no-store",
-          }
+          { cache: "no-store" }
         );
 
         if (cancelled) return;
-
-        setDeliveryCommunes(
-          normalizeCommunes(response)
-        );
+        setDeliveryCommunes(normalizeCommunes(response));
       } catch (error) {
-        console.error(
-          "Elogistia municipalities:",
-          error
-        );
-
-        if (!cancelled) {
-          setDeliveryCommunes([]);
-        }
+        console.error("Elogistia municipalities:", error);
+        if (!cancelled) setDeliveryCommunes([]);
       } finally {
-        if (!cancelled) {
-          setLoadingCommunes(false);
-        }
+        if (!cancelled) setLoadingCommunes(false);
       }
     }
 
@@ -378,13 +315,33 @@ export default function OrderPage() {
   }, [selectedWilayaId]);
 
   /* -------------------------------------------------------
+     SCROLL AUTO VERS L'INPUT FOCUS (MOBILE)
+  ------------------------------------------------------- */
+
+  useEffect(() => {
+    function handleFocus(event: FocusEvent) {
+      const target = event.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT")
+      ) {
+        setTimeout(() => {
+          target.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 300);
+      }
+    }
+
+    document.addEventListener("focusin", handleFocus);
+    return () => document.removeEventListener("focusin", handleFocus);
+  }, []);
+
+  /* -------------------------------------------------------
      CALCUL
   ------------------------------------------------------- */
 
-  const subtotal = useMemo(
-    () => getCartSubtotal(items),
-    [items]
-  );
+  const subtotal = useMemo(() => getCartSubtotal(items), [items]);
 
   const selectedShipping = selectedWilayaId
     ? shippingCosts[String(selectedWilayaId)] ?? null
@@ -406,13 +363,15 @@ export default function OrderPage() {
   const total = subtotal + deliveryFee;
 
   const totalQuantity = useMemo(
-    () =>
-      items.reduce(
-        (sum, item) => sum + item.quantity,
-        0
-      ),
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
     [items]
   );
+
+  const canSubmit =
+    !loadingDelivery &&
+    !!selectedWilayaId &&
+    !!selectedCommuneId &&
+    selectedShippingFee != null;
 
   /* -------------------------------------------------------
      CLEAR FIELD ERROR
@@ -428,14 +387,11 @@ export default function OrderPage() {
   }
 
   /* -------------------------------------------------------
-     SUBMIT (validation + ouverture alert)
+     SUBMIT
   ------------------------------------------------------- */
 
-  async function submitOrder(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  async function submitOrder(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     if (!items.length) return;
 
     const form = new FormData(event.currentTarget);
@@ -444,7 +400,6 @@ export default function OrderPage() {
     const customerName = String(form.get("name") || "").trim();
     const phone = String(form.get("phone") || "").trim();
 
-    // Validation client
     if (!customerName) {
       errors.name = text(
         "Le nom complet est obligatoire.",
@@ -464,7 +419,6 @@ export default function OrderPage() {
       );
     }
 
-    // Validation livraison
     if (deliveryType === "home") {
       const wilayaId = String(form.get("wilaya") || "");
       const communeId = String(form.get("commune") || "");
@@ -497,7 +451,6 @@ export default function OrderPage() {
       }
     }
 
-    // Si erreurs → afficher + scroll
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
 
@@ -505,23 +458,19 @@ export default function OrderPage() {
         const firstError = document.querySelector(
           "[data-error='true']"
         ) as HTMLElement | null;
-        firstError?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+        firstError?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 100);
 
       return;
     }
 
-    // ✅ Pas d'erreurs → ouvrir l'alert de confirmation
     setFormErrors({});
     setPendingFormData(form);
     setShowConfirmDialog(true);
   }
 
   /* -------------------------------------------------------
-     CONFIRMATION (envoi après validation client)
+     CONFIRMATION
   ------------------------------------------------------- */
 
   async function confirmAndSendOrder() {
@@ -531,83 +480,47 @@ export default function OrderPage() {
     setShowConfirmDialog(false);
 
     try {
-      const result = await apiFetch<any>(
-        "/public/commandes",
-        {
-          method: "POST",
-          bodyJson: {
-            customerName: String(
-              form.get("name") || ""
-            ).trim(),
-
-            phone: String(
-              form.get("phone") || ""
-            ).trim(),
-
-            wilaya:
-              deliveryType === "home"
-                ? String(
-                    form.get("wilayaName") || ""
-                  )
-                : null,
-
-            wilayaId:
-              deliveryType === "home"
-                ? String(
-                    form.get("wilaya") || ""
-                  )
-                : null,
-
-            commune:
-              deliveryType === "home"
-                ? String(
-                    form.get("communeName") || ""
-                  )
-                : null,
-
-            communeId:
-              deliveryType === "home"
-                ? String(
-                    form.get("commune") || ""
-                  )
-                : null,
-
-            address:
-              deliveryType === "home" &&
-              shippingMode === "home"
-                ? String(
-                    form.get("address") || ""
-                  )
-                : null,
-
-            note: String(
-              form.get("note") || ""
-            ).trim(),
-
-            deliveryType:
-              deliveryType === "store"
-                ? "STORE"
-                : "HOME",
-
-            shippingMode:
-              deliveryType === "home"
-                ? shippingMode === "desk"
-                  ? "DESK"
-                  : "HOME"
-                : null,
-
-            shippingFee:
-              deliveryType === "home"
-                ? selectedShippingFee
-                : 0,
-
-            items: items.map((item) => ({
-              articleId: item.product.id,
-              quantity: item.quantity,
-            })),
-          },
-        }
-      );
+      const result = await apiFetch<any>("/public/commandes", {
+        method: "POST",
+        bodyJson: {
+          customerName: String(form.get("name") || "").trim(),
+          phone: String(form.get("phone") || "").trim(),
+          wilaya:
+            deliveryType === "home"
+              ? String(form.get("wilayaName") || "")
+              : null,
+          wilayaId:
+            deliveryType === "home"
+              ? String(form.get("wilaya") || "")
+              : null,
+          commune:
+            deliveryType === "home"
+              ? String(form.get("communeName") || "")
+              : null,
+          communeId:
+            deliveryType === "home"
+              ? String(form.get("commune") || "")
+              : null,
+          address:
+            deliveryType === "home" && shippingMode === "home"
+              ? String(form.get("address") || "")
+              : null,
+          note: String(form.get("note") || "").trim(),
+          deliveryType: deliveryType === "store" ? "STORE" : "HOME",
+          shippingMode:
+            deliveryType === "home"
+              ? shippingMode === "desk"
+                ? "DESK"
+                : "HOME"
+              : null,
+          shippingFee:
+            deliveryType === "home" ? selectedShippingFee : 0,
+          items: items.map((item) => ({
+            articleId: item.product.id,
+            quantity: item.quantity,
+          })),
+        },
+      });
 
       const generatedOrderNumber = String(
         result.trackingNumber ||
@@ -621,29 +534,17 @@ export default function OrderPage() {
         deliveryType === "home"
           ? String(form.get("wilayaName") || "").trim()
           : "";
-
       const communeName =
         deliveryType === "home"
           ? String(form.get("communeName") || "").trim()
           : "";
-
-      const customerName = String(
-        form.get("name") || ""
-      ).trim();
-
-      const phone = String(
-        form.get("phone") || ""
-      ).trim();
-
+      const customerName = String(form.get("name") || "").trim();
+      const phone = String(form.get("phone") || "").trim();
       const address =
-        deliveryType === "home" &&
-        shippingMode === "home"
+        deliveryType === "home" && shippingMode === "home"
           ? String(form.get("address") || "").trim()
           : "";
-
-      const note = String(
-        form.get("note") || ""
-      ).trim();
+      const note = String(form.get("note") || "").trim();
 
       setOrderNumber(generatedOrderNumber);
       setSubmittedOrder({
@@ -654,8 +555,7 @@ export default function OrderPage() {
         commune: communeName,
         address,
         note,
-        deliveryType:
-          deliveryType === "store" ? "STORE" : "HOME",
+        deliveryType: deliveryType === "store" ? "STORE" : "HOME",
         shippingMode:
           deliveryType === "home"
             ? shippingMode === "desk"
@@ -663,9 +563,7 @@ export default function OrderPage() {
               : "HOME"
             : null,
         shippingFee:
-          deliveryType === "home"
-            ? Number(selectedShippingFee || 0)
-            : 0,
+          deliveryType === "home" ? Number(selectedShippingFee || 0) : 0,
         subtotal,
         total,
         items: items.map((item) => ({
@@ -678,17 +576,11 @@ export default function OrderPage() {
       setPendingFormData(null);
       setShowOrderAlert(true);
 
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error: any) {
       window.alert(
         error?.message ||
-          text(
-            "Impossible de créer la commande.",
-            "تعذر إنشاء الطلب."
-          )
+          text("Impossible de créer la commande.", "تعذر إنشاء الطلب.")
       );
     }
   }
@@ -701,89 +593,75 @@ export default function OrderPage() {
 
   return (
     <div className="min-h-screen bg-[#f3f5f7] text-[#101828]">
-      <Suspense
-        fallback={
-          <div className="h-20 w-full bg-white" />
-        }
+      {/* ✅ HEADER — caché quand le clavier mobile est ouvert */}
+      <div
+        className={[
+          "transition-all duration-300 will-change-transform",
+          keyboardVisible
+            ? "pointer-events-none -translate-y-full opacity-0"
+            : "translate-y-0 opacity-100",
+        ].join(" ")}
       >
-        <Header />
-      </Suspense>
+        <Suspense fallback={<div className="h-20 w-full bg-white" />}>
+          <Header />
+        </Suspense>
+      </div>
 
       <main className="relative">
         <div className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[360px] bg-[radial-gradient(circle_at_15%_10%,rgba(37,99,235,0.10),transparent_30%),radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.08),transparent_28%)]" />
-        <div className="relative z-10">
-        <CheckoutHero
-          eyebrow={text(
-            "Commande",
-            "الطلب"
-          )}
-          title={text(
-            "Finalisez votre commande.",
-            "أكمل طلبك."
-          )}
-          description={text(
-            "Choisissez votre wilaya, votre commune et votre mode de livraison. Le tarif Elogistia est calculé automatiquement.",
-            "اختر الولاية والبلدية وطريقة التوصيل. يتم حساب سعر Elogistia تلقائياً."
-          )}
-          icon={<ShoppingBag size={25} />}
-          step={2}
-          backHref="/panier"
-          backLabel={text(
-            "Retour au panier",
-            "العودة إلى السلة"
-          )}
-          badge={text(
-            "Paiement à la livraison",
-            "الدفع عند الاستلام"
-          )}
-          rightContent={
-            <div className="relative">
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] text-blue-300">
-                {text(
-                  "Total de la commande",
-                  "إجمالي الطلب"
-                )}
-              </span>
 
-              <strong className="mt-3 block text-4xl font-black tracking-[-0.06em] text-white">
-                {formatPrice(total)}
-              </strong>
+        <div
+          className={[
+            "relative z-10 transition-all duration-300",
+            keyboardVisible
+              ? "pointer-events-none -translate-y-2 opacity-0"
+              : "translate-y-0 opacity-100",
+          ].join(" ")}
+        >
+          <CheckoutHero
+            eyebrow={text("Commande", "الطلب")}
+            title={text("Finalisez votre commande.", "أكمل طلبك.")}
+            description={text(
+              "Choisissez votre wilaya, votre commune et votre mode de livraison. Le tarif Elogistia est calculé automatiquement.",
+              "اختر الولاية والبلدية وطريقة التوصيل. يتم حساب سعر Elogistia تلقائياً."
+            )}
+            icon={<ShoppingBag size={25} />}
+            step={2}
+            backHref="/panier"
+            backLabel={text("Retour au panier", "العودة إلى السلة")}
+            badge={text("Paiement à la livraison", "الدفع عند الاستلام")}
+            rightContent={
+              <div className="relative">
+                <span className="text-[8px] font-black uppercase tracking-[0.2em] text-blue-300">
+                  {text("Total de la commande", "إجمالي الطلب")}
+                </span>
 
-              <div className="mt-5 grid grid-cols-2 gap-2">
-                <MiniDarkStat
-                  label={text(
-                    "Articles",
-                    "المنتجات"
-                  )}
-                  value={String(
-                    totalQuantity
-                  ).padStart(2, "0")}
-                />
+                <strong className="mt-3 block text-4xl font-black tracking-[-0.06em] text-white">
+                  {formatPrice(total)}
+                </strong>
 
-                <MiniDarkStat
-                  label={text(
-                    "Livraison",
-                    "التوصيل"
-                  )}
-                  value={
-                    deliveryType === "home"
-                      ? selectedShippingFee != null
-                        ? formatPrice(
-                            selectedShippingFee
-                          )
-                        : "--"
-                      : text(
-                          "Gratuite",
-                          "مجاني"
-                        )
-                  }
-                />
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                  <MiniDarkStat
+                    label={text("Articles", "المنتجات")}
+                    value={String(totalQuantity).padStart(2, "0")}
+                  />
+                  <MiniDarkStat
+                    label={text("Livraison", "التوصيل")}
+                    value={
+                      deliveryType === "home"
+                        ? selectedShippingFee != null
+                          ? formatPrice(selectedShippingFee)
+                          : "--"
+                        : text("Gratuite", "مجاني")
+                    }
+                  />
+                </div>
               </div>
-            </div>
-          }
-        />
+            }
+          />
+        </div>
 
-        <section className="mx-auto max-w-[1500px] px-4 pb-20 pt-7 sm:px-6 lg:px-8">
+        <section className="mx-auto max-w-[1500px] px-4 pb-40 pt-7 sm:px-6 lg:px-8 lg:pb-20">
           {!ready ? (
             <OrderSkeleton />
           ) : !items.length ? (
@@ -792,10 +670,10 @@ export default function OrderPage() {
             <form
               onSubmit={submitOrder}
               noValidate
-              className="grid items-start gap-7 xl:grid-cols-[minmax(0,1fr)_420px]"
+              className="grid items-start gap-5 sm:gap-7 xl:grid-cols-[minmax(0,1fr)_420px]"
             >
-              <div className="min-w-0 space-y-6">
-                {/* ✅ BANDEAU DES ERREURS */}
+              <div className="min-w-0 space-y-4 sm:space-y-6">
+                {/* BANDEAU ERREURS */}
                 <AnimatePresence>
                   {hasErrors && (
                     <motion.div
@@ -804,7 +682,7 @@ export default function OrderPage() {
                       exit={{ opacity: 0, y: -10, height: 0 }}
                       className="overflow-hidden"
                     >
-                      <div className="rounded-[20px] border border-red-200 bg-red-50 p-5">
+                      <div className="rounded-[20px] border border-red-200 bg-red-50 p-4 sm:p-5">
                         <div className="flex items-start gap-3">
                           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500 text-white shadow-lg shadow-red-500/20">
                             <AlertCircle size={18} strokeWidth={2.5} />
@@ -817,17 +695,16 @@ export default function OrderPage() {
                               )}
                             </strong>
                             <ul className="mt-2 space-y-1.5">
-                              {Object.entries(formErrors).map(
-                                ([key, msg]) =>
-                                  msg ? (
-                                    <li
-                                      key={key}
-                                      className="flex items-start gap-2 text-[10px] font-semibold leading-5 text-red-600"
-                                    >
-                                      <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-red-500" />
-                                      {msg}
-                                    </li>
-                                  ) : null
+                              {Object.entries(formErrors).map(([key, msg]) =>
+                                msg ? (
+                                  <li
+                                    key={key}
+                                    className="flex items-start gap-2 text-[10px] font-semibold leading-5 text-red-600"
+                                  >
+                                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-red-500" />
+                                    {msg}
+                                  </li>
+                                ) : null
                               )}
                             </ul>
                           </div>
@@ -845,12 +722,10 @@ export default function OrderPage() {
                   )}
                 </AnimatePresence>
 
+                {/* 01 — COORDONNEES */}
                 <CheckoutSection
                   number="01"
-                  title={text(
-                    "Vos coordonnées",
-                    "بياناتك"
-                  )}
+                  title={text("Vos coordonnées", "بياناتك")}
                   description={text(
                     "Nous utiliserons ces informations pour confirmer votre commande.",
                     "سنستخدم هذه المعلومات لتأكيد طلبك."
@@ -859,15 +734,13 @@ export default function OrderPage() {
                 >
                   <div className="grid gap-4 md:grid-cols-2">
                     <Field
-                      label={text(
-                        "Nom et prénom",
-                        "الاسم واللقب"
-                      )}
+                      label={text("Nom et prénom", "الاسم واللقب")}
                       icon={<UserRound size={15} />}
                       error={formErrors.name}
                     >
                       <input
                         name="name"
+                        autoComplete="name"
                         placeholder={text(
                           "Ex. Amine Benali",
                           "مثال: أمين بن علي"
@@ -879,16 +752,14 @@ export default function OrderPage() {
                     </Field>
 
                     <Field
-                      label={text(
-                        "Téléphone",
-                        "الهاتف"
-                      )}
+                      label={text("Téléphone", "الهاتف")}
                       icon={<Phone size={15} />}
                       error={formErrors.phone}
                     >
                       <input
                         name="phone"
                         inputMode="tel"
+                        autoComplete="tel"
                         placeholder="05 / 06 / 07..."
                         className={inputClass}
                         onChange={() => clearFieldError("phone")}
@@ -898,6 +769,7 @@ export default function OrderPage() {
                   </div>
                 </CheckoutSection>
 
+                {/* 02 — LIVRAISON */}
                 <CheckoutSection
                   number="02"
                   title={text(
@@ -910,16 +782,12 @@ export default function OrderPage() {
                   )}
                   icon={<MapPin size={19} />}
                 >
-                  <div className="space-y-5">
+                  <div className="space-y-4 sm:space-y-5">
                     {/* MODE LIVRAISON */}
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
                       <DeliveryModeCard
-                        active={
-                          shippingMode === "home"
-                        }
-                        icon={
-                          <Home size={22} />
-                        }
+                        active={shippingMode === "home"}
+                        icon={<Home size={22} />}
                         title={text(
                           "Livraison à domicile",
                           "التوصيل إلى المنزل"
@@ -929,38 +797,21 @@ export default function OrderPage() {
                           "يصلك الطلب مباشرة إلى عنوانك."
                         )}
                         price={
-                          selectedShipping?.home !=
-                          null
-                            ? formatPrice(
-                                selectedShipping.home
-                              )
-                            : text(
-                                "Selon la wilaya",
-                                "حسب الولاية"
-                              )
+                          selectedShipping?.home != null
+                            ? formatPrice(selectedShipping.home)
+                            : text("Selon la wilaya", "حسب الولاية")
                         }
-                        badge={text(
-                          "Domicile",
-                          "المنزل"
-                        )}
+                        badge={text("Domicile", "المنزل")}
                         onClick={() => {
-                          setDeliveryType(
-                            "home"
-                          );
-                          setShippingMode(
-                            "home"
-                          );
+                          setDeliveryType("home");
+                          setShippingMode("home");
                           clearFieldError("address");
                         }}
                       />
 
                       <DeliveryModeCard
-                        active={
-                          shippingMode === "desk"
-                        }
-                        icon={
-                          <Store size={22} />
-                        }
+                        active={shippingMode === "desk"}
+                        icon={<Store size={22} />}
                         title={text(
                           "Bureau / Stop Desk",
                           "المكتب / Stop Desk"
@@ -970,27 +821,14 @@ export default function OrderPage() {
                           "استلم طلبك من المكتب أو نقطة الاستلام."
                         )}
                         price={
-                          selectedShipping?.desk !=
-                          null
-                            ? formatPrice(
-                                selectedShipping.desk
-                              )
-                            : text(
-                                "Selon la wilaya",
-                                "حسب الولاية"
-                              )
+                          selectedShipping?.desk != null
+                            ? formatPrice(selectedShipping.desk)
+                            : text("Selon la wilaya", "حسب الولاية")
                         }
-                        badge={text(
-                          "Stop Desk",
-                          "المكتب"
-                        )}
+                        badge={text("Stop Desk", "المكتب")}
                         onClick={() => {
-                          setDeliveryType(
-                            "home"
-                          );
-                          setShippingMode(
-                            "desk"
-                          );
+                          setDeliveryType("home");
+                          setShippingMode("desk");
                           clearFieldError("address");
                         }}
                       />
@@ -1000,30 +838,17 @@ export default function OrderPage() {
                     <div className="grid gap-4 lg:grid-cols-2">
                       <div data-error={!!formErrors.wilaya}>
                         <SearchableSelect
-                          label={text(
-                            "Wilaya",
-                            "الولاية"
-                          )}
-                          icon={
-                            <MapPin size={15} />
-                          }
-                          options={
-                            deliveryWilayas
-                          }
-                          value={
-                            selectedWilayaId
-                          }
+                          label={text("Wilaya", "الولاية")}
+                          icon={<MapPin size={15} />}
+                          options={deliveryWilayas}
+                          value={selectedWilayaId}
                           onChange={(v) => {
                             setSelectedWilayaId(v);
                             clearFieldError("wilaya");
                             clearFieldError("commune");
                           }}
-                          loading={
-                            loadingDelivery
-                          }
-                          disabled={
-                            loadingDelivery
-                          }
+                          loading={loadingDelivery}
+                          disabled={loadingDelivery}
                           placeholder={text(
                             "Rechercher une wilaya...",
                             "ابحث عن ولاية..."
@@ -1036,38 +861,22 @@ export default function OrderPage() {
                           hasError={!!formErrors.wilaya}
                         />
                         {formErrors.wilaya && (
-                          <FieldError
-                            message={formErrors.wilaya}
-                          />
+                          <FieldError message={formErrors.wilaya} />
                         )}
                       </div>
 
                       <div data-error={!!formErrors.commune}>
                         <SearchableSelect
-                          label={text(
-                            "Commune",
-                            "البلدية"
-                          )}
-                          icon={
-                            <MapPin size={15} />
-                          }
-                          options={
-                            deliveryCommunes
-                          }
-                          value={
-                            selectedCommuneId
-                          }
+                          label={text("Commune", "البلدية")}
+                          icon={<MapPin size={15} />}
+                          options={deliveryCommunes}
+                          value={selectedCommuneId}
                           onChange={(v) => {
                             setSelectedCommuneId(v);
                             clearFieldError("commune");
                           }}
-                          loading={
-                            loadingCommunes
-                          }
-                          disabled={
-                            !selectedWilayaId ||
-                            loadingCommunes
-                          }
+                          loading={loadingCommunes}
+                          disabled={!selectedWilayaId || loadingCommunes}
                           placeholder={
                             !selectedWilayaId
                               ? text(
@@ -1087,49 +896,40 @@ export default function OrderPage() {
                           hasError={!!formErrors.commune}
                         />
                         {formErrors.commune && (
-                          <FieldError
-                            message={formErrors.commune}
-                          />
+                          <FieldError message={formErrors.commune} />
                         )}
                       </div>
                     </div>
 
-                    {/* VALEURS FORM */}
+                    {/* VALEURS CACHEES */}
                     <input
                       type="hidden"
                       name="wilaya"
                       value={selectedWilayaId}
                       readOnly
                     />
-
                     <input
                       type="hidden"
                       name="wilayaName"
                       value={
                         deliveryWilayas.find(
-                          (item) =>
-                            String(item.id) ===
-                            selectedWilayaId
+                          (item) => String(item.id) === selectedWilayaId
                         )?.name || ""
                       }
                       readOnly
                     />
-
                     <input
                       type="hidden"
                       name="commune"
                       value={selectedCommuneId}
                       readOnly
                     />
-
                     <input
                       type="hidden"
                       name="communeName"
                       value={
                         deliveryCommunes.find(
-                          (item) =>
-                            String(item.id) ===
-                            selectedCommuneId
+                          (item) => String(item.id) === selectedCommuneId
                         )?.name || ""
                       }
                       readOnly
@@ -1140,21 +940,9 @@ export default function OrderPage() {
                       {shippingMode === "home" ? (
                         <motion.div
                           key="home-address"
-                          initial={{
-                            opacity: 0,
-                            height: 0,
-                            y: -8,
-                          }}
-                          animate={{
-                            opacity: 1,
-                            height: "auto",
-                            y: 0,
-                          }}
-                          exit={{
-                            opacity: 0,
-                            height: 0,
-                            y: -8,
-                          }}
+                          initial={{ opacity: 0, height: 0, y: -8 }}
+                          animate={{ opacity: 1, height: "auto", y: 0 }}
+                          exit={{ opacity: 0, height: 0, y: -8 }}
                           className="overflow-hidden"
                         >
                           <div data-error={!!formErrors.address}>
@@ -1163,21 +951,18 @@ export default function OrderPage() {
                                 "Adresse de livraison",
                                 "عنوان التوصيل"
                               )}
-                              icon={
-                                <Home size={15} />
-                              }
+                              icon={<Home size={15} />}
                               error={formErrors.address}
                             >
                               <input
                                 name="address"
+                                autoComplete="street-address"
                                 placeholder={text(
                                   "Quartier, rue, numéro, repère...",
                                   "الحي، الشارع، رقم المنزل، علامة مميزة..."
                                 )}
                                 className={inputClass}
-                                onChange={() =>
-                                  clearFieldError("address")
-                                }
+                                onChange={() => clearFieldError("address")}
                                 data-error={!!formErrors.address}
                               />
                             </Field>
@@ -1186,31 +971,16 @@ export default function OrderPage() {
                       ) : (
                         <motion.div
                           key="desk-address"
-                          initial={{
-                            opacity: 0,
-                            height: 0,
-                            y: -8,
-                          }}
-                          animate={{
-                            opacity: 1,
-                            height: "auto",
-                            y: 0,
-                          }}
-                          exit={{
-                            opacity: 0,
-                            height: 0,
-                            y: -8,
-                          }}
+                          initial={{ opacity: 0, height: 0, y: -8 }}
+                          animate={{ opacity: 1, height: "auto", y: 0 }}
+                          exit={{ opacity: 0, height: 0, y: -8 }}
                           className="overflow-hidden"
                         >
                           <div className="rounded-[22px] border border-blue-100 bg-blue-50/70 p-4">
                             <div className="flex gap-3">
                               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
-                                <Store
-                                  size={18}
-                                />
+                                <Store size={18} />
                               </span>
-
                               <div>
                                 <strong className="block text-sm font-black text-slate-900">
                                   {text(
@@ -1218,7 +988,6 @@ export default function OrderPage() {
                                     "الاستلام من المكتب / Stop Desk"
                                   )}
                                 </strong>
-
                                 <p className="mt-1 text-[11px] font-medium leading-5 text-slate-500">
                                   {text(
                                     "Sélectionnez votre commune. Le point de retrait sera déterminé selon les informations de livraison.",
@@ -1229,12 +998,7 @@ export default function OrderPage() {
                             </div>
                           </div>
 
-                          <input
-                            type="hidden"
-                            name="address"
-                            value=""
-                            readOnly
-                          />
+                          <input type="hidden" name="address" value="" readOnly />
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -1242,61 +1006,33 @@ export default function OrderPage() {
                     {/* TARIFS */}
                     <div className="grid gap-3 md:grid-cols-2">
                       <PriceChoice
-                        active={
-                          shippingMode === "home"
-                        }
-                        icon={
-                          <Truck size={18} />
-                        }
-                        label={text(
-                          "Domicile",
-                          "المنزل"
-                        )}
+                        active={shippingMode === "home"}
+                        icon={<Truck size={18} />}
+                        label={text("Domicile", "المنزل")}
                         value={
-                          selectedShipping?.home !=
-                          null
-                            ? formatPrice(
-                                selectedShipping.home
-                              )
+                          selectedShipping?.home != null
+                            ? formatPrice(selectedShipping.home)
                             : "--"
                         }
                         onClick={() => {
-                          setShippingMode(
-                            "home"
-                          );
-                          setDeliveryType(
-                            "home"
-                          );
+                          setShippingMode("home");
+                          setDeliveryType("home");
                           clearFieldError("address");
                         }}
                       />
 
                       <PriceChoice
-                        active={
-                          shippingMode === "desk"
-                        }
-                        icon={
-                          <Store size={18} />
-                        }
-                        label={text(
-                          "Bureau / Stop Desk",
-                          "المكتب / Stop Desk"
-                        )}
+                        active={shippingMode === "desk"}
+                        icon={<Store size={18} />}
+                        label={text("Bureau / Stop Desk", "المكتب / Stop Desk")}
                         value={
-                          selectedShipping?.desk !=
-                          null
-                            ? formatPrice(
-                                selectedShipping.desk
-                              )
+                          selectedShipping?.desk != null
+                            ? formatPrice(selectedShipping.desk)
                             : "--"
                         }
                         onClick={() => {
-                          setShippingMode(
-                            "desk"
-                          );
-                          setDeliveryType(
-                            "home"
-                          );
+                          setShippingMode("desk");
+                          setDeliveryType("home");
                           clearFieldError("address");
                         }}
                       />
@@ -1306,11 +1042,9 @@ export default function OrderPage() {
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500">
                         <Check size={16} />
                       </span>
-
                       <div>
                         <strong className="block text-[11px] font-black">
-                          {selectedShippingFee !=
-                          null
+                          {selectedShippingFee != null
                             ? text(
                                 `Tarif sélectionné : ${formatPrice(
                                   selectedShippingFee
@@ -1324,10 +1058,8 @@ export default function OrderPage() {
                                 "اختر الولاية لعرض السعر."
                               )}
                         </strong>
-
                         <span className="mt-1 block text-[9px] font-medium leading-4 text-slate-400">
-                          {shippingMode ===
-                          "home"
+                          {shippingMode === "home"
                             ? text(
                                 "Livraison à domicile",
                                 "التوصيل إلى المنزل"
@@ -1342,6 +1074,7 @@ export default function OrderPage() {
                   </div>
                 </CheckoutSection>
 
+                {/* 03 — NOTE */}
                 <CheckoutSection
                   number="03"
                   title={text(
@@ -1352,9 +1085,7 @@ export default function OrderPage() {
                     "Ajoutez une indication utile pour votre commande.",
                     "أضف ملاحظة مفيدة بخصوص طلبك."
                   )}
-                  icon={
-                    <PackageCheck size={19} />
-                  }
+                  icon={<PackageCheck size={19} />}
                 >
                   <textarea
                     name="note"
@@ -1363,51 +1094,30 @@ export default function OrderPage() {
                       "Ex. Appelez-moi avant la livraison...",
                       "مثال: اتصلوا بي قبل التوصيل..."
                     )}
-                    className="w-full resize-none rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+                    className="w-full resize-none rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-4 text-base font-semibold text-slate-800 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
                   />
                 </CheckoutSection>
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   <TrustStrip
-                    icon={
-                      <ShieldCheck
-                        size={17}
-                      />
-                    }
-                    title={text(
-                      "Commande protégée",
-                      "طلب محمي"
-                    )}
+                    icon={<ShieldCheck size={17} />}
+                    title={text("Commande protégée", "طلب محمي")}
                     text={text(
                       "Vos informations restent confidentielles.",
                       "تبقى معلوماتك سرية."
                     )}
                   />
-
                   <TrustStrip
-                    icon={
-                      <Headphones
-                        size={17}
-                      />
-                    }
-                    title={text(
-                      "Confirmation",
-                      "التأكيد"
-                    )}
+                    icon={<Headphones size={17} />}
+                    title={text("Confirmation", "التأكيد")}
                     text={text(
                       "Notre équipe vous contacte si nécessaire.",
                       "سيتواصل معك فريقنا عند الحاجة."
                     )}
                   />
-
                   <TrustStrip
-                    icon={
-                      <Truck size={17} />
-                    }
-                    title={text(
-                      "Livraison suivie",
-                      "توصيل متابع"
-                    )}
+                    icon={<Truck size={17} />}
+                    title={text("Livraison suivie", "توصيل متابع")}
                     text={text(
                       "Préparation et expédition contrôlées.",
                       "تجهيز وشحن تحت المتابعة."
@@ -1422,28 +1132,32 @@ export default function OrderPage() {
                 deliveryFee={deliveryFee}
                 total={total}
                 shippingMode={shippingMode}
-                loadingDelivery={
-                  loadingDelivery
-                }
-                selectedShippingFee={
-                  selectedShippingFee
-                }
-                selectedWilayaId={
-                  selectedWilayaId
-                }
-                selectedCommuneId={
-                  selectedCommuneId
-                }
+                loadingDelivery={loadingDelivery}
+                selectedShippingFee={selectedShippingFee}
+                selectedWilayaId={selectedWilayaId}
+                selectedCommuneId={selectedCommuneId}
               />
             </form>
           )}
         </section>
-      </div>
       </main>
 
       <Footer />
 
-      {/* ✅ ALERT DE CONFIRMATION AVANT ENVOI */}
+      {/* ✅ BARRE STICKY MOBILE */}
+      {items.length > 0 && (
+        <MobileOrderBar
+          total={total}
+          canSubmit={canSubmit}
+          loadingDelivery={loadingDelivery}
+          selectedWilayaId={selectedWilayaId}
+          selectedCommuneId={selectedCommuneId}
+          selectedShippingFee={selectedShippingFee}
+          visible={!keyboardVisible}
+        />
+      )}
+
+      {/* ALERT CONFIRMATION */}
       <AnimatePresence>
         {showConfirmDialog && pendingFormData && (
           <OrderConfirmDialog
@@ -1496,10 +1210,7 @@ export default function OrderPage() {
    SEARCHABLE SELECT
 ========================================================= */
 
-type SelectOption = {
-  id: string;
-  name: string;
-};
+type SelectOption = { id: string; name: string };
 
 function SearchableSelect({
   label,
@@ -1527,15 +1238,12 @@ function SearchableSelect({
   hasError?: boolean;
 }) {
   const { text } = useLocale();
-
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [highlighted, setHighlighted] =
-    useState(0);
+  const [highlighted, setHighlighted] = useState(0);
 
   const rootRef = useRef<HTMLDivElement>(null);
-  const searchRef =
-    useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const selected = options.find(
     (item) => String(item.id) === String(value)
@@ -1543,17 +1251,11 @@ function SearchableSelect({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-
     if (!q) return options;
-
     return options.filter((item) => {
       const name = item.name.toLowerCase();
       const id = String(item.id).toLowerCase();
-
-      return (
-        name.includes(q) ||
-        id.includes(q)
-      );
+      return name.includes(q) || id.includes(q);
     });
   }, [options, query]);
 
@@ -1561,32 +1263,18 @@ function SearchableSelect({
     function handleOutside(event: MouseEvent) {
       if (
         rootRef.current &&
-        !rootRef.current.contains(
-          event.target as Node
-        )
+        !rootRef.current.contains(event.target as Node)
       ) {
         setOpen(false);
       }
     }
-
-    document.addEventListener(
-      "mousedown",
-      handleOutside
-    );
-
-    return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleOutside
-      );
-    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
   useEffect(() => {
     if (open) {
-      requestAnimationFrame(() => {
-        searchRef.current?.focus();
-      });
+      requestAnimationFrame(() => searchRef.current?.focus());
     }
   }, [open]);
 
@@ -1596,7 +1284,6 @@ function SearchableSelect({
 
   function openSelect() {
     if (disabled) return;
-
     setOpen(true);
     setQuery("");
     setHighlighted(0);
@@ -1608,61 +1295,35 @@ function SearchableSelect({
     setQuery("");
   }
 
-  function handleSearchKeyDown(
-    event: KeyboardEvent<HTMLInputElement>
-  ) {
+  function handleSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
       setOpen(false);
       return;
     }
-
     if (event.key === "ArrowDown") {
       event.preventDefault();
-
-      setHighlighted((current) =>
-        filtered.length
-          ? Math.min(
-              current + 1,
-              filtered.length - 1
-            )
-          : 0
+      setHighlighted((c) =>
+        filtered.length ? Math.min(c + 1, filtered.length - 1) : 0
       );
-
       return;
     }
-
     if (event.key === "ArrowUp") {
       event.preventDefault();
-
-      setHighlighted((current) =>
-        Math.max(current - 1, 0)
-      );
-
+      setHighlighted((c) => Math.max(c - 1, 0));
       return;
     }
-
     if (event.key === "Enter") {
       event.preventDefault();
-
-      const option =
-        filtered[highlighted];
-
-      if (option) {
-        choose(option);
-      }
+      const option = filtered[highlighted];
+      if (option) choose(option);
     }
   }
 
   return (
-    <div
-      ref={rootRef}
-      className="relative"
-    >
+    <div ref={rootRef} className="relative">
       <label className="mb-2 flex items-center gap-2 text-[10px] font-black text-slate-700">
-        <span className="text-blue-600">
-          {icon}
-        </span>
+        <span className="text-blue-600">{icon}</span>
         {label}
       </label>
 
@@ -1671,7 +1332,7 @@ function SearchableSelect({
         disabled={disabled}
         onClick={openSelect}
         className={[
-          "group flex h-[58px] w-full items-center gap-3 rounded-[12px] border bg-white px-4 text-start transition-all",
+          "group flex h-14 w-full items-center gap-3 rounded-[14px] border bg-white px-4 text-start transition-all sm:h-[58px] sm:rounded-[12px]",
           disabled
             ? "cursor-not-allowed border-slate-200 bg-slate-100 opacity-70"
             : hasError
@@ -1691,31 +1352,20 @@ function SearchableSelect({
                 : "bg-slate-100 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600",
           ].join(" ")}
         >
-          {selected ? (
-            <Check size={16} />
-          ) : (
-            <MapPin size={16} />
-          )}
+          {selected ? <Check size={16} /> : <MapPin size={16} />}
         </span>
 
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12px] font-black text-slate-900">
+          <span className="block truncate text-[13px] font-black text-slate-900 sm:text-[12px]">
             {selected
               ? selected.name
               : loading
-                ? text(
-                    "Chargement...",
-                    "جاري التحميل..."
-                  )
+                ? text("Chargement...", "جاري التحميل...")
                 : placeholder}
           </span>
-
           {selected && (
             <span className="mt-0.5 block text-[8px] font-bold uppercase tracking-[0.08em] text-slate-400">
-              {text(
-                "Sélectionné",
-                "تم الاختيار"
-              )}
+              {text("Sélectionné", "تم الاختيار")}
             </span>
           )}
         </span>
@@ -1732,25 +1382,11 @@ function SearchableSelect({
       <AnimatePresence>
         {open && !disabled && (
           <motion.div
-            initial={{
-              opacity: 0,
-              y: -5,
-              scale: 0.985,
-            }}
-            animate={{
-              opacity: 1,
-              y: 6,
-              scale: 1,
-            }}
-            exit={{
-              opacity: 0,
-              y: -5,
-              scale: 0.985,
-            }}
-            transition={{
-              duration: 0.16,
-            }}
-            className="absolute inset-x-0 top-full z-[80] overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_25px_60px_rgba(15,23,42,0.16)]"
+            initial={{ opacity: 0, y: -5, scale: 0.985 }}
+            animate={{ opacity: 1, y: 6, scale: 1 }}
+            exit={{ opacity: 0, y: -5, scale: 0.985 }}
+            transition={{ duration: 0.16 }}
+            className="absolute inset-x-0 top-full z-[80] overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_25px_60px_rgba(15,23,42,0.16)] sm:rounded-[14px]"
           >
             <div className="border-b border-slate-100 bg-slate-50/90 p-3">
               <div className="relative">
@@ -1758,31 +1394,21 @@ function SearchableSelect({
                   size={15}
                   className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
-
                 <input
                   ref={searchRef}
                   value={query}
-                  onChange={(event) =>
-                    setQuery(
-                      event.target.value
-                    )
-                  }
-                  onKeyDown={
-                    handleSearchKeyDown
-                  }
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                   placeholder={text(
                     "Tapez pour rechercher...",
                     "اكتب للبحث..."
                   )}
-                  className="h-11 w-full rounded-[14px] border border-slate-200 bg-white ps-10 pe-9 text-sm font-semibold text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10"
+                  className="h-11 w-full rounded-[14px] border border-slate-200 bg-white ps-10 pe-9 text-base font-semibold text-slate-800 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 sm:text-sm"
                 />
-
                 {query && (
                   <button
                     type="button"
-                    onClick={() =>
-                      setQuery("")
-                    }
+                    onClick={() => setQuery("")}
                     className="absolute end-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                   >
                     <X size={14} />
@@ -1802,116 +1428,77 @@ function SearchableSelect({
                         `${options.length} بلدية`
                       )}
                 </span>
-
                 <span className="text-[8px] font-bold text-slate-400">
                   ↑ ↓ · Enter
                 </span>
               </div>
             </div>
 
-            <div className="max-h-[330px] overflow-y-auto p-2">
+            <div className="max-h-[45vh] overflow-y-auto overscroll-contain p-2 sm:max-h-[330px]">
               {loading ? (
                 <div className="p-6 text-center">
                   <div className="mx-auto h-7 w-7 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
-
                   <p className="mt-3 text-[10px] font-bold text-slate-400">
-                    {text(
-                      "Chargement...",
-                      "جاري التحميل..."
-                    )}
+                    {text("Chargement...", "جاري التحميل...")}
                   </p>
                 </div>
               ) : filtered.length ? (
-                filtered.map(
-                  (option, index) => {
-                    const active =
-                      String(option.id) ===
-                      String(value);
+                filtered.map((option, index) => {
+                  const active = String(option.id) === String(value);
+                  const highlightedRow = index === highlighted;
 
-                    const highlightedRow =
-                      index === highlighted;
-
-                    return (
-                      <button
-                        key={String(
-                          option.id
-                        )}
-                        type="button"
-                        onMouseEnter={() =>
-                          setHighlighted(
-                            index
-                          )
-                        }
-                        onClick={() =>
-                          choose(option)
-                        }
-                        className={[
-                          "flex w-full items-center gap-3 rounded-[14px] px-3 py-2.5 text-start transition",
-                          highlightedRow
-                            ? "bg-blue-50"
-                            : "hover:bg-slate-50",
-                          active
-                            ? "text-blue-700"
-                            : "text-slate-800",
-                        ].join(" ")}
-                      >
-                        {numberOptions && (
-                          <span
-                            className={[
-                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[9px] font-black",
-                              active
-                                ? "bg-blue-600 text-white"
-                                : "bg-slate-100 text-slate-500",
-                            ].join(" ")}
-                          >
-                            {String(
-                              index + 1
-                            ).padStart(2, "0")}
-                          </span>
-                        )}
-
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[11px] font-black">
-                            {option.name}
-                          </span>
-
-                          <span className="mt-0.5 block text-[8px] font-semibold text-slate-400">
-                            {text(
-                              `Code ${option.id}`,
-                              `رمز ${option.id}`
-                            )}
-                          </span>
+                  return (
+                    <button
+                      key={String(option.id)}
+                      type="button"
+                      onMouseEnter={() => setHighlighted(index)}
+                      onClick={() => choose(option)}
+                      className={[
+                        "flex w-full items-center gap-3 rounded-[14px] px-3 py-3 text-start transition sm:py-2.5",
+                        highlightedRow ? "bg-blue-50" : "hover:bg-slate-50",
+                        active ? "text-blue-700" : "text-slate-800",
+                      ].join(" ")}
+                    >
+                      {numberOptions && (
+                        <span
+                          className={[
+                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[9px] font-black",
+                            active
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-100 text-slate-500",
+                          ].join(" ")}
+                        >
+                          {String(index + 1).padStart(2, "0")}
                         </span>
+                      )}
 
-                        {active && (
-                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white">
-                            <Check
-                              size={13}
-                              strokeWidth={
-                                3
-                              }
-                            />
-                          </span>
-                        )}
-                      </button>
-                    );
-                  }
-                )
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12px] font-black sm:text-[11px]">
+                          {option.name}
+                        </span>
+                        <span className="mt-0.5 block text-[8px] font-semibold text-slate-400">
+                          {text(`Code ${option.id}`, `رمز ${option.id}`)}
+                        </span>
+                      </span>
+
+                      {active && (
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 text-white">
+                          <Check size={13} strokeWidth={3} />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })
               ) : (
                 <div className="px-5 py-8 text-center">
                   <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
                     <Search size={18} />
                   </span>
-
                   <p className="mt-3 text-[11px] font-black text-slate-700">
                     {emptyText}
                   </p>
-
                   <p className="mt-1 text-[9px] font-medium text-slate-400">
-                    {text(
-                      "Essayez un autre mot.",
-                      "جرب كلمة أخرى."
-                    )}
+                    {text("Essayez un autre mot.", "جرب كلمة أخرى.")}
                   </p>
                 </div>
               )}
@@ -1950,7 +1537,7 @@ function DeliveryModeCard({
       whileTap={{ scale: 0.985 }}
       onClick={onClick}
       className={[
-        "relative overflow-hidden rounded-[14px] border p-5 text-start transition-all duration-300",
+        "relative overflow-hidden rounded-[16px] border p-4 text-start transition-all duration-300 sm:rounded-[14px] sm:p-5",
         active
           ? "border-blue-600 bg-[#07111f] text-white shadow-[0_20px_50px_rgba(37,99,235,0.18)]"
           : "border-slate-200 bg-white text-slate-900 hover:border-blue-200 hover:shadow-[0_15px_40px_rgba(15,23,42,0.06)]",
@@ -1963,61 +1550,49 @@ function DeliveryModeCard({
       <div className="relative flex items-start justify-between gap-4">
         <span
           className={[
-            "flex h-12 w-12 items-center justify-center rounded-xl",
-            active
-              ? "bg-blue-500 text-white"
-              : "bg-blue-50 text-blue-600",
+            "flex h-11 w-11 items-center justify-center rounded-xl sm:h-12 sm:w-12",
+            active ? "bg-blue-500 text-white" : "bg-blue-50 text-blue-600",
           ].join(" ")}
         >
           {icon}
         </span>
-
         <span
           className={[
             "rounded-full px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.12em]",
-            active
-              ? "bg-white/10 text-blue-200"
-              : "bg-slate-100 text-slate-500",
+            active ? "bg-white/10 text-blue-200" : "bg-slate-100 text-slate-500",
           ].join(" ")}
         >
           {badge}
         </span>
       </div>
 
-      <strong className="relative mt-5 block text-[14px] font-black tracking-[-0.02em]">
+      <strong className="relative mt-4 block text-[14px] font-black tracking-[-0.02em] sm:mt-5">
         {title}
       </strong>
 
       <span
         className={[
           "relative mt-2 block min-h-[32px] text-[10px] font-medium leading-5",
-          active
-            ? "text-slate-400"
-            : "text-slate-500",
+          active ? "text-slate-400" : "text-slate-500",
         ].join(" ")}
       >
         {description}
       </span>
 
-      <div className="relative mt-5 flex items-end justify-between">
+      <div className="relative mt-4 flex items-end justify-between sm:mt-5">
         <div>
           <span
             className={[
               "block text-[8px] font-black uppercase tracking-[0.12em]",
-              active
-                ? "text-slate-500"
-                : "text-slate-400",
+              active ? "text-slate-500" : "text-slate-400",
             ].join(" ")}
           >
             Tarif
           </span>
-
           <strong
             className={[
               "mt-1 block text-xl font-black tracking-[-0.04em]",
-              active
-                ? "text-white"
-                : "text-slate-950",
+              active ? "text-white" : "text-slate-950",
             ].join(" ")}
           >
             {price}
@@ -2032,10 +1607,7 @@ function DeliveryModeCard({
               : "border-slate-200 text-transparent",
           ].join(" ")}
         >
-          <Check
-            size={15}
-            strokeWidth={3}
-          />
+          <Check size={15} strokeWidth={3} />
         </span>
       </div>
     </motion.button>
@@ -2077,40 +1649,23 @@ function OrderSummary({
 
   return (
     <motion.aside
-      initial={{
-        opacity: 0,
-        x: 20,
-      }}
-      animate={{
-        opacity: 1,
-        x: 0,
-      }}
-      transition={{
-        duration: 0.45,
-      }}
-      className="xl:sticky xl:top-[110px]"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.45 }}
+      className="hidden xl:block xl:sticky xl:top-[110px]"
     >
       <div className="overflow-hidden rounded-[14px] bg-[#0b1220] text-white shadow-[0_25px_70px_rgba(15,23,42,0.18)]">
         <div className="relative overflow-hidden border-b border-white/10 p-6">
           <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full bg-blue-500/10" />
-
           <div className="relative flex items-center justify-between gap-4">
             <div>
               <span className="text-[8px] font-black uppercase tracking-[0.2em] text-blue-300">
-                {text(
-                  "Votre commande",
-                  "طلبك"
-                )}
+                {text("Votre commande", "طلبك")}
               </span>
-
               <h2 className="mt-2 text-2xl font-black tracking-[-0.05em]">
-                {text(
-                  "Récapitulatif",
-                  "ملخص الطلب"
-                )}
+                {text("Récapitulatif", "ملخص الطلب")}
               </h2>
             </div>
-
             <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/[0.07] text-blue-300 ring-1 ring-inset ring-white/10">
               <ReceiptText size={20} />
             </span>
@@ -2132,27 +1687,16 @@ function OrderSummary({
                   className="object-contain p-2"
                 />
               </div>
-
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[11px] font-black text-white">
-                  {item.product.shortName ||
-                    item.product.name}
+                  {item.product.shortName || item.product.name}
                 </p>
-
                 <span className="mt-1 block text-[8px] font-bold text-slate-500">
-                  {text(
-                    "Quantité",
-                    "الكمية"
-                  )}{" "}
-                  {item.quantity}
+                  {text("Quantité", "الكمية")} {item.quantity}
                 </span>
               </div>
-
               <strong className="text-[11px] font-black text-blue-300">
-                {formatPrice(
-                  item.product.price *
-                    item.quantity
-                )}
+                {formatPrice(item.product.price * item.quantity)}
               </strong>
             </div>
           ))}
@@ -2161,35 +1705,20 @@ function OrderSummary({
         <div className="border-t border-white/10 p-6">
           <div className="space-y-4">
             <SummaryLine
-              label={text(
-                "Sous-total",
-                "المجموع الفرعي"
-              )}
+              label={text("Sous-total", "المجموع الفرعي")}
               value={formatPrice(subtotal)}
             />
-
             <SummaryLine
               label={
                 shippingMode === "home"
-                  ? text(
-                      "Livraison à domicile",
-                      "التوصيل إلى المنزل"
-                    )
-                  : text(
-                      "Bureau / Stop Desk",
-                      "المكتب / Stop Desk"
-                    )
+                  ? text("Livraison à domicile", "التوصيل إلى المنزل")
+                  : text("Bureau / Stop Desk", "المكتب / Stop Desk")
               }
               value={
                 deliveryFee
-                  ? formatPrice(
-                      deliveryFee
-                    )
-                  : selectedShippingFee !=
-                      null
-                    ? formatPrice(
-                        selectedShippingFee
-                      )
+                  ? formatPrice(deliveryFee)
+                  : selectedShippingFee != null
+                    ? formatPrice(selectedShippingFee)
                     : "--"
               }
             />
@@ -2200,30 +1729,16 @@ function OrderSummary({
           <div className="flex items-end justify-between gap-4">
             <div>
               <span className="block text-[8px] font-black uppercase tracking-[0.16em] text-slate-500">
-                {text(
-                  "Total à payer",
-                  "الإجمالي للدفع"
-                )}
+                {text("Total à payer", "الإجمالي للدفع")}
               </span>
-
               <span className="mt-1 block text-[8px] font-bold text-slate-600">
-                {text(
-                  "Paiement à la livraison",
-                  "الدفع عند الاستلام"
-                )}
+                {text("Paiement à la livraison", "الدفع عند الاستلام")}
               </span>
             </div>
-
             <motion.strong
               key={total}
-              initial={{
-                opacity: 0.3,
-                y: -4,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
+              initial={{ opacity: 0.3, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
               className="text-3xl font-black tracking-[-0.055em] text-white"
             >
               {formatPrice(total)}
@@ -2231,9 +1746,7 @@ function OrderSummary({
           </div>
 
           <motion.button
-            whileTap={{
-              scale: 0.985,
-            }}
+            whileTap={{ scale: 0.985 }}
             type="submit"
             disabled={!canSubmit}
             className={[
@@ -2244,31 +1757,14 @@ function OrderSummary({
             ].join(" ")}
           >
             {loadingDelivery
-              ? text(
-                  "Chargement...",
-                  "جاري التحميل..."
-                )
+              ? text("Chargement...", "جاري التحميل...")
               : !selectedWilayaId
-                ? text(
-                    "Choisir une wilaya",
-                    "اختر الولاية"
-                  )
+                ? text("Choisir une wilaya", "اختر الولاية")
                 : !selectedCommuneId
-                  ? text(
-                      "Choisir une commune",
-                      "اختر البلدية"
-                    )
-                  : selectedShippingFee ==
-                      null
-                    ? text(
-                        "Tarif indisponible",
-                        "السعر غير متوفر"
-                      )
-                    : text(
-                        "Confirmer la commande",
-                        "تأكيد الطلب"
-                      )}
-
+                  ? text("Choisir une commune", "اختر البلدية")
+                  : selectedShippingFee == null
+                    ? text("Tarif indisponible", "السعر غير متوفر")
+                    : text("Confirmer la commande", "تأكيد الطلب")}
             <ArrowRight
               size={15}
               className="rtl-flip transition-transform group-hover:translate-x-1"
@@ -2276,11 +1772,7 @@ function OrderSummary({
           </motion.button>
 
           <div className="mt-5 flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-[0.1em] text-slate-500">
-            <ShieldCheck
-              size={13}
-              className="text-emerald-400"
-            />
-
+            <ShieldCheck size={13} className="text-emerald-400" />
             {text(
               "Paiement à la livraison sécurisé",
               "الدفع عند الاستلام"
@@ -2313,45 +1805,28 @@ function CheckoutSection({
 
   return (
     <motion.section
-      initial={{
-        opacity: 0,
-        y: 15,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
-      transition={{
-        duration: 0.4,
-      }}
-      className="overflow-visible rounded-[12px] border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.045)]"
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="overflow-visible rounded-[16px] border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.045)] sm:rounded-[12px]"
     >
-      <div className="flex items-start gap-4 border-b border-slate-100 bg-[#fafbfc] px-5 py-5 sm:px-7">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#111827] text-white">
+      <div className="flex items-start gap-3 border-b border-slate-100 bg-[#fafbfc] px-4 py-4 sm:gap-4 sm:px-7 sm:py-5">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#111827] text-white sm:h-11 sm:w-11">
           {icon}
         </span>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-[8px] font-black uppercase tracking-[0.16em] text-blue-600">
-              {text(
-                "Étape",
-                "الخطوة"
-              )}{" "}
-              {number}
+              {text("Étape", "الخطوة")} {number}
             </span>
-
             <span className="h-1 w-1 rounded-full bg-slate-300" />
-
             <span className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">
-              {text(
-                "Informations",
-                "المعلومات"
-              )}
+              {text("Informations", "المعلومات")}
             </span>
           </div>
 
-          <h2 className="mt-1.5 text-lg font-black tracking-[-0.035em] text-slate-950 sm:text-xl">
+          <h2 className="mt-1.5 text-base font-black tracking-[-0.035em] text-slate-950 sm:text-xl">
             {title}
           </h2>
 
@@ -2361,15 +1836,13 @@ function CheckoutSection({
         </div>
       </div>
 
-      <div className="p-5 sm:p-7 lg:p-8">
-        {children}
-      </div>
+      <div className="p-4 sm:p-7 lg:p-8">{children}</div>
     </motion.section>
   );
 }
 
 const inputClass =
-  "h-12 w-full rounded-[12px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-[#2563eb] focus:ring-4 focus:ring-blue-500/10 data-[error=true]:border-red-400 data-[error=true]:bg-red-50/40 data-[error=true]:focus:ring-red-500/10";
+  "h-14 w-full rounded-[14px] border border-slate-200 bg-white px-4 text-base font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-[#2563eb] focus:ring-4 focus:ring-blue-500/10 data-[error=true]:border-red-400 data-[error=true]:bg-red-50/40 data-[error=true]:focus:ring-red-500/10 sm:h-12 sm:rounded-[12px] sm:text-sm";
 
 function Field({
   label,
@@ -2390,15 +1863,11 @@ function Field({
           error ? "text-red-600" : "text-slate-600",
         ].join(" ")}
       >
-        <span className={error ? "text-red-500" : "text-blue-600"}>
-          {icon}
-        </span>
+        <span className={error ? "text-red-500" : "text-blue-600"}>{icon}</span>
         {label}
         {error && <span className="text-red-500">*</span>}
       </span>
-
       {children}
-
       {error && <FieldError message={error} />}
     </label>
   );
@@ -2435,7 +1904,7 @@ function PriceChoice({
       type="button"
       onClick={onClick}
       className={[
-        "flex items-center justify-between rounded-[12px] border px-4 py-3.5 text-start transition-all",
+        "flex items-center justify-between rounded-[14px] border px-4 py-3.5 text-start transition-all sm:rounded-[12px]",
         active
           ? "border-blue-200 bg-blue-50"
           : "border-slate-200 bg-white hover:border-blue-200 hover:bg-slate-50",
@@ -2445,25 +1914,20 @@ function PriceChoice({
         <span
           className={[
             "flex h-9 w-9 items-center justify-center rounded-xl",
-            active
-              ? "bg-blue-600 text-white"
-              : "bg-slate-100 text-slate-500",
+            active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500",
           ].join(" ")}
         >
           {icon}
         </span>
-
         <span>
           <span className="block text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">
             {label}
           </span>
-
           <strong className="mt-1 block text-sm font-black text-slate-900">
             {value}
           </strong>
         </span>
       </span>
-
       <span
         className={[
           "flex h-7 w-7 items-center justify-center rounded-full border",
@@ -2472,31 +1936,17 @@ function PriceChoice({
             : "border-slate-200 text-transparent",
         ].join(" ")}
       >
-        <Check
-          size={13}
-          strokeWidth={3}
-        />
+        <Check size={13} strokeWidth={3} />
       </span>
     </button>
   );
 }
 
-function SummaryLine({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function SummaryLine({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-[10px] font-semibold text-slate-500">
-        {label}
-      </span>
-
-      <strong className="text-[11px] font-black text-slate-200">
-        {value}
-      </strong>
+      <span className="text-[10px] font-semibold text-slate-500">{label}</span>
+      <strong className="text-[11px] font-black text-slate-200">{value}</strong>
     </div>
   );
 }
@@ -2511,15 +1961,13 @@ function TrustStrip({
   text: string;
 }) {
   return (
-    <div className="rounded-[12px] border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-sm sm:rounded-[12px]">
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
         {icon}
       </span>
-
       <strong className="mt-3 block text-[10px] font-black text-slate-900">
         {title}
       </strong>
-
       <span className="mt-1 block text-[8px] font-medium leading-4 text-slate-400">
         {text}
       </span>
@@ -2527,19 +1975,12 @@ function TrustStrip({
   );
 }
 
-function MiniDarkStat({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function MiniDarkStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[15px] border border-white/10 bg-white/[0.04] p-3">
       <span className="block text-[7px] font-black uppercase tracking-[0.12em] text-slate-500">
         {label}
       </span>
-
       <strong className="mt-1 block truncate text-[10px] font-black text-white">
         {value}
       </strong>
@@ -2550,28 +1991,19 @@ function MiniDarkStat({
 function EmptyOrder() {
   return (
     <motion.div
-      initial={{
-        opacity: 0,
-        y: 16,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
       className="mx-auto max-w-xl rounded-[30px] border border-slate-200 bg-white p-8 text-center shadow-[0_20px_60px_rgba(15,23,42,0.07)] sm:p-12"
     >
       <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-slate-950 text-blue-300">
         <ShoppingBag size={25} />
       </span>
-
       <h2 className="mt-5 text-2xl font-black tracking-[-0.04em]">
         Votre panier est vide
       </h2>
-
       <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
         Ajoutez quelques produits avant de passer à la finalisation.
       </p>
-
       <Link
         href="/articles"
         className="mt-6 inline-flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-5 text-[10px] font-black text-white shadow-lg shadow-blue-600/20"
@@ -2594,14 +2026,13 @@ function OrderSkeleton() {
           />
         ))}
       </div>
-
       <div className="h-[650px] animate-pulse rounded-[30px] bg-slate-900" />
     </div>
   );
 }
 
 /* =========================================================
-   ✅ ALERT DE CONFIRMATION (avant envoi)
+   ALERT DE CONFIRMATION
 ========================================================= */
 
 function OrderConfirmDialog({
@@ -2636,7 +2067,7 @@ function OrderConfirmDialog({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[250] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[250] flex items-center justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -2651,10 +2082,9 @@ function OrderConfirmDialog({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 24, scale: 0.96 }}
         transition={{ type: "spring", stiffness: 260, damping: 24 }}
-        className="max-h-[92vh] w-full max-w-lg overflow-hidden rounded-[28px] bg-white shadow-[0_35px_100px_rgba(15,23,42,0.35)]"
+        className="flex max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-none bg-white shadow-[0_35px_100px_rgba(15,23,42,0.35)] sm:max-h-[92vh] sm:rounded-[28px]"
       >
-        {/* En-tête */}
-        <div className="relative overflow-hidden bg-[#07111f] px-5 py-5 text-white sm:px-6">
+        <div className="relative shrink-0 overflow-hidden bg-[#07111f] px-5 py-5 text-white sm:px-6">
           <div className="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-blue-500/15" />
           <div className="relative flex items-start gap-4">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-500 text-white shadow-lg shadow-blue-500/20">
@@ -2680,23 +2110,15 @@ function OrderConfirmDialog({
           </div>
         </div>
 
-        {/* Contenu */}
-        <div className="max-h-[60vh] overflow-y-auto p-5 sm:p-6">
-          {/* Infos client */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
           <div className="grid gap-3 sm:grid-cols-2">
-            <SuccessDetail
-              label={text("Client", "العميل")}
-              value={customerName}
-            />
+            <SuccessDetail label={text("Client", "العميل")} value={customerName} />
             <SuccessDetail
               label={text("Téléphone", "الهاتف")}
               value={phone}
             />
             {wilaya && (
-              <SuccessDetail
-                label={text("Wilaya", "الولاية")}
-                value={wilaya}
-              />
+              <SuccessDetail label={text("Wilaya", "الولاية")} value={wilaya} />
             )}
             {commune && (
               <SuccessDetail
@@ -2718,7 +2140,6 @@ function OrderConfirmDialog({
             />
           </div>
 
-          {/* Produits */}
           <div className="mt-4 space-y-2">
             {items.map((item) => (
               <div
@@ -2749,7 +2170,6 @@ function OrderConfirmDialog({
             ))}
           </div>
 
-          {/* Totaux */}
           <div className="mt-4 rounded-2xl bg-slate-950 p-4 text-white">
             <div className="flex items-center justify-between gap-4">
               <span className="text-[10px] font-bold text-slate-400">
@@ -2779,8 +2199,7 @@ function OrderConfirmDialog({
           </div>
         </div>
 
-        {/* Boutons */}
-        <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 sm:flex-row">
+        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 p-4 pb-[max(env(safe-area-inset-bottom),16px)] sm:flex-row sm:pb-4">
           <button
             type="button"
             disabled={sending}
@@ -2790,7 +2209,6 @@ function OrderConfirmDialog({
             <X size={15} />
             {text("Annuler", "إلغاء")}
           </button>
-
           <button
             type="button"
             disabled={sending}
@@ -2833,7 +2251,7 @@ function OrderConfirmationAlert({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:p-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -2848,9 +2266,9 @@ function OrderConfirmationAlert({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: 24, scale: 0.96 }}
         transition={{ type: "spring", stiffness: 260, damping: 24 }}
-        className="max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-[28px] bg-white shadow-[0_35px_100px_rgba(15,23,42,0.35)]"
+        className="flex max-h-[100dvh] w-full max-w-2xl flex-col overflow-hidden rounded-none bg-white shadow-[0_35px_100px_rgba(15,23,42,0.35)] sm:max-h-[92vh] sm:rounded-[28px]"
       >
-        <div className="relative overflow-hidden bg-[#07111f] px-5 py-5 text-white sm:px-7 sm:py-6">
+        <div className="relative shrink-0 overflow-hidden bg-[#07111f] px-5 py-5 text-white sm:px-7 sm:py-6">
           <div className="absolute -right-12 -top-16 h-40 w-40 rounded-full bg-blue-500/15" />
           <div className="relative flex items-start gap-4">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">
@@ -2860,25 +2278,45 @@ function OrderConfirmationAlert({
               <p className="text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">
                 {text("Commande confirmée", "تم تأكيد الطلب")}
               </p>
-              <h2 className="mt-1 text-xl font-black sm:text-2xl">
-                {text("Votre commande est enregistrée", "تم تسجيل طلبك بنجاح")}
+              <h2 className="mt-1 text-lg font-black sm:text-2xl">
+                {text(
+                  "Votre commande est enregistrée",
+                  "تم تسجيل طلبك بنجاح"
+                )}
               </h2>
               <p className="mt-1 text-[10px] font-semibold text-slate-400">
                 {text("Référence", "رقم الطلب")} : {order.orderNumber}
               </p>
             </div>
-            <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-slate-300 transition hover:bg-white/15 hover:text-white">
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Fermer"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-slate-300 transition hover:bg-white/15 hover:text-white"
+            >
               <X size={17} />
             </button>
           </div>
         </div>
 
-        <div className="max-h-[65vh] overflow-y-auto p-5 sm:p-7">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-5 sm:p-7">
           <div className="grid gap-3 sm:grid-cols-2">
-            <SuccessDetail label={text("Client", "العميل")} value={order.customerName} />
-            <SuccessDetail label={text("Téléphone", "الهاتف")} value={order.phone} />
-            <SuccessDetail label={text("Wilaya", "الولاية")} value={order.wilaya || "—"} />
-            <SuccessDetail label={text("Commune", "البلدية")} value={order.commune || "—"} />
+            <SuccessDetail
+              label={text("Client", "العميل")}
+              value={order.customerName}
+            />
+            <SuccessDetail
+              label={text("Téléphone", "الهاتف")}
+              value={order.phone}
+            />
+            <SuccessDetail
+              label={text("Wilaya", "الولاية")}
+              value={order.wilaya || "—"}
+            />
+            <SuccessDetail
+              label={text("Commune", "البلدية")}
+              value={order.commune || "—"}
+            />
           </div>
 
           <div className="mt-5">
@@ -2887,15 +2325,25 @@ function OrderConfirmationAlert({
                 {text("Produits commandés", "المنتجات المطلوبة")}
               </h3>
               <span className="rounded-full bg-blue-50 px-3 py-1.5 text-[9px] font-black text-blue-600">
-                {order.items.reduce((sum, item) => sum + item.quantity, 0)} {text("article(s)", "منتج")}
+                {order.items.reduce((sum, item) => sum + item.quantity, 0)}{" "}
+                {text("article(s)", "منتج")}
               </span>
             </div>
 
             <div className="mt-3 space-y-2">
               {order.items.map((item) => (
-                <div key={String(item.product.id)} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                <div
+                  key={String(item.product.id)}
+                  className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3"
+                >
                   <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-white">
-                    <Image src={item.product.image} alt={item.product.name} fill sizes="56px" className="object-contain p-1.5" />
+                    <Image
+                      src={item.product.image}
+                      alt={item.product.name}
+                      fill
+                      sizes="56px"
+                      className="object-contain p-1.5"
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-2 text-[11px] font-black text-slate-900">
@@ -2906,7 +2354,10 @@ function OrderConfirmationAlert({
                     </p>
                   </div>
                   <strong className="text-[11px] font-black text-slate-950">
-                    {formatPrice(Number(item.product.price || 0) * item.quantity)} DZD
+                    {formatPrice(
+                      Number(item.product.price || 0) * item.quantity
+                    )}{" "}
+                    DZD
                   </strong>
                 </div>
               ))}
@@ -2915,20 +2366,34 @@ function OrderConfirmationAlert({
 
           <div className="mt-5 rounded-2xl bg-slate-950 p-4 text-white">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-[10px] font-bold text-slate-400">{text("Sous-total", "المجموع الفرعي")}</span>
-              <strong className="text-[11px] font-black">{formatPrice(order.subtotal)} DZD</strong>
+              <span className="text-[10px] font-bold text-slate-400">
+                {text("Sous-total", "المجموع الفرعي")}
+              </span>
+              <strong className="text-[11px] font-black">
+                {formatPrice(order.subtotal)} DZD
+              </strong>
             </div>
             <div className="mt-2 flex items-center justify-between gap-4">
-              <span className="text-[10px] font-bold text-slate-400">{text("Livraison", "التوصيل")}</span>
-              <strong className="text-[11px] font-black">{formatPrice(order.shippingFee)} DZD</strong>
+              <span className="text-[10px] font-bold text-slate-400">
+                {text("Livraison", "التوصيل")}
+              </span>
+              <strong className="text-[11px] font-black">
+                {formatPrice(order.shippingFee)} DZD
+              </strong>
             </div>
             <div className="my-3 border-t border-white/10" />
             <div className="flex items-end justify-between gap-4">
               <div>
-                <span className="block text-[8px] font-black uppercase tracking-[0.14em] text-slate-500">{text("Total à payer", "الإجمالي للدفع")}</span>
-                <span className="mt-1 block text-[8px] font-bold text-slate-500">{text("Paiement à la livraison", "الدفع عند الاستلام")}</span>
+                <span className="block text-[8px] font-black uppercase tracking-[0.14em] text-slate-500">
+                  {text("Total à payer", "الإجمالي للدفع")}
+                </span>
+                <span className="mt-1 block text-[8px] font-bold text-slate-500">
+                  {text("Paiement à la livraison", "الدفع عند الاستلام")}
+                </span>
               </div>
-              <strong className="text-2xl font-black text-white">{formatPrice(order.total)} DZD</strong>
+              <strong className="text-2xl font-black text-white">
+                {formatPrice(order.total)} DZD
+              </strong>
             </div>
           </div>
 
@@ -2938,7 +2403,10 @@ function OrderConfirmationAlert({
             className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-[10px] font-black uppercase tracking-[0.08em] text-white shadow-[0_12px_30px_rgba(37,99,235,0.25)] transition hover:bg-blue-500"
           >
             <Check size={15} strokeWidth={3} />
-            {text("Voir le récapitulatif complet", "عرض ملخص الطلب الكامل")}
+            {text(
+              "Voir le récapitulatif complet",
+              "عرض ملخص الطلب الكامل"
+            )}
           </button>
         </div>
       </motion.div>
@@ -2946,48 +2414,32 @@ function OrderConfirmationAlert({
   );
 }
 
-function SuccessDetail({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function SuccessDetail({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[14px] bg-white p-3 ring-1 ring-inset ring-slate-200">
-      <span className="block text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">{label}</span>
-      <span className="mt-1 block truncate text-[10px] font-black text-slate-800">{value || "—"}</span>
+      <span className="block text-[8px] font-black uppercase tracking-[0.12em] text-slate-400">
+        {label}
+      </span>
+      <span className="mt-1 block truncate text-[10px] font-black text-slate-800">
+        {value || "—"}
+      </span>
     </div>
   );
 }
 
-function SuccessPage({
-  order,
-}: {
-  order: SubmittedOrder;
-}) {
+function SuccessPage({ order }: { order: SubmittedOrder }) {
   const { text } = useLocale();
 
   return (
     <div className="min-h-screen bg-[#eef3f9] text-slate-950">
-      <Suspense
-        fallback={
-          <div className="h-20 w-full bg-white" />
-        }
-      >
+      <Suspense fallback={<div className="h-20 w-full bg-white" />}>
         <Header />
       </Suspense>
 
       <main>
         <CheckoutHero
-          eyebrow={text(
-            "Commande validée",
-            "تم تأكيد الطلب"
-          )}
-          title={text(
-            "C'est confirmé.",
-            "تم التأكيد."
-          )}
+          eyebrow={text("Commande validée", "تم تأكيد الطلب")}
+          title={text("C'est confirmé.", "تم التأكيد.")}
           description={text(
             "Votre commande a bien été enregistrée. Conservez votre référence pour toute demande liée au suivi.",
             "تم تسجيل طلبك بنجاح. احتفظ برقم الطلب للاستعلام والمتابعة."
@@ -2995,27 +2447,16 @@ function SuccessPage({
           icon={<CheckCircle2 size={26} />}
           step={3}
           backHref="/articles"
-          backLabel={text(
-            "Retour au catalogue",
-            "العودة إلى المتجر"
-          )}
-          badge={text(
-            "Commande enregistrée",
-            "تم تسجيل الطلب"
-          )}
+          backLabel={text("Retour au catalogue", "العودة إلى المتجر")}
+          badge={text("Commande enregistrée", "تم تسجيل الطلب")}
           rightContent={
             <div className="relative text-center">
               <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300 ring-1 ring-inset ring-emerald-400/20">
                 <CheckCircle2 size={25} />
               </span>
-
               <span className="mt-4 block text-[8px] font-black uppercase tracking-[0.18em] text-slate-500">
-                {text(
-                  "Référence commande",
-                  "رقم الطلب"
-                )}
+                {text("Référence commande", "رقم الطلب")}
               </span>
-
               <strong className="mt-1 block text-lg font-black tracking-[0.06em] text-white">
                 {order.orderNumber}
               </strong>
@@ -3026,29 +2467,17 @@ function SuccessPage({
         <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
           <div className="grid gap-6 lg:grid-cols-[1fr_330px]">
             <motion.div
-              initial={{
-                opacity: 0,
-                y: 18,
-              }}
-              animate={{
-                opacity: 1,
-                y: 0,
-              }}
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
               className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_rgba(15,23,42,0.07)] sm:p-8"
             >
               <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.12em] text-emerald-600">
                 <CheckCircle2 size={12} />
-                {text(
-                  "Validation réussie",
-                  "تم التأكيد بنجاح"
-                )}
+                {text("Validation réussie", "تم التأكيد بنجاح")}
               </span>
 
               <h2 className="mt-5 text-2xl font-black tracking-[-0.04em] sm:text-3xl">
-                {text(
-                  "Merci pour votre confiance.",
-                  "شكراً لثقتكم."
-                )}
+                {text("Merci pour votre confiance.", "شكراً لثقتكم.")}
               </h2>
 
               <p className="mt-3 max-w-xl text-sm font-medium leading-7 text-slate-500">
@@ -3061,42 +2490,18 @@ function SuccessPage({
               <div className="mt-7 grid gap-3 sm:grid-cols-3">
                 <SuccessInfo
                   icon={<Phone size={17} />}
-                  title={text(
-                    "Confirmation",
-                    "التأكيد"
-                  )}
-                  text={text(
-                    "Par téléphone",
-                    "عن طريق الهاتف"
-                  )}
+                  title={text("Confirmation", "التأكيد")}
+                  text={text("Par téléphone", "عن طريق الهاتف")}
                 />
-
                 <SuccessInfo
-                  icon={
-                    <PackageCheck
-                      size={17}
-                    />
-                  }
-                  title={text(
-                    "Préparation",
-                    "التجهيز"
-                  )}
-                  text={text(
-                    "Produit contrôlé",
-                    "منتج مفحوص"
-                  )}
+                  icon={<PackageCheck size={17} />}
+                  title={text("Préparation", "التجهيز")}
+                  text={text("Produit contrôlé", "منتج مفحوص")}
                 />
-
                 <SuccessInfo
                   icon={<Truck size={17} />}
-                  title={text(
-                    "Livraison",
-                    "التوصيل"
-                  )}
-                  text={text(
-                    "Suivi client",
-                    "متابعة العميل"
-                  )}
+                  title={text("Livraison", "التوصيل")}
+                  text={text("Suivi client", "متابعة العميل")}
                 />
               </div>
 
@@ -3111,13 +2516,16 @@ function SuccessPage({
                     </h3>
                   </div>
                   <span className="rounded-full bg-white px-3 py-1.5 text-[9px] font-black text-slate-500 shadow-sm">
-                    {order.items.length} {text("produit(s)", "منتج") }
+                    {order.items.length} {text("produit(s)", "منتج")}
                   </span>
                 </div>
 
                 <div className="mt-4 space-y-2">
                   {order.items.map((item) => (
-                    <div key={String(item.product.id)} className="flex items-center gap-3 rounded-[16px] bg-white p-3 ring-1 ring-inset ring-slate-200">
+                    <div
+                      key={String(item.product.id)}
+                      className="flex items-center gap-3 rounded-[16px] bg-white p-3 ring-1 ring-inset ring-slate-200"
+                    >
                       <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-50">
                         <Image
                           src={item.product.image}
@@ -3136,17 +2544,32 @@ function SuccessPage({
                         </p>
                       </div>
                       <strong className="text-[11px] font-black text-blue-600">
-                        {formatPrice(Number(item.product.price || 0) * item.quantity)} DZD
+                        {formatPrice(
+                          Number(item.product.price || 0) * item.quantity
+                        )}{" "}
+                        DZD
                       </strong>
                     </div>
                   ))}
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <SuccessDetail label={text("Client", "العميل")} value={order.customerName} />
-                  <SuccessDetail label={text("Téléphone", "الهاتف")} value={order.phone} />
-                  <SuccessDetail label={text("Wilaya", "الولاية")} value={order.wilaya || text("—", "—")} />
-                  <SuccessDetail label={text("Commune", "البلدية")} value={order.commune || text("—", "—")} />
+                  <SuccessDetail
+                    label={text("Client", "العميل")}
+                    value={order.customerName}
+                  />
+                  <SuccessDetail
+                    label={text("Téléphone", "الهاتف")}
+                    value={order.phone}
+                  />
+                  <SuccessDetail
+                    label={text("Wilaya", "الولاية")}
+                    value={order.wilaya || text("—", "—")}
+                  />
+                  <SuccessDetail
+                    label={text("Commune", "البلدية")}
+                    value={order.commune || text("—", "—")}
+                  />
                   <SuccessDetail
                     label={text("Livraison", "التوصيل")}
                     value={
@@ -3198,63 +2621,37 @@ function SuccessPage({
                   href="/articles"
                   className="group flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-[10px] font-black text-white transition hover:bg-blue-600"
                 >
-                  {text(
-                    "Continuer mes achats",
-                    "متابعة التسوق"
-                  )}
-
+                  {text("Continuer mes achats", "متابعة التسوق")}
                   <ArrowRight
                     size={14}
                     className="rtl-flip transition-transform group-hover:translate-x-1"
                   />
                 </Link>
-
                 <Link
                   href="/"
                   className="flex h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-[10px] font-black text-slate-700 transition hover:bg-slate-50"
                 >
-                  {text(
-                    "Retour à l'accueil",
-                    "العودة إلى الرئيسية"
-                  )}
+                  {text("Retour à l'accueil", "العودة إلى الرئيسية")}
                 </Link>
               </div>
             </motion.div>
 
             <div className="rounded-[30px] bg-[#07111f] p-6 text-white shadow-[0_25px_70px_rgba(15,23,42,0.16)]">
-              <ReceiptText
-                size={22}
-                className="text-blue-300"
-              />
-
+              <ReceiptText size={22} className="text-blue-300" />
               <span className="mt-5 block text-[8px] font-black uppercase tracking-[0.17em] text-slate-500">
-                {text(
-                  "Votre référence",
-                  "رقم طلبك"
-                )}
+                {text("Votre référence", "رقم طلبك")}
               </span>
-
               <strong className="mt-2 block break-all text-xl font-black tracking-[0.05em]">
                 {order.orderNumber}
               </strong>
-
               <div className="my-5 border-t border-dashed border-white/10" />
-
               <div className="space-y-3 text-[9px] font-bold text-slate-400">
                 <SuccessCheck>
-                  {text(
-                    "Commande enregistrée",
-                    "تم تسجيل الطلب"
-                  )}
+                  {text("Commande enregistrée", "تم تسجيل الطلب")}
                 </SuccessCheck>
-
                 <SuccessCheck>
-                  {text(
-                    "Paiement à la livraison",
-                    "الدفع عند الاستلام"
-                  )}
+                  {text("Paiement à la livraison", "الدفع عند الاستلام")}
                 </SuccessCheck>
-
                 <SuccessCheck>
                   {text(
                     "Vérification avant expédition",
@@ -3272,17 +2669,10 @@ function SuccessPage({
   );
 }
 
-function SuccessCheck({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function SuccessCheck({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <Check
-        size={12}
-        className="text-emerald-400"
-      />
+      <Check size={12} className="text-emerald-400" />
       {children}
     </div>
   );
@@ -3302,11 +2692,9 @@ function SuccessInfo({
       <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm">
         {icon}
       </span>
-
       <strong className="mt-3 block text-[10px] font-black text-slate-900">
         {title}
       </strong>
-
       <span className="mt-1 block text-[8px] font-semibold text-slate-400">
         {text}
       </span>
