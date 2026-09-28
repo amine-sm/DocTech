@@ -58,6 +58,7 @@ export default function MobileOrderBar({
             <motion.button
               whileTap={{ scale: 0.96 }}
               type="submit"
+              form="order-form"
               disabled={!canSubmit}
               className={[
                 "flex h-12 min-w-[160px] items-center justify-center gap-2 rounded-2xl px-4 text-[10px] font-black uppercase tracking-[0.08em] text-white transition",

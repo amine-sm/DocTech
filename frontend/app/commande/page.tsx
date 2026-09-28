@@ -13,7 +13,6 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
-  CreditCard,
   Headphones,
   Home,
   MapPin,
@@ -668,6 +667,7 @@ export default function OrderPage() {
             <EmptyOrder />
           ) : (
             <form
+              id="order-form"
               onSubmit={submitOrder}
               noValidate
               className="grid items-start gap-5 sm:gap-7 xl:grid-cols-[minmax(0,1fr)_420px]"
@@ -998,7 +998,12 @@ export default function OrderPage() {
                             </div>
                           </div>
 
-                          <input type="hidden" name="address" value="" readOnly />
+                          <input
+                            type="hidden"
+                            name="address"
+                            value=""
+                            readOnly
+                          />
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -1144,7 +1149,7 @@ export default function OrderPage() {
 
       <Footer />
 
-      {/* ✅ BARRE STICKY MOBILE */}
+      {/* ✅ BARRE STICKY MOBILE — connectée au form via form="order-form" */}
       {items.length > 0 && (
         <MobileOrderBar
           total={total}
@@ -1245,9 +1250,7 @@ function SearchableSelect({
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const selected = options.find(
-    (item) => String(item.id) === String(value)
-  );
+  const selected = options.find((item) => String(item.id) === String(value));
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -1261,10 +1264,7 @@ function SearchableSelect({
 
   useEffect(() => {
     function handleOutside(event: MouseEvent) {
-      if (
-        rootRef.current &&
-        !rootRef.current.contains(event.target as Node)
-      ) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
         setOpen(false);
       }
     }
@@ -2113,10 +2113,7 @@ function OrderConfirmDialog({
         <div className="flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6">
           <div className="grid gap-3 sm:grid-cols-2">
             <SuccessDetail label={text("Client", "العميل")} value={customerName} />
-            <SuccessDetail
-              label={text("Téléphone", "الهاتف")}
-              value={phone}
-            />
+            <SuccessDetail label={text("Téléphone", "الهاتف")} value={phone} />
             {wilaya && (
               <SuccessDetail label={text("Wilaya", "الولاية")} value={wilaya} />
             )}
