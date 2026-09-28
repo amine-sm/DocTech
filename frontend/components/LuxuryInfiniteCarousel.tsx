@@ -21,13 +21,17 @@ type LuxuryInfiniteCarouselProps = {
   showArrows?: boolean;
 };
 
-const RESUME_DELAY = 2200;
-const DRAG_THRESHOLD = 8;
-const HORIZONTAL_LOCK_RATIO = 1.12;
-const ENTER_RISE_DISTANCE = 110;
-const ENTER_RISE_DURATION = 760;
+/* =========================================================
+   CONSTANTES
+========================================================= */
+
+const RESUME_DELAY = 500;           // ✅ réduit (était 1800)
+const DRAG_THRESHOLD = 8;            // seuil horizontal avant drag
+const VERTICAL_LOCK_RATIO = 1.1;     // si vertical dépasse horizontal ×1.1 → scroll page
+const ENTER_RISE_DISTANCE = 90;
+const ENTER_RISE_DURATION = 700;
 const ENTER_RISE_SCALE = 0.97;
-const GROUP_COPIES = 5;
+const GROUP_COPIES = 4;
 
 export default function LuxuryInfiniteCarousel({
   children,
@@ -45,8 +49,6 @@ export default function LuxuryInfiniteCarousel({
   const trackRef = useRef<HTMLDivElement>(null);
   const firstGroupRef = useRef<HTMLDivElement>(null);
 
-  // Position virtuelle non bornée. On ne la normalise jamais pendant un clic.
-  // C'est ce qui permet d'empiler plusieurs clics sans perdre de déplacement.
   const positionRef = useRef(0);
   const targetRef = useRef(0);
   const cycleWidthRef = useRef(0);
@@ -56,7 +58,6 @@ export default function LuxuryInfiniteCarousel({
   const lastAutoFrameRef = useRef(0);
   const lastManualFrameRef = useRef(0);
 
-  const hoverRef = useRef(false);
   const pointerDownRef = useRef(false);
   const draggingRef = useRef(false);
   const pointerIdRef = useRef<number | null>(null);
@@ -72,12 +73,14 @@ export default function LuxuryInfiniteCarousel({
     resumeAtRef.current = performance.now() + RESUME_DELAY;
   }, []);
 
+  /**
+   * Normalise la position de rendu dans [-cycle, 0].
+   * positionRef garde la vraie position non-bornée.
+   */
   const getRenderedOffset = useCallback((position: number) => {
     const cycle = cycleWidthRef.current;
     if (!cycle) return position;
 
-    // Garde toujours le rendu dans [-cycle, 0].
-    // La position logique reste, elle, complètement libre.
     let normalized = position % cycle;
     if (normalized > 0) normalized -= cycle;
     return normalized;
@@ -104,7 +107,6 @@ export default function LuxuryInfiniteCarousel({
     const firstItem = firstGroupRef.current?.querySelector<HTMLElement>(
       "[data-luxury-carousel-item]",
     );
-
     if (!firstItem) return 280 + gap;
     return firstItem.getBoundingClientRect().width + gap;
   }, [gap]);
@@ -119,9 +121,6 @@ export default function LuxuryInfiniteCarousel({
       return;
     }
 
-    // Si l'animation est déjà active, on ne l'annule pas :
-    // les nouveaux clics modifient simplement targetRef.current.
-    // Ainsi les clics rapides s'accumulent proprement.
     if (manualFrameRef.current !== null) return;
 
     const tick = (now: number) => {
@@ -134,9 +133,6 @@ export default function LuxuryInfiniteCarousel({
       lastManualFrameRef.current = now;
 
       const distance = targetRef.current - positionRef.current;
-
-      // Lissage exponentiel : rapide au départ, doux à l'arrivée.
-      // Il reste stable même si l'utilisateur clique plusieurs fois.
       const smoothing = 1 - Math.exp(-14 * dt);
       positionRef.current += distance * smoothing;
       applyTransform();
@@ -159,39 +155,33 @@ export default function LuxuryInfiniteCarousel({
   const moveBySteps = useCallback(
     (steps: number) => {
       const step = getStep();
-
-      // Si aucune animation manuelle n'est active, la cible repart de la
-      // position réellement affichée. Sinon, on ajoute à la cible existante.
       if (manualFrameRef.current === null) {
         targetRef.current = positionRef.current;
       }
-
       targetRef.current += step * steps;
       startManualAnimation();
     },
     [getStep, startManualAnimation],
   );
 
-  const goPrevious = useCallback(() => {
-    moveBySteps(1);
-  }, [moveBySteps]);
+  const goPrevious = useCallback(() => moveBySteps(1), [moveBySteps]);
+  const goNext = useCallback(() => moveBySteps(-1), [moveBySteps]);
 
-  const goNext = useCallback(() => {
-    moveBySteps(-1);
-  }, [moveBySteps]);
-
+  /* =========================================================
+     MESURE + BOUCLE AUTOMATIQUE
+  ========================================================= */
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     const updateMotionPreference = () => {
       reducedMotionRef.current = mediaQuery.matches;
     };
-
     updateMotionPreference();
     mediaQuery.addEventListener?.("change", updateMotionPreference);
 
     const measure = () => {
-      const width = firstGroupRef.current?.getBoundingClientRect().width ?? 0;
+      const width =
+        firstGroupRef.current?.getBoundingClientRect().width ?? 0;
       cycleWidthRef.current = width;
       applyTransform();
     };
@@ -199,7 +189,11 @@ export default function LuxuryInfiniteCarousel({
     const resizeObserver = new ResizeObserver(measure);
     if (firstGroupRef.current) resizeObserver.observe(firstGroupRef.current);
     if (viewportRef.current) resizeObserver.observe(viewportRef.current);
+
     measure();
+    const raf1 = requestAnimationFrame(measure);
+    const t1 = window.setTimeout(measure, 200);
+    const t2 = window.setTimeout(measure, 800);
 
     const autoLoop = (now: number) => {
       if (!lastAutoFrameRef.current) lastAutoFrameRef.current = now;
@@ -213,14 +207,13 @@ export default function LuxuryInfiniteCarousel({
       const cycle = cycleWidthRef.current;
       const paused =
         reducedMotionRef.current ||
-        hoverRef.current ||
         pointerDownRef.current ||
         draggingRef.current ||
         manualFrameRef.current !== null ||
         now < resumeAtRef.current;
 
       if (!paused && cycle > 0) {
-        const pixelsPerSecond = cycle / Math.max(1, duration);
+        const pixelsPerSecond = cycle / Math.max(4, duration);
         positionRef.current -= pixelsPerSecond * deltaSeconds;
         targetRef.current = positionRef.current;
         applyTransform();
@@ -234,18 +227,22 @@ export default function LuxuryInfiniteCarousel({
     return () => {
       resizeObserver.disconnect();
       mediaQuery.removeEventListener?.("change", updateMotionPreference);
+      cancelAnimationFrame(raf1);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
 
       if (autoFrameRef.current !== null) {
         cancelAnimationFrame(autoFrameRef.current);
       }
-
       if (manualFrameRef.current !== null) {
         cancelAnimationFrame(manualFrameRef.current);
       }
     };
   }, [applyTransform, duration]);
 
-  // Animation verticale de la prochaine card qui entre dans le viewport.
+  /* =========================================================
+     ANIMATION D'ENTRÉE DES CARTES — adoucie sur mobile
+  ========================================================= */
   useEffect(() => {
     const viewport = viewportRef.current;
     const track = trackRef.current;
@@ -254,12 +251,25 @@ export default function LuxuryInfiniteCarousel({
     const cardItems = Array.from(
       track.querySelectorAll<HTMLElement>("[data-luxury-carousel-item]"),
     );
-
     if (cardItems.length === 0) return;
 
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+
+    // ✅ Sur mobile, on ne cache PAS les items → ils restent visibles
+    // pendant le scroll, plus de "disparition".
+    const isTouch =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: none)").matches;
+
+    if (reduceMotion || isTouch || typeof IntersectionObserver === "undefined") {
+      cardItems.forEach((item) => {
+        item.style.opacity = "1";
+        item.style.transform = "translate3d(0,0,0) scale(1)";
+      });
+      return;
+    }
 
     const showItem = (item: HTMLElement) => {
       item.style.opacity = "1";
@@ -267,14 +277,9 @@ export default function LuxuryInfiniteCarousel({
     };
 
     const hideItemBelow = (item: HTMLElement) => {
-      item.style.opacity = "0.06";
+      item.style.opacity = "0.25"; // ✅ plus visible (était 0.08)
       item.style.transform = `translate3d(0, ${ENTER_RISE_DISTANCE}px, 0) scale(${ENTER_RISE_SCALE})`;
     };
-
-    if (reduceMotion || typeof IntersectionObserver === "undefined") {
-      cardItems.forEach(showItem);
-      return;
-    }
 
     cardItems.forEach((item) => {
       item.style.willChange = "transform, opacity";
@@ -296,7 +301,6 @@ export default function LuxuryInfiniteCarousel({
           } else {
             item.style.transition = "none";
             hideItemBelow(item);
-
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
                 item.style.transition = `transform ${ENTER_RISE_DURATION}ms cubic-bezier(0.16, 1, 0.3, 1), opacity ${Math.round(
@@ -307,10 +311,7 @@ export default function LuxuryInfiniteCarousel({
           }
         }
       },
-      {
-        root: viewport,
-        threshold: [0, 0.02, 0.08, 0.2, 0.5],
-      },
+      { root: viewport, threshold: [0, 0.02, 0.08, 0.2, 0.5] },
     );
 
     cardItems.forEach((item) => intersectionObserver.observe(item));
@@ -326,7 +327,19 @@ export default function LuxuryInfiniteCarousel({
     };
   }, [items.length]);
 
-  if (items.length === 0) return null;
+  /* =========================================================
+     POINTER / DRAG / SCROLL VERTICAL (mobile)
+  ========================================================= */
+
+  const releasePointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      try {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -352,20 +365,25 @@ export default function LuxuryInfiniteCarousel({
     const totalY = event.clientY - pointerStartYRef.current;
 
     if (!draggingRef.current) {
-      // Si le geste est surtout vertical, on laisse la page défiler normalement.
+      // ✅ Si le geste est vertical → on ABANDONNE complètement le carrousel
+      // et on rend la main au navigateur pour le scroll de la page.
       if (
         Math.abs(totalY) > DRAG_THRESHOLD &&
-        Math.abs(totalY) > Math.abs(totalX) * HORIZONTAL_LOCK_RATIO
+        Math.abs(totalY) > Math.abs(totalX) * VERTICAL_LOCK_RATIO
       ) {
         pointerDownRef.current = false;
+        draggingRef.current = false;
         pointerIdRef.current = null;
-        pauseForInteraction();
+        blockClickRef.current = false;
+        releasePointer(event);
+        // ✅ PAS de pauseForInteraction ici → le carrousel doit
+        // continuer à tourner pendant que l'utilisateur scrolle la page.
         return;
       }
 
       if (
         Math.abs(totalX) < DRAG_THRESHOLD ||
-        Math.abs(totalX) <= Math.abs(totalY) * HORIZONTAL_LOCK_RATIO
+        Math.abs(totalX) <= Math.abs(totalY) * VERTICAL_LOCK_RATIO
       ) {
         return;
       }
@@ -384,39 +402,38 @@ export default function LuxuryInfiniteCarousel({
   };
 
   const endPointerInteraction = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (pointerIdRef.current !== event.pointerId && pointerIdRef.current !== null) {
+    if (
+      pointerIdRef.current !== event.pointerId &&
+      pointerIdRef.current !== null
+    ) {
       return;
     }
 
-    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
+    releasePointer(event);
 
     pointerDownRef.current = false;
     draggingRef.current = false;
     pointerIdRef.current = null;
     targetRef.current = positionRef.current;
-    pauseForInteraction();
+
+    // ✅ Pause courte uniquement si un vrai drag a eu lieu
+    if (blockClickRef.current) {
+      pauseForInteraction();
+    }
   };
+
+  if (items.length === 0) return null;
 
   return (
     <div
       className={`relative ${className}`}
       aria-label={ariaLabel}
       role="region"
-      onMouseEnter={() => {
-        hoverRef.current = true;
-      }}
-      onMouseLeave={() => {
-        hoverRef.current = false;
-        pauseForInteraction();
-      }}
       onKeyDown={(event) => {
         if (event.key === "ArrowLeft") {
           event.preventDefault();
           goPrevious();
         }
-
         if (event.key === "ArrowRight") {
           event.preventDefault();
           goNext();
@@ -443,7 +460,8 @@ export default function LuxuryInfiniteCarousel({
 
           if (
             Math.abs(horizontalDelta) < 1 ||
-            (!event.shiftKey && Math.abs(event.deltaX) <= Math.abs(event.deltaY))
+            (!event.shiftKey &&
+              Math.abs(event.deltaX) <= Math.abs(event.deltaY))
           ) {
             return;
           }
