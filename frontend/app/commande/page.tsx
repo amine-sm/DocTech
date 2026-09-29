@@ -192,6 +192,8 @@ export default function OrderPage() {
     null
   );
   const [showOrderAlert, setShowOrderAlert] = useState(false);
+  const [showErrorAlert, setShowErrorAlert] = useState(false);
+  const [orderErrorMessage, setOrderErrorMessage] = useState("");
 
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null);
@@ -368,9 +370,10 @@ export default function OrderPage() {
 
   const canSubmit =
     !loadingDelivery &&
-    !!selectedWilayaId &&
-    !!selectedCommuneId &&
-    selectedShippingFee != null;
+    (deliveryType === "store" ||
+      (!!selectedWilayaId &&
+        !!selectedCommuneId &&
+        selectedShippingFee != null));
 
   /* -------------------------------------------------------
      CLEAR FIELD ERROR
@@ -577,10 +580,11 @@ export default function OrderPage() {
 
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error: any) {
-      window.alert(
+      const message =
         error?.message ||
-          text("Impossible de créer la commande.", "تعذر إنشاء الطلب.")
-      );
+        text("Impossible de créer la commande.", "تعذر إنشاء الطلب.");
+      setOrderErrorMessage(String(message));
+      setShowErrorAlert(true);
     }
   }
 
@@ -647,11 +651,11 @@ export default function OrderPage() {
                   <MiniDarkStat
                     label={text("Livraison", "التوصيل")}
                     value={
-                      deliveryType === "home"
-                        ? selectedShippingFee != null
+                      deliveryType === "store"
+                        ? text("Retrait magasin", "استلام من المتجر")
+                        : selectedShippingFee != null
                           ? formatPrice(selectedShippingFee)
                           : "--"
-                        : text("Gratuite", "مجاني")
                     }
                   />
                 </div>
@@ -784,9 +788,9 @@ export default function OrderPage() {
                 >
                   <div className="space-y-4 sm:space-y-5">
                     {/* MODE LIVRAISON */}
-                    <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-4">
                       <DeliveryModeCard
-                        active={shippingMode === "home"}
+                        active={deliveryType === "home" && shippingMode === "home"}
                         icon={<Home size={22} />}
                         title={text(
                           "Livraison à domicile",
@@ -810,7 +814,7 @@ export default function OrderPage() {
                       />
 
                       <DeliveryModeCard
-                        active={shippingMode === "desk"}
+                        active={deliveryType === "home" && shippingMode === "desk"}
                         icon={<Store size={22} />}
                         title={text(
                           "Bureau / Stop Desk",
@@ -834,6 +838,28 @@ export default function OrderPage() {
                       />
                     </div>
 
+
+                      <DeliveryModeCard
+                        active={deliveryType === "store"}
+                        icon={<Store size={22} />}
+                        title={text(
+                          "Commande sur site / Magasin",
+                          "الطلب والاستلام من المتجر"
+                        )}
+                        description={text(
+                          "Commandez en ligne puis venez récupérer votre commande directement au magasin.",
+                          "اطلب عبر الموقع ثم تعال لاستلام طلبك مباشرة من المتجر."
+                        )}
+                        price={text("Gratuit", "مجاني")}
+                        badge={text("Retrait magasin", "استلام من المتجر")}
+                        onClick={() => {
+                          setDeliveryType("store");
+                          setShippingMode("home");
+                          setFormErrors({});
+                        }}
+                      />
+                    {deliveryType !== "store" && (
+                      <>
                     {/* SELECTEURS */}
                     <div className="grid gap-4 lg:grid-cols-2">
                       <div data-error={!!formErrors.wilaya}>
@@ -1076,6 +1102,39 @@ export default function OrderPage() {
                         </span>
                       </div>
                     </div>
+                      </>
+                    )}
+
+                    {deliveryType === "store" && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="rounded-[22px] border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-blue-50 p-5 sm:p-6"
+                      >
+                        <div className="flex items-start gap-4">
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20">
+                            <Store size={21} />
+                          </span>
+                          <div className="min-w-0">
+                            <span className="text-[8px] font-black uppercase tracking-[0.16em] text-emerald-600">
+                              {text("Retrait gratuit", "استلام مجاني")}
+                            </span>
+                            <h3 className="mt-1 text-base font-black text-slate-950">
+                              {text(
+                                "Votre commande sera préparée au magasin.",
+                                "سيتم تجهيز طلبك في المتجر."
+                              )}
+                            </h3>
+                            <p className="mt-2 text-[10px] font-medium leading-5 text-slate-500">
+                              {text(
+                                "Vous pourrez venir la récupérer sur place. Aucun frais de livraison ne sera ajouté.",
+                                "يمكنك الحضور لاستلام طلبك من المتجر. لن تتم إضافة أي رسوم توصيل."
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
                 </CheckoutSection>
 
@@ -1137,6 +1196,7 @@ export default function OrderPage() {
                 deliveryFee={deliveryFee}
                 total={total}
                 shippingMode={shippingMode}
+                deliveryType={deliveryType}
                 loadingDelivery={loadingDelivery}
                 selectedShippingFee={selectedShippingFee}
                 selectedWilayaId={selectedWilayaId}
@@ -1187,6 +1247,7 @@ export default function OrderPage() {
                 : ""
             }
             shippingMode={shippingMode}
+            deliveryType={deliveryType}
             onCancel={() => {
               setShowConfirmDialog(false);
               setPendingFormData(null);
@@ -1204,6 +1265,15 @@ export default function OrderPage() {
               setShowOrderAlert(false);
               setSubmitted(true);
             }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showErrorAlert && (
+          <OrderErrorAlert
+            message={orderErrorMessage}
+            onClose={() => setShowErrorAlert(false)}
           />
         )}
       </AnimatePresence>
@@ -1624,6 +1694,7 @@ function OrderSummary({
   deliveryFee,
   total,
   shippingMode,
+  deliveryType,
   loadingDelivery,
   selectedShippingFee,
   selectedWilayaId,
@@ -1634,6 +1705,7 @@ function OrderSummary({
   deliveryFee: number;
   total: number;
   shippingMode: "home" | "desk";
+  deliveryType: "home" | "store";
   loadingDelivery: boolean;
   selectedShippingFee: number | null;
   selectedWilayaId: string;
@@ -1643,9 +1715,10 @@ function OrderSummary({
 
   const canSubmit =
     !loadingDelivery &&
-    !!selectedWilayaId &&
-    !!selectedCommuneId &&
-    selectedShippingFee != null;
+    (deliveryType === "store" ||
+      (!!selectedWilayaId &&
+        !!selectedCommuneId &&
+        selectedShippingFee != null));
 
   return (
     <motion.aside
@@ -1710,16 +1783,20 @@ function OrderSummary({
             />
             <SummaryLine
               label={
-                shippingMode === "home"
-                  ? text("Livraison à domicile", "التوصيل إلى المنزل")
-                  : text("Bureau / Stop Desk", "المكتب / Stop Desk")
+                deliveryType === "store"
+                  ? text("Retrait au magasin", "الاستلام من المتجر")
+                  : shippingMode === "home"
+                    ? text("Livraison à domicile", "التوصيل إلى المنزل")
+                    : text("Bureau / Stop Desk", "المكتب / Stop Desk")
               }
               value={
-                deliveryFee
-                  ? formatPrice(deliveryFee)
-                  : selectedShippingFee != null
-                    ? formatPrice(selectedShippingFee)
-                    : "--"
+                deliveryType === "store"
+                  ? text("Gratuit", "مجاني")
+                  : deliveryFee
+                    ? formatPrice(deliveryFee)
+                    : selectedShippingFee != null
+                      ? formatPrice(selectedShippingFee)
+                      : "--"
               }
             />
           </div>
@@ -1758,13 +1835,15 @@ function OrderSummary({
           >
             {loadingDelivery
               ? text("Chargement...", "جاري التحميل...")
-              : !selectedWilayaId
-                ? text("Choisir une wilaya", "اختر الولاية")
-                : !selectedCommuneId
-                  ? text("Choisir une commune", "اختر البلدية")
-                  : selectedShippingFee == null
-                    ? text("Tarif indisponible", "السعر غير متوفر")
-                    : text("Confirmer la commande", "تأكيد الطلب")}
+              : deliveryType === "store"
+                ? text("Confirmer le retrait en magasin", "تأكيد الاستلام من المتجر")
+                : !selectedWilayaId
+                  ? text("Choisir une wilaya", "اختر الولاية")
+                  : !selectedCommuneId
+                    ? text("Choisir une commune", "اختر البلدية")
+                    : selectedShippingFee == null
+                      ? text("Tarif indisponible", "السعر غير متوفر")
+                      : text("Confirmer la commande", "تأكيد الطلب")}
             <ArrowRight
               size={15}
               className="rtl-flip transition-transform group-hover:translate-x-1"
@@ -2045,6 +2124,7 @@ function OrderConfirmDialog({
   wilaya,
   commune,
   shippingMode,
+  deliveryType,
   onCancel,
   onConfirm,
 }: {
@@ -2057,6 +2137,7 @@ function OrderConfirmDialog({
   wilaya: string;
   commune: string;
   shippingMode: "home" | "desk";
+  deliveryType: "home" | "store";
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -2124,11 +2205,13 @@ function OrderConfirmDialog({
               />
             )}
             <SuccessDetail
-              label={text("Livraison", "التوصيل")}
+              label={text("Mode", "طريقة الاستلام")}
               value={
-                shippingMode === "desk"
-                  ? text("Bureau / Stop Desk", "المكتب / Stop Desk")
-                  : text("À domicile", "إلى المنزل")
+                deliveryType === "store"
+                  ? text("Retrait au magasin", "الاستلام من المتجر")
+                  : shippingMode === "desk"
+                    ? text("Bureau / Stop Desk", "المكتب / Stop Desk")
+                    : text("À domicile", "إلى المنزل")
               }
             />
             <SuccessDetail
@@ -2234,6 +2317,44 @@ function OrderConfirmDialog({
 }
 
 /* =========================================================
+   ERROR ALERT
+========================================================= */
+
+function OrderErrorAlert({ message, onClose }: { message: string; onClose: () => void }) {
+  const { text } = useLocale();
+  return (
+    <motion.div
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <motion.div
+        role="alertdialog" aria-modal="true"
+        initial={{ opacity: 0, y: 22, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 22, scale: 0.96 }}
+        transition={{ type: "spring", stiffness: 280, damping: 24 }}
+        className="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-[0_35px_100px_rgba(15,23,42,0.35)]"
+      >
+        <div className="relative overflow-hidden bg-[#07111f] px-6 py-6 text-white">
+          <div className="absolute -right-12 -top-14 h-40 w-40 rounded-full bg-red-500/10" />
+          <div className="relative flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-500 text-white shadow-lg shadow-red-500/20"><AlertCircle size={23} /></span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-red-300">{text("Commande", "الطلب")}</p>
+              <h2 className="mt-1 text-xl font-black">{text("Impossible de valider la commande", "تعذر تأكيد الطلب")}</h2>
+            </div>
+            <button type="button" onClick={onClose} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-slate-300 transition hover:bg-white/15 hover:text-white"><X size={17} /></button>
+          </div>
+        </div>
+        <div className="p-6">
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold leading-6 text-red-700">{message}</div>
+          <button type="button" onClick={onClose} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-[10px] font-black uppercase tracking-[0.08em] text-white transition hover:bg-blue-600"><Check size={15} />{text("Compris", "حسناً")}</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* =========================================================
    SUCCESS
 ========================================================= */
 
@@ -2308,11 +2429,11 @@ function OrderConfirmationAlert({
             />
             <SuccessDetail
               label={text("Wilaya", "الولاية")}
-              value={order.wilaya || "—"}
+              value={order.wilaya || (order.deliveryType === "STORE" ? text("Non nécessaire", "غير مطلوبة") : "—")}
             />
             <SuccessDetail
               label={text("Commune", "البلدية")}
-              value={order.commune || "—"}
+              value={order.commune || (order.deliveryType === "STORE" ? text("Retrait en magasin", "استلام من المتجر") : "—")}
             />
           </div>
 
@@ -2496,9 +2617,9 @@ function SuccessPage({ order }: { order: SubmittedOrder }) {
                   text={text("Produit contrôlé", "منتج مفحوص")}
                 />
                 <SuccessInfo
-                  icon={<Truck size={17} />}
-                  title={text("Livraison", "التوصيل")}
-                  text={text("Suivi client", "متابعة العميل")}
+                  icon={order.deliveryType === "STORE" ? <Store size={17} /> : <Truck size={17} />}
+                  title={order.deliveryType === "STORE" ? text("Retrait", "الاستلام") : text("Livraison", "التوصيل")}
+                  text={order.deliveryType === "STORE" ? text("Au magasin", "من المتجر") : text("Suivi client", "متابعة العميل")}
                 />
               </div>
 
@@ -2568,11 +2689,13 @@ function SuccessPage({ order }: { order: SubmittedOrder }) {
                     value={order.commune || text("—", "—")}
                   />
                   <SuccessDetail
-                    label={text("Livraison", "التوصيل")}
+                    label={text("Mode", "طريقة الاستلام")}
                     value={
-                      order.shippingMode === "DESK"
-                        ? text("Bureau / Stop Desk", "المكتب / Stop Desk")
-                        : text("À domicile", "إلى المنزل")
+                      order.deliveryType === "STORE"
+                        ? text("Retrait au magasin", "الاستلام من المتجر")
+                        : order.shippingMode === "DESK"
+                          ? text("Bureau / Stop Desk", "المكتب / Stop Desk")
+                          : text("À domicile", "إلى المنزل")
                     }
                   />
                   <SuccessDetail
@@ -2647,13 +2770,10 @@ function SuccessPage({ order }: { order: SubmittedOrder }) {
                   {text("Commande enregistrée", "تم تسجيل الطلب")}
                 </SuccessCheck>
                 <SuccessCheck>
-                  {text("Paiement à la livraison", "الدفع عند الاستلام")}
+                  {order.deliveryType === "STORE" ? text("Retrait au magasin", "الاستلام من المتجر") : text("Paiement à la livraison", "الدفع عند الاستلام")}
                 </SuccessCheck>
                 <SuccessCheck>
-                  {text(
-                    "Vérification avant expédition",
-                    "فحص قبل الشحن"
-                  )}
+                  {order.deliveryType === "STORE" ? text("Commande préparée sur place", "تجهيز الطلب في المتجر") : text("Vérification avant expédition", "فحص قبل الشحن")}
                 </SuccessCheck>
               </div>
             </div>
