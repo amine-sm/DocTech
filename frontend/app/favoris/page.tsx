@@ -29,11 +29,14 @@ import {
 export default function FavoritesPage() {
   const { locale, text } = useLocale();
 
-  const [favorites, setFavorites] = useState<
-    Product[]
-  >([]);
+  const [favorites, setFavorites] = useState<Product[]>(
+    []
+  );
   const [ready, setReady] = useState(false);
 
+  // ============================================================
+  // CHARGEMENT DES FAVORIS
+  // ============================================================
   useEffect(() => {
     const refresh = () => {
       setFavorites(getFavorites());
@@ -55,6 +58,9 @@ export default function FavoritesPage() {
     };
   }, []);
 
+  // ============================================================
+  // RECHARGER LES PRODUITS SELON LA LANGUE
+  // ============================================================
   useEffect(() => {
     const saved = getFavorites();
 
@@ -86,8 +92,18 @@ export default function FavoritesPage() {
   }, [locale]);
 
   return (
-    <div className="min-h-screen bg-[#f7f9fd] pb-[76px] text-slate-950 md:pb-0">
-      {/* Header protégé par Suspense à cause de useSearchParams() */}
+    <div
+      className="
+        min-h-screen
+        bg-[#f7f9fd]
+        pb-[76px]
+        text-slate-950
+        md:pb-0
+      "
+    >
+      {/* ======================================================
+          HEADER
+      ====================================================== */}
       <Suspense
         fallback={
           <div className="h-20 w-full bg-white" />
@@ -97,6 +113,9 @@ export default function FavoritesPage() {
       </Suspense>
 
       <main>
+        {/* ====================================================
+            HERO
+        ==================================================== */}
         <ShopHero
           eyebrow={text(
             "Votre sélection",
@@ -113,9 +132,49 @@ export default function FavoritesPage() {
           icon={<Heart size={13} />}
         />
 
-        <section className="mx-auto max-w-[1450px] px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-blue-600">
+        {/* ====================================================
+            CONTENT
+        ==================================================== */}
+        <section
+          className="
+            mx-auto
+            w-full
+            max-w-[1450px]
+            px-3
+            py-7
+            sm:px-5
+            sm:py-8
+            md:px-6
+            lg:px-8
+            lg:py-12
+          "
+        >
+          {/* ==================================================
+              TITLE + COUNT
+          ================================================== */}
+          <div
+            className="
+              mb-5
+              flex
+              flex-wrap
+              items-center
+              justify-between
+              gap-3
+              sm:mb-6
+            "
+          >
+            <div
+              className="
+                flex
+                items-center
+                gap-2
+                text-[10px]
+                font-black
+                uppercase
+                tracking-[0.15em]
+                text-blue-600
+              "
+            >
               <Sparkles size={13} />
 
               {text(
@@ -124,43 +183,121 @@ export default function FavoritesPage() {
               )}
             </div>
 
-            {ready &&
-              favorites.length > 0 && (
-                <span className="rounded-full bg-white px-3 py-2 text-[10px] font-black text-slate-500 shadow-sm ring-1 ring-slate-200">
-                  {favorites.length}{" "}
-                  {text(
-                    favorites.length > 1
-                      ? "produits"
-                      : "produit",
-                    "منتج"
-                  )}
-                </span>
-              )}
+            {ready && favorites.length > 0 && (
+              <span
+                className="
+                  rounded-full
+                  bg-white
+                  px-3
+                  py-2
+                  text-[10px]
+                  font-black
+                  text-slate-500
+                  shadow-sm
+                  ring-1
+                  ring-slate-200
+                "
+              >
+                {favorites.length}{" "}
+                {text(
+                  favorites.length > 1
+                    ? "produits"
+                    : "produit",
+                  "منتج"
+                )}
+              </span>
+            )}
           </div>
 
+          {/* ==================================================
+              LOADING
+          ================================================== */}
           {!ready ? (
-            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-              {[1, 2, 3, 4].map((i) => (
+            <div
+              className="
+                grid
+                grid-cols-1
+                gap-3
+                min-[390px]:grid-cols-2
+                sm:gap-4
+                md:grid-cols-3
+                lg:grid-cols-4
+                2xl:grid-cols-5
+              "
+            >
+              {[1, 2, 3, 4, 5].map((i) => (
                 <div
                   key={i}
-                  className="h-[390px] animate-pulse rounded-[26px] bg-white"
+                  className="
+                    h-[360px]
+                    w-full
+                    animate-pulse
+                    rounded-[26px]
+                    bg-white
+                  "
                 />
               ))}
             </div>
           ) : favorites.length === 0 ? (
-            <div className="rounded-[30px] border border-slate-200 bg-white px-5 py-14 text-center shadow-sm sm:px-8 sm:py-20">
-              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-[22px] bg-rose-50 text-rose-500">
+            /* ==================================================
+               EMPTY STATE
+            ================================================== */
+            <div
+              className="
+                rounded-[28px]
+                border
+                border-slate-200
+                bg-white
+                px-4
+                py-12
+                text-center
+                shadow-sm
+                sm:rounded-[30px]
+                sm:px-8
+                sm:py-20
+              "
+            >
+              <span
+                className="
+                  mx-auto
+                  flex
+                  h-16
+                  w-16
+                  items-center
+                  justify-center
+                  rounded-[22px]
+                  bg-rose-50
+                  text-rose-500
+                "
+              >
                 <Heart size={27} />
               </span>
 
-              <h2 className="mt-5 text-xl font-black sm:text-2xl">
+              <h2
+                className="
+                  mt-5
+                  text-xl
+                  font-black
+                  leading-tight
+                  sm:text-2xl
+                "
+              >
                 {text(
                   "Aucun favori pour le moment",
                   "لا توجد منتجات مفضلة حاليا"
                 )}
               </h2>
 
-              <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">
+              <p
+                className="
+                  mx-auto
+                  mt-2
+                  max-w-lg
+                  text-sm
+                  leading-6
+                  text-slate-500
+                "
+              >
                 {text(
                   "Touchez le cœur d’une carte produit pour l’ajouter ici instantanément.",
                   "اضغط على القلب في بطاقة المنتج ليتم إضافته هنا مباشرة."
@@ -169,7 +306,25 @@ export default function FavoritesPage() {
 
               <Link
                 href="/articles"
-                className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+                className="
+                  mt-6
+                  inline-flex
+                  h-12
+                  items-center
+                  justify-center
+                  gap-2
+                  rounded-2xl
+                  bg-blue-600
+                  px-5
+                  text-xs
+                  font-black
+                  text-white
+                  shadow-lg
+                  shadow-blue-600/20
+                  transition
+                  hover:bg-blue-700
+                  active:scale-[0.98]
+                "
               >
                 <ShoppingBag size={16} />
 
@@ -180,14 +335,36 @@ export default function FavoritesPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
+            /* ==================================================
+               FAVORITES GRID
+            ================================================== */
+            <div
+              className="
+                grid
+                w-full
+                grid-cols-1
+                gap-3
+                min-[390px]:grid-cols-2
+                sm:gap-4
+                md:grid-cols-3
+                lg:grid-cols-4
+                2xl:grid-cols-5
+              "
+            >
               {favorites.map(
                 (product, index) => (
-                  <ProductCard
+                  <div
                     key={product.id}
-                    product={product}
-                    index={index}
-                  />
+                    className="
+                      min-w-0
+                      w-full
+                    "
+                  >
+                    <ProductCard
+                      product={product}
+                      index={index}
+                    />
+                  </div>
                 )
               )}
             </div>
@@ -195,6 +372,9 @@ export default function FavoritesPage() {
         </section>
       </main>
 
+      {/* ======================================================
+          FOOTER
+      ====================================================== */}
       <Footer />
     </div>
   );
