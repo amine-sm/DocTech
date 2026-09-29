@@ -8,6 +8,8 @@ import {
   Boxes,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   FileText,
   History,
@@ -151,17 +153,51 @@ function date(value?: string | null) {
 function resolveImage(value?: string | null): string {
   if (!value) return "";
 
-  const src = String(value).trim();
+  let src = String(value).trim();
   if (!src) return "";
 
+  // Nettoyage des chemins renvoyés parfois par Windows / la DB.
+  src = src.replace(/\\/g, "/");
+
+  // Déjà une URL utilisable par le navigateur.
   if (src.startsWith("data:") || src.startsWith("blob:")) {
     return src;
   }
 
+  // Les anciennes images peuvent encore contenir localhost:4000.
+  // Elles doivent toujours pointer vers le backend HTTPS de production.
   if (src.startsWith("http://") || src.startsWith("https://")) {
+    try {
+      const url = new URL(src);
+      const uploadMatch = url.pathname.match(/\/uploads\/(.+)$/i);
+
+      if (uploadMatch?.[1]) {
+        const backendOrigin = (
+          process.env.NEXT_PUBLIC_BACKEND_URL ||
+          "https://backenddoctech.aladinnutritiondz.com"
+        ).replace(/\/$/, "");
+
+        return `${backendOrigin}/api/uploads-file/${uploadMatch[1]}`;
+      }
+
+      const apiUploadMatch = url.pathname.match(/\/api\/uploads-file\/(.+)$/i);
+
+      if (apiUploadMatch?.[1]) {
+        const backendOrigin = (
+          process.env.NEXT_PUBLIC_BACKEND_URL ||
+          "https://backenddoctech.aladinnutritiondz.com"
+        ).replace(/\/$/, "");
+
+        return `${backendOrigin}/api/uploads-file/${apiUploadMatch[1]}`;
+      }
+    } catch {
+      // On continue avec backendUrl ci-dessous.
+    }
+
     return src;
   }
 
+  // Chemin relatif : on laisse backendUrl construire l'URL complète.
   try {
     return backendUrl(src);
   } catch {
@@ -614,6 +650,73 @@ function EmptyState({
   );
 }
 
+
+function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+}: {
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+
+  const pages: (number | "...")[] = [];
+  const add = (p: number) => {
+    if (!pages.includes(p)) pages.push(p);
+  };
+
+  add(1);
+  if (page > 3) pages.push("...");
+  for (let p = Math.max(2, page - 1); p <= Math.min(totalPages - 1, page + 1); p++) add(p);
+  if (page < totalPages - 2) pages.push("...");
+  if (totalPages > 1) add(totalPages);
+
+  return (
+    <div className="flex items-center justify-center gap-1.5 sm:justify-end">
+      <button
+        type="button"
+        onClick={() => onPageChange(Math.max(1, page - 1))}
+        disabled={page <= 1}
+        className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Page précédente"
+      >
+        <ChevronLeft size={14} />
+      </button>
+
+      {pages.map((item, index) =>
+        item === "..." ? (
+          <span key={`dots-${index}`} className="px-1 text-[9px] font-black text-slate-400">…</span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onPageChange(item)}
+            className={`grid h-8 min-w-8 place-items-center rounded-lg px-2 text-[9px] font-black transition ${
+              page === item
+                ? "bg-[#2563EB] text-white shadow-sm"
+                : "border border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+            }`}
+          >
+            {item}
+          </button>
+        )
+      )}
+
+      <button
+        type="button"
+        onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+        disabled={page >= totalPages}
+        className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        aria-label="Page suivante"
+      >
+        <ChevronRight size={14} />
+      </button>
+    </div>
+  );
+}
+
 function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center p-16">
@@ -652,6 +755,11 @@ export default function StockPage() {
 
   const [previewArticle, setPreviewArticle] = useState<Article | null>(null);
 
+  // Pagination séparée pour le stock et l'historique
+  const [stockPage, setStockPage] = useState(1);
+  const [historyPage, setHistoryPage] = useState(1);
+  const pageSize = 10;
+
   /* =====================================================
      LOAD
   ===================================================== */
@@ -676,18 +784,130 @@ export default function StockPage() {
           articleData?.articles ||
           [];
 
-      setArticles(articleList);
+      /* =====================================================
+         IMPORTANT : LE ENDPOINT /stock/articles NE RENVOIE PAS
+         TOUJOURS LES IMAGES.
+
+         La page Articles, elle, récupère le détail avec
+         /articles/:id et c'est ce détail qui contient images[].
+
+         On recharge donc le détail de chaque article ici et on
+         fusionne les données stock + les images du détail.
+      ===================================================== */
+      const hydratedArticles: Article[] = await Promise.all(
+        articleList.map(async (article: Article) => {
+          try {
+            const detailResult = await apiFetch<any>(`/articles/${article.id}`);
+            const detail = detailResult?.data ?? detailResult;
+
+            if (!detail || typeof detail !== "object") {
+              return article;
+            }
+
+            const rawImages = Array.isArray(detail.images)
+              ? detail.images
+              : [];
+
+            const images: ArticleImage[] = rawImages
+              .map((image: any) => {
+                if (typeof image === "string") {
+                  return image;
+                }
+
+                return {
+                  url: String(
+                    image?.url ||
+                      image?.image_url ||
+                      image?.src ||
+                      image?.image ||
+                      ""
+                  ),
+                };
+              })
+              .filter((image: ArticleImage) => {
+                if (typeof image === "string") return Boolean(image);
+                return Boolean(image.url);
+              });
+
+            /* Fallback sur image_url si images[] est vide */
+            if (!images.length) {
+              const fallback =
+                detail.image_url ||
+                detail.imageUrl ||
+                detail.image ||
+                detail.main_image ||
+                detail.main_image_url ||
+                article.image_url ||
+                article.imageUrl ||
+                article.image ||
+                article.main_image ||
+                article.main_image_url;
+
+              if (fallback) {
+                images.push(String(fallback));
+              }
+            }
+
+            const primaryImage =
+              images.length > 0
+                ? typeof images[0] === "string"
+                  ? images[0]
+                  : images[0].url
+                : null;
+
+            return {
+              ...article,
+              ...detail,
+              id: Number(article.id),
+              /* Le stock vient en priorité de /stock/articles */
+              stock: article.stock ?? detail.stock,
+              purchase_price:
+                article.purchase_price ?? detail.purchase_price,
+              price: article.price ?? detail.price,
+              fournisseur_id:
+                article.fournisseur_id ?? detail.fournisseur_id,
+              fournisseur_name:
+                article.fournisseur_name ?? detail.fournisseur_name,
+              category_name:
+                article.category_name ?? detail.category_name,
+              marque_name:
+                article.marque_name ?? detail.marque_name,
+              images,
+              image_url:
+                primaryImage ||
+                detail.image_url ||
+                detail.imageUrl ||
+                detail.image ||
+                article.image_url ||
+                null,
+            };
+          } catch (detailError) {
+            console.warn(
+              `[STOCK] Impossible de charger les images de l'article ${article.id}`,
+              detailError
+            );
+
+            return article;
+          }
+        })
+      );
+
+      setArticles(hydratedArticles);
 
       /* DEBUG IMAGES */
-      if (typeof window !== "undefined" && articleList.length > 0) {
-        console.log("=== DEBUG IMAGES (premier article) ===");
-        const first = articleList[0];
+      if (typeof window !== "undefined" && hydratedArticles.length > 0) {
+        const first = hydratedArticles[0];
+        console.log("=== STOCK DEBUG IMAGES ===");
+        console.log("Article :", first.name);
         console.log("image_url :", first.image_url);
         console.log("image     :", first.image);
         console.log("imageUrl  :", first.imageUrl);
         console.log("main_image:", first.main_image);
         console.log("images    :", first.images);
-        console.log("URL résolue:", resolveImage(first.image_url || first.image));
+        console.log(
+          "Images résolues :",
+          getArticleImages(first).map((image) => resolveImage(image))
+        );
       }
 
       setSuppliers(
@@ -743,6 +963,30 @@ export default function StockPage() {
         .includes(q)
     );
   }, [articles, search]);
+
+  useEffect(() => {
+    setStockPage(1);
+  }, [search]);
+
+  const stockPageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginatedArticles = useMemo(() => {
+    const start = (stockPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, stockPage]);
+
+  useEffect(() => {
+    if (stockPage > stockPageCount) setStockPage(stockPageCount);
+  }, [stockPage, stockPageCount]);
+
+  const historyPageCount = Math.max(1, Math.ceil(movements.length / pageSize));
+  const paginatedMovements = useMemo(() => {
+    const start = (historyPage - 1) * pageSize;
+    return movements.slice(start, start + pageSize);
+  }, [movements, historyPage]);
+
+  useEffect(() => {
+    if (historyPage > historyPageCount) setHistoryPage(historyPageCount);
+  }, [historyPage, historyPageCount]);
 
   /* =====================================================
      STATS
@@ -1099,8 +1343,8 @@ export default function StockPage() {
             </div>
 
             {/* TABLEAU 100% LARGEUR */}
-            <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-full border-collapse">
+            <div className="hidden w-full overflow-x-auto lg:block">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70">
                     <th className="px-4 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
@@ -1125,7 +1369,7 @@ export default function StockPage() {
                 </thead>
 
                 <tbody className="divide-y divide-slate-100">
-                  {filtered.map((article) => {
+                  {paginatedArticles.map((article) => {
                     const stock = numberValue(article.stock);
                     const state = stockState(stock);
 
@@ -1270,6 +1514,64 @@ export default function StockPage() {
               </table>
             </div>
 
+            {/* MOBILE : CARTES */}
+            <div className="grid grid-cols-1 gap-3 p-3 lg:hidden">
+              {paginatedArticles.map((article) => {
+                const stock = numberValue(article.stock);
+                const state = stockState(stock);
+
+                return (
+                  <article
+                    key={article.id}
+                    className={`rounded-2xl border p-3 shadow-sm ${state.rowClass}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <ProductImage
+                        article={article}
+                        size="md"
+                        onClick={() => setPreviewArticle(article)}
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="truncate text-xs font-black text-slate-800">{article.name}</h3>
+                            {article.name_ar && (
+                              <p dir="rtl" className="mt-1 truncate text-[9px] font-medium text-slate-400">{article.name_ar}</p>
+                            )}
+                          </div>
+                          <button type="button" onClick={() => setPreviewArticle(article)} className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-500">
+                            <Eye size={14} />
+                          </button>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className="rounded-md bg-slate-100 px-1.5 py-1 text-[8px] font-black text-slate-500">{article.code || article.sku || `#${article.id}`}</span>
+                          {article.category_name && <span className="rounded-md bg-blue-50 px-1.5 py-1 text-[8px] font-bold text-blue-600">{article.category_name}</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <InfoBox label="Stock" value={`${stock} unités`} />
+                      <InfoBox label="État" value={state.label} />
+                      <InfoBox label="Prix achat" value={price(article.purchase_price)} />
+                      <InfoBox label="Prix vente" value={price(article.price)} blue />
+                    </div>
+
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={() => openEntry(article)} className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] text-[9px] font-black text-white">
+                        <ArrowDownToLine size={14} /> Entrée
+                      </button>
+                      <button type="button" onClick={() => openExit(article)} disabled={stock <= 0} className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl bg-slate-100 text-[9px] font-black text-slate-600 disabled:opacity-40">
+                        <ArrowUpFromLine size={14} /> Sortie
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
             {!loading && !filtered.length && (
               <EmptyState
                 icon={<PackageSearch size={25} />}
@@ -1285,19 +1587,18 @@ export default function StockPage() {
             {loading && !articles.length && <LoadingState />}
 
             {!!filtered.length && (
-              <div className="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/50 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <span className="text-[9px] font-bold text-slate-400">
-                  {filtered.length} article
-                  {filtered.length > 1 ? "s" : ""} affiché
-                  {filtered.length > 1 ? "s" : ""}
-                </span>
-
-                <span className="text-[9px] font-bold text-slate-400">
-                  Valeur stock :
-                  <b className="ml-1 text-[#2563EB]">
-                    {price(stats.stockValue)}
-                  </b>
-                </span>
+              <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-[9px] font-bold text-slate-400">
+                      {filtered.length} article{filtered.length > 1 ? "s" : ""}
+                    </span>
+                    <span className="text-[9px] font-bold text-slate-400">
+                      Valeur stock : <b className="text-[#2563EB]">{price(stats.stockValue)}</b>
+                    </span>
+                  </div>
+                  <Pagination page={stockPage} totalPages={stockPageCount} onPageChange={setStockPage} />
+                </div>
               </div>
             )}
           </section>
@@ -1322,8 +1623,8 @@ export default function StockPage() {
               <History size={18} className="text-slate-300" />
             </div>
 
-            <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-[1100px]">
+            <div className="hidden w-full overflow-x-auto lg:block">
+              <table className="w-full">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70">
                     <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
@@ -1347,14 +1648,12 @@ export default function StockPage() {
                     <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Évolution
                     </th>
-                    <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
-                      Référence
-                    </th>
+                  
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-slate-100">
-                  {movements.map((movement) => {
+                  {paginatedMovements.map((movement) => {
                     const entry = movement.type === "ENTRY";
 
                     const article = articles.find(
@@ -1464,9 +1763,7 @@ export default function StockPage() {
                               size={12}
                               className="text-slate-300"
                             />
-                            <span className="max-w-[160px] truncate text-[9px] font-bold text-slate-500">
-                              {movement.reference || "—"}
-                            </span>
+                      
                           </div>
                         </td>
                       </tr>
@@ -1475,6 +1772,52 @@ export default function StockPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* MOBILE : CARTES HISTORIQUE */}
+            <div className="grid grid-cols-1 gap-3 p-3 lg:hidden">
+              {paginatedMovements.map((movement) => {
+                const entry = movement.type === "ENTRY";
+                const article = articles.find((item) => Number(item.id) === Number(movement.article_id));
+
+                return (
+                  <article key={movement.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <ProductImage article={article} size="sm" onClick={() => article && setPreviewArticle(article)} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="truncate text-xs font-black text-slate-800">{movement.article_name}</h3>
+                          <span className={`shrink-0 rounded-full px-2 py-1 text-[8px] font-black ${entry ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"}`}>
+                            {entry ? "ENTRÉE" : "SORTIE"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[8px] font-bold text-slate-400">{date(movement.created_at)}{movement.article_code ? ` · ${movement.article_code}` : ""}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <InfoBox label="Quantité" value={`${entry ? "+" : "-"}${movement.quantity}`} />
+                      <InfoBox label="Stock" value={`${movement.stock_before} → ${movement.stock_after}`} />
+                      <InfoBox label="Prix achat" value={price(movement.purchase_price)} />
+                      <InfoBox label="Prix vente" value={price(movement.selling_price)} blue />
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                      <FileText size={12} className="shrink-0 text-slate-300" />
+                      <span className="truncate text-[9px] font-bold text-slate-500">{movement.reference || "Aucune référence"}</span>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
+            {!!movements.length && (
+              <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-[9px] font-bold text-slate-400">{movements.length} mouvement{movements.length > 1 ? "s" : ""}</span>
+                  <Pagination page={historyPage} totalPages={historyPageCount} onPageChange={setHistoryPage} />
+                </div>
+              </div>
+            )}
 
             {!movements.length && !loading && (
               <EmptyState

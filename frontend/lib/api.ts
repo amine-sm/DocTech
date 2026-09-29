@@ -56,20 +56,12 @@ if (typeof window !== "undefined") {
  * =>
  * https://backenddoctech.aladinnutritiondz.com/api/uploads-file/test.jpg
  */
-export function backendUrl(
-  path?: string | null
-): string {
-
-  if (!path) {
-    return "";
-  }
+export function backendUrl(path?: string | null): string {
+  if (!path) return "";
 
   let value = String(path).trim();
 
-  if (!value) {
-    return "";
-  }
-
+  if (!value) return "";
 
   // ==========================================================
   // DATA / BLOB
@@ -82,6 +74,8 @@ export function backendUrl(
     return value;
   }
 
+  const backendOrigin = BACKEND_URL.replace(/\/+$/, "");
+  const uploadBase = `${backendOrigin}/api/uploads-file`;
 
   // ==========================================================
   // ANCIENNES URL LOCALHOST
@@ -89,188 +83,141 @@ export function backendUrl(
 
   value = value.replace(
     /^https?:\/\/localhost:4000/i,
-    BACKEND_URL
+    ""
   );
 
   value = value.replace(
     /^https?:\/\/127\.0\.0\.1:4000/i,
-    BACKEND_URL
+    ""
   );
 
+  // ==========================================================
+  // URL PRODUCTION DÉJÀ CORRECTE
+  // ==========================================================
+
+  if (
+    value.startsWith(`${uploadBase}/`)
+  ) {
+    return value;
+  }
 
   // ==========================================================
-  // SI C'EST UNE URL ABSOLUE
+  // /api/uploads-file/xxx
+  // ==========================================================
+
+  if (
+    value.startsWith("/api/uploads-file/")
+  ) {
+    return `${backendOrigin}${value}`;
+  }
+
+  // ==========================================================
+  // /uploads-file/xxx
+  // ==========================================================
+
+  if (
+    value.startsWith("/uploads-file/")
+  ) {
+    return `${backendOrigin}/api${value}`;
+  }
+
+  // ==========================================================
+  // /uploads/xxx
+  // ==========================================================
+
+  if (
+    value.startsWith("/uploads/")
+  ) {
+    const fileName = value.replace(
+      /^\/uploads\//,
+      ""
+    );
+
+    return `${uploadBase}/${fileName}`;
+  }
+
+  // ==========================================================
+  // uploads/xxx
+  // ==========================================================
+
+  if (
+    value.startsWith("uploads/")
+  ) {
+    const fileName = value.replace(
+      /^uploads\//,
+      ""
+    );
+
+    return `${uploadBase}/${fileName}`;
+  }
+
+  // ==========================================================
+  // URL ABSOLUE
   // ==========================================================
 
   if (
     value.startsWith("http://") ||
     value.startsWith("https://")
   ) {
+    try {
+      const url = new URL(value);
 
-    // --------------------------------------------------------
-    // Ancienne URL :
-    //
-    // https://backenddoctech.../uploads/image.jpg
-    //
-    // doit devenir :
-    //
-    // https://backenddoctech.../api/uploads-file/image.jpg
-    // --------------------------------------------------------
+      // Ancienne URL :
+      // https://backend.../uploads/image.jpg
+      // => https://backend.../api/uploads-file/image.jpg
+      const match = url.pathname.match(
+        /\/uploads\/(.+)$/i
+      );
 
-    const backendOrigin =
-      BACKEND_URL.replace(/\/+$/, "");
+      if (match?.[1]) {
+        return `${uploadBase}/${match[1]}`;
+      }
 
-    const uploadsPrefix =
-      `${backendOrigin}/uploads/`;
-
-    const apiUploadsPrefix =
-      `${backendOrigin}/api/uploads-file/`;
-
-    if (
-      value.startsWith(uploadsPrefix)
-    ) {
-
-      const fileName =
-        value.substring(
-          uploadsPrefix.length
+      // Ancienne URL localhost qui aurait encore
+      // été conservée après le nettoyage ci-dessus.
+      if (
+        url.hostname === "localhost" ||
+        url.hostname === "127.0.0.1"
+      ) {
+        const localMatch = url.pathname.match(
+          /\/(?:api\/)?uploads(?:-file)?\/(.+)$/i
         );
 
-      return `${apiUploadsPrefix}${fileName}`;
+        if (localMatch?.[1]) {
+          return `${uploadBase}/${localMatch[1]}`;
+        }
+      }
+
+      return value;
+    } catch {
+      return value;
     }
-
-
-    // --------------------------------------------------------
-    // URL déjà correcte
-    // --------------------------------------------------------
-
-    return value;
   }
-
-
-  // ==========================================================
-  // NORMALISER SLASH
-  // ==========================================================
-
-  value = value.replace(
-    /^\/+/,
-    "/"
-  );
-
-
-  // ==========================================================
-  // /api/uploads-file/...
-  // ==========================================================
-
-  if (
-    value.startsWith(
-      "/api/uploads-file/"
-    )
-  ) {
-
-    return `${BACKEND_URL.replace(
-      /\/+$/,
-      ""
-    )}${value}`;
-  }
-
-
-  // ==========================================================
-  // /uploads-file/...
-  // ==========================================================
-
-  if (
-    value.startsWith(
-      "/uploads-file/"
-    )
-  ) {
-
-    return `${BACKEND_URL.replace(
-      /\/+$/,
-      ""
-    )}/api${value}`;
-  }
-
-
-  // ==========================================================
-  // /uploads/...
-  //
-  // C'est généralement ce que contient la BDD.
-  // ==========================================================
-
-  if (
-    value.startsWith(
-      "/uploads/"
-    )
-  ) {
-
-    const fileName =
-      value.replace(
-        /^\/uploads\//,
-        ""
-      );
-
-    return `${BACKEND_URL.replace(
-      /\/+$/,
-      ""
-    )}/api/uploads-file/${fileName}`;
-  }
-
-
-  // ==========================================================
-  // uploads/...
-  // ==========================================================
-
-  if (
-    value.startsWith(
-      "uploads/"
-    )
-  ) {
-
-    const fileName =
-      value.replace(
-        /^uploads\//,
-        ""
-      );
-
-    return `${BACKEND_URL.replace(
-      /\/+$/,
-      ""
-    )}/api/uploads-file/${fileName}`;
-  }
-
 
   // ==========================================================
   // /api/...
   // ==========================================================
 
-  if (
-    value.startsWith(
-      "/api/"
-    )
-  ) {
-
-    return `${BACKEND_URL.replace(
-      /\/+$/,
-      ""
-    )}${value}`;
+  if (value.startsWith("/api/")) {
+    return `${backendOrigin}${value}`;
   }
-
 
   // ==========================================================
   // AUTRE URL RELATIVE
+  //
+  // Pour une image stockée comme simple nom :
+  // photo.jpg
+  // => /api/uploads-file/photo.jpg
   // ==========================================================
 
-  const cleanPath =
-    value.startsWith("/")
-      ? value
-      : `/${value}`;
+  const cleanPath = value.replace(/^\/+/, "");
 
-  return `${BACKEND_URL.replace(
-    /\/+$/,
-    ""
-  )}${cleanPath}`;
+  if (!cleanPath.startsWith("api/")) {
+    return `${uploadBase}/${cleanPath}`;
+  }
+
+  return `${backendOrigin}/${cleanPath}`;
 }
-
 
 // ============================================================
 // URL API
