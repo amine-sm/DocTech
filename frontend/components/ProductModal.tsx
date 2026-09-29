@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
 import {
   ArrowRight,
+  ArrowUpRight,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -50,9 +52,7 @@ function getDiscountPercent(product: Product): number {
     return 0;
   }
 
-  return Math.round(
-    ((oldPrice - price) / oldPrice) * 100
-  );
+  return Math.round(((oldPrice - price) / oldPrice) * 100);
 }
 
 function hasDiscount(product: Product): boolean {
@@ -79,23 +79,14 @@ function FavoriteButton({
 
   const active = isFavorite(product.id);
 
-  const handleClick = (
-    e: React.MouseEvent<HTMLButtonElement>
-  ) => {
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     e.preventDefault();
     toggle(product);
   };
 
-  const labelActive = text(
-    "Retirer des favoris",
-    "إزالة من المفضلة"
-  );
-
-  const labelInactive = text(
-    "Ajouter aux favoris",
-    "إضافة إلى المفضلة"
-  );
+  const labelActive = text("Retirer des favoris", "إزالة من المفضلة");
+  const labelInactive = text("Ajouter aux favoris", "إضافة إلى المفضلة");
 
   if (variant === "full") {
     return (
@@ -117,11 +108,7 @@ function FavoriteButton({
           ${className}
         `}
       >
-        <Heart
-          size={size}
-          fill={active ? "currentColor" : "none"}
-        />
-
+        <Heart size={size} fill={active ? "currentColor" : "none"} />
         {active ? labelActive : labelInactive}
       </button>
     );
@@ -145,10 +132,7 @@ function FavoriteButton({
         ${className}
       `}
     >
-      <Heart
-        size={size}
-        fill={active ? "currentColor" : "none"}
-      />
+      <Heart size={size} fill={active ? "currentColor" : "none"} />
     </button>
   );
 }
@@ -167,13 +151,9 @@ function GalleryPanel({
   const { locale, text } = useLocale();
 
   const images = useMemo(() => {
-    if (
-      Array.isArray(product.gallery) &&
-      product.gallery.length > 0
-    ) {
+    if (Array.isArray(product.gallery) && product.gallery.length > 0) {
       return product.gallery.filter(Boolean);
     }
-
     return product.image ? [product.image] : [];
   }, [product.gallery, product.image]);
 
@@ -192,9 +172,7 @@ function GalleryPanel({
 
   const goPrev = () => {
     if (images.length <= 1) return;
-    setActiveIdx(
-      (i) => (i - 1 + images.length) % images.length
-    );
+    setActiveIdx((i) => (i - 1 + images.length) % images.length);
   };
 
   return (
@@ -247,10 +225,7 @@ function GalleryPanel({
         <button
           type="button"
           onClick={goPrev}
-          aria-label={text(
-            "Image précédente",
-            "الصورة السابقة"
-          )}
+          aria-label={text("Image précédente", "الصورة السابقة")}
           className="
             absolute left-3 top-1/2 z-20
             flex h-10 w-10
@@ -275,10 +250,7 @@ function GalleryPanel({
           initial={{ opacity: 0, scale: 0.94 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.96 }}
-          transition={{
-            duration: 0.35,
-            ease: [0.22, 1, 0.36, 1],
-          }}
+          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
           className="
             relative z-10
             aspect-square
@@ -323,10 +295,7 @@ function GalleryPanel({
             text-slate-400
           "
         >
-          {text(
-            "Chargement des images...",
-            "جارٍ تحميل الصور..."
-          )}
+          {text("Chargement des images...", "جارٍ تحميل الصور...")}
         </div>
       )}
 
@@ -335,10 +304,7 @@ function GalleryPanel({
         <button
           type="button"
           onClick={goNext}
-          aria-label={text(
-            "Image suivante",
-            "الصورة التالية"
-          )}
+          aria-label={text("Image suivante", "الصورة التالية")}
           className="
             absolute right-3 top-1/2 z-20
             flex h-10 w-10
@@ -411,11 +377,9 @@ function GalleryPanel({
    COMPOSANT PRINCIPAL
 ========================================================= */
 
-export default function ProductModalGrid({
-  products,
-  limit = 8,
-}: Props) {
+export default function ProductModalGrid({ products, limit = 8 }: Props) {
   const { locale, text } = useLocale();
+  const router = useRouter();
 
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
@@ -424,6 +388,17 @@ export default function ProductModalGrid({
   const visible = useMemo(
     () => products.slice(0, limit),
     [products, limit]
+  );
+
+  /* =====================================================
+     NAVIGATION VERS PAGE PRODUIT
+  ===================================================== */
+
+  const goToProductPage = useCallback(
+    (slug: string) => {
+      router.push(`/article?slug=${encodeURIComponent(slug)}`);
+    },
+    [router]
   );
 
   /* =====================================================
@@ -494,10 +469,7 @@ export default function ProductModalGrid({
       return;
     }
 
-    if (
-      Array.isArray(baseProduct.gallery) &&
-      baseProduct.gallery.length > 1
-    ) {
+    if (Array.isArray(baseProduct.gallery) && baseProduct.gallery.length > 1) {
       setDetailProduct(baseProduct);
       setLoadingDetail(false);
       return;
@@ -598,8 +570,7 @@ export default function ProductModalGrid({
      PRODUIT ACTIF
   ===================================================== */
 
-  const baseProduct =
-    openIndex !== null ? visible[openIndex] : null;
+  const baseProduct = openIndex !== null ? visible[openIndex] : null;
 
   const activeProduct =
     openIndex !== null
@@ -810,6 +781,23 @@ export default function ProductModalGrid({
                     {oldPriceLabel}
                   </p>
                 )}
+
+                {/* LIEN DIRECT PAGE PRODUIT */}
+                <Link
+                  href={`/article?slug=${encodeURIComponent(product.slug)}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="
+                    mt-2.5 inline-flex items-center gap-1
+                    text-[10px] font-black uppercase
+                    tracking-wider
+                    text-slate-500
+                    transition-colors
+                    hover:text-blue-600
+                  "
+                >
+                  {text("Voir le produit", "عرض المنتج")}
+                  <ArrowUpRight size={11} />
+                </Link>
               </div>
 
               {/* HOVER */}
@@ -867,10 +855,7 @@ export default function ProductModalGrid({
               initial={{ opacity: 0, scale: 0.96, y: 30 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 30 }}
-              transition={{
-                duration: 0.35,
-                ease: [0.22, 1, 0.36, 1],
-              }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               onClick={(e) => e.stopPropagation()}
               dir={locale === "ar" ? "rtl" : "ltr"}
               className="
@@ -966,19 +951,13 @@ export default function ProductModalGrid({
                 <div className="mt-3 flex items-center gap-2">
                   <div className="flex items-center gap-0.5">
                     {Array.from({ length: 5 }).map((_, i) => {
-                      const rating = Number(
-                        activeProduct.rating ?? 0
-                      );
+                      const rating = Number(activeProduct.rating ?? 0);
 
                       return (
                         <Star
                           key={i}
                           size={15}
-                          fill={
-                            i < Math.floor(rating)
-                              ? "currentColor"
-                              : "none"
-                          }
+                          fill={i < Math.floor(rating) ? "currentColor" : "none"}
                           className={
                             i < Math.floor(rating)
                               ? "text-amber-400"
@@ -1020,27 +999,25 @@ export default function ProductModalGrid({
                 {Array.isArray(activeProduct.features) &&
                   activeProduct.features.length > 0 && (
                     <ul className="mt-4 space-y-2">
-                      {activeProduct.features
-                        .slice(0, 4)
-                        .map((feature, i) => (
-                          <li
-                            key={i}
+                      {activeProduct.features.slice(0, 4).map((feature, i) => (
+                        <li
+                          key={i}
+                          className="
+                            flex items-start
+                            gap-2 text-xs
+                            text-slate-600
+                          "
+                        >
+                          <Check
+                            size={14}
                             className="
-                              flex items-start
-                              gap-2 text-xs
-                              text-slate-600
+                              mt-0.5 shrink-0
+                              text-blue-600
                             "
-                          >
-                            <Check
-                              size={14}
-                              className="
-                                mt-0.5 shrink-0
-                                text-blue-600
-                              "
-                            />
-                            <span>{feature}</span>
-                          </li>
-                        ))}
+                          />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
                     </ul>
                   )}
 
@@ -1131,10 +1108,7 @@ export default function ProductModalGrid({
                       sm:text-4xl
                     "
                   >
-                    {formatPrice(
-                      activeProduct.price ?? 0,
-                      locale
-                    )}
+                    {formatPrice(activeProduct.price ?? 0, locale)}
                   </span>
 
                   {Number(activeProduct.oldPrice ?? 0) >
@@ -1147,10 +1121,7 @@ export default function ProductModalGrid({
                         line-through
                       "
                     >
-                      {formatPrice(
-                        activeProduct.oldPrice ?? 0,
-                        locale
-                      )}
+                      {formatPrice(activeProduct.oldPrice ?? 0, locale)}
                     </span>
                   )}
                 </div>
@@ -1165,8 +1136,7 @@ export default function ProductModalGrid({
                           ? "bg-emerald-500"
                           : activeProduct.stockStatus === "LOW_STOCK"
                             ? "bg-amber-500"
-                            : activeProduct.stockStatus ===
-                                "OUT_OF_STOCK"
+                            : activeProduct.stockStatus === "OUT_OF_STOCK"
                               ? "bg-rose-500"
                               : "bg-blue-500"
                       }
@@ -1181,8 +1151,7 @@ export default function ProductModalGrid({
                           ? "text-emerald-600"
                           : activeProduct.stockStatus === "LOW_STOCK"
                             ? "text-amber-600"
-                            : activeProduct.stockStatus ===
-                                "OUT_OF_STOCK"
+                            : activeProduct.stockStatus === "OUT_OF_STOCK"
                               ? "text-rose-600"
                               : "text-blue-600"
                       }
@@ -1198,7 +1167,10 @@ export default function ProductModalGrid({
                   <Quantity />
 
                   <Link
-                    href={`/articles/${activeProduct.slug}`}
+                    href={`/article?slug=${encodeURIComponent(
+                      activeProduct.slug
+                    )}`}
+                    onClick={close}
                     className="
                       group inline-flex
                       min-h-12 w-full
@@ -1218,17 +1190,18 @@ export default function ProductModalGrid({
                   >
                     <ShoppingCart size={17} />
 
-                    {text(
-                      "Voir la fiche complète",
-                      "عرض الصفحة الكاملة"
-                    )}
+                    {text("Voir la fiche complète", "عرض الصفحة الكاملة")}
 
                     <ArrowRight
                       size={16}
                       className={`
                         transition-transform
                         group-hover:translate-x-1
-                        ${locale === "ar" ? "rotate-180 group-hover:-translate-x-1 group-hover:translate-x-0" : ""}
+                        ${
+                          locale === "ar"
+                            ? "rotate-180 group-hover:-translate-x-1 group-hover:translate-x-0"
+                            : ""
+                        }
                       `}
                     />
                   </Link>
@@ -1245,10 +1218,7 @@ export default function ProductModalGrid({
               <button
                 type="button"
                 onClick={prev}
-                aria-label={text(
-                  "Produit précédent",
-                  "المنتج السابق"
-                )}
+                aria-label={text("Produit précédent", "المنتج السابق")}
                 className="
                   absolute left-3 top-1/2 z-30 hidden
                   h-11 w-11 -translate-y-1/2
@@ -1269,10 +1239,7 @@ export default function ProductModalGrid({
               <button
                 type="button"
                 onClick={next}
-                aria-label={text(
-                  "Produit suivant",
-                  "المنتج التالي"
-                )}
+                aria-label={text("Produit suivant", "المنتج التالي")}
                 className="
                   absolute right-3 top-1/2 z-30 hidden
                   h-11 w-11 -translate-y-1/2
