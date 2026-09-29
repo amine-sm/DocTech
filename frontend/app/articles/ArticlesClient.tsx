@@ -71,11 +71,7 @@ export default function ArticlesClient() {
 
   const [mobileFiltersOpen, setMobileFiltersOpen] =
     useState(false);
-
-  /* FILTRE FLOTTANT APRES DEFILEMENT */
-
-  const [showFloatingFilter, setShowFloatingFilter] =
-    useState(false);
+const [showFloatingFilter, setShowFloatingFilter] = useState(false);
 
   /* =========================================================
      FLOATING FILTER
@@ -392,6 +388,28 @@ export default function ArticlesClient() {
   };
 
   /* =========================================================
+     OUVERTURE DU FILTRE DEPUIS LE BOTTOM NAVIGATION MOBILE
+     ========================================================= */
+
+  useEffect(() => {
+    const openFilters = () => {
+      setMobileFiltersOpen(true);
+    };
+
+    window.addEventListener(
+      "doctech:open-filters",
+      openFilters
+    );
+
+    return () => {
+      window.removeEventListener(
+        "doctech:open-filters",
+        openFilters
+      );
+    };
+  }, []);
+
+  /* =========================================================
      CHANGE PAGE
   ========================================================= */
 
@@ -423,83 +441,6 @@ export default function ArticlesClient() {
       `}
     >
       <Header />
-
-      {/* =====================================================
-          FILTRE FLOTTANT
-      ===================================================== */}
-
-      {showFloatingFilter &&
-        !mobileFiltersOpen && (
-          <button
-            type="button"
-            onClick={() =>
-              setMobileFiltersOpen(true)
-            }
-            aria-label={text(
-              "Afficher les filtres",
-              "إظهار الفلاتر"
-            )}
-            className={`
-              fixed
-              right-4
-              bottom-24
-              z-[900]
-              flex
-              h-12
-              w-12
-              -translate-y-1/2
-              items-center
-              justify-center
-              rounded-full
-              bg-blue-600
-              text-white
-              shadow-[0_12px_35px_rgba(15,23,42,0.25)]
-              ring-4
-              ring-white/80
-              transition-all
-              duration-300
-              hover:scale-110
-              hover:bg-blue-700
-              active:scale-95
-              rtl:right-auto
-              rtl:left-4
-              lg:hidden
-            `}
-          >
-            <SlidersHorizontal
-              size={19}
-              strokeWidth={2.5}
-            />
-
-            {(category || brand) && (
-              <span
-                className={`
-                  absolute
-                  -right-1
-                  -top-1
-                  flex
-                  h-5
-                  min-w-5
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-blue-600
-                  px-1
-                  text-[9px]
-                  font-black
-                  text-white
-                  ring-2
-                  ring-white
-                  rtl:-left-1
-                  rtl:right-auto
-                `}
-              >
-                {(category ? 1 : 0) +
-                  (brand ? 1 : 0)}
-              </span>
-            )}
-          </button>
-        )}
 
       {/* =====================================================
           MOBILE FILTER DRAWER

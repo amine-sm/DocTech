@@ -1,3 +1,4 @@
+
 "use client";
 
 import Image from "next/image";
@@ -15,6 +16,7 @@ import {
   Menu,
   Search,
   ShoppingBag,
+  SlidersHorizontal,
   Sparkles,
   X,
 } from "lucide-react";
@@ -29,10 +31,7 @@ import {
   useState,
 } from "react";
 
-import {
-  AnimatePresence,
-  motion,
-} from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 
 import {
   CART_EVENT,
@@ -56,6 +55,17 @@ import {
 import { useLocale } from "@/components/LocaleProvider";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import CartDrawer from "@/components/CartDrawer";
+
+/* =========================================================
+   CONFIGURATION CONTACT
+========================================================= */
+
+// WhatsApp : numéro international SANS +
+// Exemple Algérie : 0550123456 => 213550123456
+const WHATSAPP_NUMBER = "213563266774";
+
+// Messenger
+const MESSENGER_URL = "https://www.facebook.com/messages/t/1627625560841341";
 
 /* =========================================================
    ICON CATEGORIE
@@ -94,6 +104,421 @@ function getCategoryIcon(slug: string) {
 }
 
 /* =========================================================
+   WHATSAPP ICON
+========================================================= */
+
+function WhatsAppIcon({
+  size = 30,
+}: {
+  size?: number;
+}) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      width={size}
+      height={size}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        d="
+          M16 3
+          C8.82 3 3 8.82 3 16
+          C3 18.29 3.59 20.45 4.72 22.38
+          L3 29
+          L9.8 27.32
+          C11.69 28.42 13.82 29 16 29
+          C23.18 29 29 23.18 29 16
+          C29 8.82 23.18 3 16 3
+          Z
+
+          M16 26.75
+          C13.98 26.75 12.02 26.21 10.31 25.18
+          L9.9 24.94
+          L5.86 25.94
+          L6.84 22
+          L6.57 21.58
+          C5.7 20.25 5.25 18.66 5.25 16
+          C5.25 10.07 10.07 5.25 16 5.25
+          C21.93 5.25 26.75 10.07 26.75 16
+          C26.75 21.93 21.93 26.75 16 26.75
+          Z
+
+          M21.87 18.77
+          C21.55 18.61 19.99 17.84 19.7 17.74
+          C19.41 17.63 19.2 17.58 18.99 17.9
+          C18.78 18.22 18.18 18.93 18
+          19.14
+          C17.82 19.35 17.63 19.38 17.31 19.22
+          C16.99 19.06 15.96 18.72 14.74 17.63
+          C13.79 16.78 13.15 15.74 12.97 15.42
+          C12.79 15.1 12.95 14.93 13.11 14.77
+          C13.25 14.63 13.43 14.4 13.59 14.22
+          C13.75 14.04 13.8 13.88 13.91 13.67
+          C14.02 13.46 13.96 13.27 13.88 13.11
+          C13.8 12.95 13.17 11.39 12.91 10.75
+          C12.65 10.13 12.39 10.22 12.2 10.21
+          C12.01 10.2 11.8 10.2 11.59 10.2
+          C11.38 10.2 11.04 10.28 10.75 10.6
+          C10.46 10.92 9.65 11.68 9.65 13.24
+          C9.65 14.8 10.78 16.31 10.94 16.52
+          C11.1 16.73 13.16 19.91 16.32 21.28
+          C17.07 21.6 17.66 21.79 18.12 21.93
+          C18.88 22.17 19.57 22.14 20.11 22.06
+          C20.72 21.97 21.99 21.29 22.25 20.55
+          C22.51 19.81 22.51 19.17 22.43 19.04
+          C22.35 18.91 22.19 18.85 21.87 18.77
+          Z
+        "
+      />
+    </svg>
+  );
+}
+
+/* =========================================================
+   MESSENGER ICON
+========================================================= */
+
+function MessengerIcon({
+  size = 30,
+}: {
+  size?: number;
+}) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      width={size}
+      height={size}
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="
+          M16 3
+          C8.82 3 3 8.6 3 15.5
+          C3 19.44 4.88 22.98 7.88 25.28
+          V29
+          L12.36 26.54
+          C13.51 26.85 14.73 27 16 27
+          C23.18 27 29 21.4 29 14.5
+          C29 7.6 23.18 3 16 3
+          Z
+        "
+        fill="white"
+      />
+
+      <path
+        d="
+          M9 18.2
+          L14.15 12.75
+          L17.2 15.55
+          L23 12.2
+          L17.85 17.65
+          L14.8 14.85
+          L9 18.2
+          Z
+        "
+        fill="#168AFF"
+      />
+    </svg>
+  );
+}
+
+/* =========================================================
+   FLOATING CONTACT BUTTONS
+========================================================= */
+
+function FloatingContactButtons() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+
+      // Toujours visible tout en haut
+      if (currentY <= 20) {
+        setVisible(true);
+        lastY = currentY;
+        return;
+      }
+
+      // Les boutons restent visibles pendant le scroll.
+      // On garde simplement l'état actif pour permettre
+      // une légère animation de flottement.
+      setVisible(true);
+
+      lastY = currentY;
+    };
+
+    window.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
+
+    return () => {
+      window.removeEventListener(
+        "scroll",
+        handleScroll
+      );
+    };
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className={`
+        fixed
+        bottom-[105px]
+        end-4
+        z-[90]
+        flex
+        flex-col
+        items-end
+        gap-3
+        sm:bottom-7
+        sm:end-6
+        md:bottom-8
+      `}
+    >
+      {/* ===================================================
+          WHATSAPP
+      =================================================== */}
+
+      <motion.a
+        href={`https://wa.me/${WHATSAPP_NUMBER}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="WhatsApp"
+        initial={{
+          opacity: 0,
+          scale: 0.4,
+          x: 35,
+        }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+          x: 0,
+        }}
+        transition={{
+          delay: 0.2,
+          duration: 0.45,
+          type: "spring",
+          stiffness: 260,
+          damping: 18,
+        }}
+        whileHover={{
+          scale: 1.08,
+          y: -4,
+        }}
+        whileTap={{
+          scale: 0.9,
+        }}
+        className={`
+          group
+          relative
+          flex
+          h-14
+          w-14
+          items-center
+          justify-center
+          rounded-full
+          bg-[#25D366]
+          text-white
+          shadow-[0_10px_35px_rgba(37,211,102,0.40)]
+          ring-4
+          ring-white
+          sm:h-16
+          sm:w-16
+        `}
+      >
+        {/* Pulse */}
+
+        <motion.span
+          className={`
+            pointer-events-none
+            absolute
+            inset-0
+            rounded-full
+            border-2
+            border-[#25D366]
+          `}
+          animate={{
+            scale: [1, 1.28, 1],
+            opacity: [0.75, 0, 0.75],
+          }}
+          transition={{
+            duration: 2.2,
+            repeat: Infinity,
+            ease: "easeOut",
+          }}
+        />
+
+        <motion.span
+          animate={{
+            y: [0, -3, 0, 3, 0],
+            rotate: [0, 2, 0, -2, 0],
+          }}
+          transition={{
+            duration: 3.2,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          className="relative z-10"
+        >
+          <WhatsAppIcon size={30} />
+        </motion.span>
+
+        {/* Tooltip */}
+
+        <span
+          className={`
+            pointer-events-none
+            absolute
+            end-[calc(100%+12px)]
+            whitespace-nowrap
+            rounded-xl
+            bg-slate-950
+            px-3
+            py-2
+            text-[10px]
+            font-black
+            text-white
+            opacity-0
+            shadow-xl
+            transition
+            duration-200
+            group-hover:opacity-100
+          `}
+        >
+          WhatsApp
+        </span>
+      </motion.a>
+
+      {/* ===================================================
+          MESSENGER
+      =================================================== */}
+
+      <motion.a
+        href={MESSENGER_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Messenger"
+        initial={{
+          opacity: 0,
+          scale: 0.4,
+          x: 35,
+        }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+          x: 0,
+        }}
+        transition={{
+          delay: 0.35,
+          duration: 0.45,
+          type: "spring",
+          stiffness: 260,
+          damping: 18,
+        }}
+        whileHover={{
+          scale: 1.08,
+          y: -4,
+        }}
+        whileTap={{
+          scale: 0.9,
+        }}
+        className={`
+          group
+          relative
+          flex
+          h-14
+          w-14
+          items-center
+          justify-center
+          rounded-full
+          bg-gradient-to-br
+          from-[#00B2FF]
+          via-[#006AFF]
+          to-[#A033FF]
+          text-white
+          shadow-[0_10px_35px_rgba(0,106,255,0.38)]
+          ring-4
+          ring-white
+          sm:h-16
+          sm:w-16
+        `}
+      >
+        {/* Pulse */}
+
+        <motion.span
+          className={`
+            pointer-events-none
+            absolute
+            inset-0
+            rounded-full
+            border-2
+            border-[#168AFF]
+          `}
+          animate={{
+            scale: [1, 1.28, 1],
+            opacity: [0.65, 0, 0.65],
+          }}
+          transition={{
+            duration: 2.4,
+            repeat: Infinity,
+            ease: "easeOut",
+            delay: 0.8,
+          }}
+        />
+
+        <motion.span
+          animate={{
+            y: [0, -3, 0, 3, 0],
+            rotate: [0, -2, 0, 2, 0],
+          }}
+          transition={{
+            duration: 3.5,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 0.5,
+          }}
+          className="relative z-10"
+        >
+          <MessengerIcon size={30} />
+        </motion.span>
+
+        {/* Tooltip */}
+
+        <span
+          className={`
+            pointer-events-none
+            absolute
+            end-[calc(100%+12px)]
+            whitespace-nowrap
+            rounded-xl
+            bg-slate-950
+            px-3
+            py-2
+            text-[10px]
+            font-black
+            text-white
+            opacity-0
+            shadow-xl
+            transition
+            duration-200
+            group-hover:opacity-100
+          `}
+        >
+          Messenger
+        </span>
+      </motion.a>
+    </div>
+  );
+}
+
+/* =========================================================
    HEADER
 ========================================================= */
 
@@ -117,83 +542,56 @@ function HeaderContent() {
      DATA
   ======================================================= */
 
-  const [
-    categories,
-    setCategories,
-  ] = useState<CatalogCategory[]>([]);
+  const [categories, setCategories] =
+    useState<CatalogCategory[]>([]);
 
-  const [
-    brands,
-    setBrands,
-  ] = useState<CatalogBrand[]>([]);
+  const [brands, setBrands] =
+    useState<CatalogBrand[]>([]);
 
-  const [
-    products,
-    setProducts,
-  ] = useState<Product[]>([]);
+  const [products, setProducts] =
+    useState<Product[]>([]);
 
-  const [
-    suggestions,
-    setSuggestions,
-  ] = useState<Product[]>([]);
+  const [suggestions, setSuggestions] =
+    useState<Product[]>([]);
 
   /* =======================================================
      UI
   ======================================================= */
 
-  const [
-    mobileMenuOpen,
-    setMobileMenuOpen,
-  ] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] =
+    useState(false);
 
-  const [
-    categoriesOpen,
-    setCategoriesOpen,
-  ] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] =
+    useState(false);
 
-  const [
-    brandsOpen,
-    setBrandsOpen,
-  ] = useState(false);
+  const [brandsOpen, setBrandsOpen] =
+    useState(false);
 
-  const [
-    cartDrawerOpen,
-    setCartDrawerOpen,
-  ] = useState(false);
+  const [cartDrawerOpen, setCartDrawerOpen] =
+    useState(false);
 
   /* =======================================================
      SEARCH
   ======================================================= */
 
-  const [
-    search,
-    setSearch,
-  ] = useState("");
+  const [search, setSearch] =
+    useState("");
 
-  const [
-    searchFocused,
-    setSearchFocused,
-  ] = useState(false);
+  const [searchFocused, setSearchFocused] =
+    useState(false);
 
   /* =======================================================
      COUNTS
   ======================================================= */
 
-  const [
-    cartCount,
-    setCartCount,
-  ] = useState(0);
+  const [cartCount, setCartCount] =
+    useState(0);
 
-  const [
-    favoritesCount,
-    setFavoritesCount,
-  ] = useState(0);
+  const [favoritesCount, setFavoritesCount] =
+    useState(0);
 
   /* =======================================================
-     MOBILE PRODUCT HEARTS / SCROLL DIRECTION
-     - Descente : les coeurs des cartes produits se cachent
-     - Remontée : ils réapparaissent
-     - La bottom nav et le bouton filtre ne sont PAS touchés
+     SCROLL
   ======================================================= */
 
   const lastScrollYRef =
@@ -212,9 +610,9 @@ function HeaderContent() {
   const searchMobileRef =
     useRef<HTMLDivElement | null>(null);
 
-  /* =========================================================
+  /* =======================================================
      CHARGEMENT CATALOGUE
-  ========================================================= */
+  ======================================================= */
 
   useEffect(() => {
     let active = true;
@@ -291,9 +689,9 @@ function HeaderContent() {
     };
   }, [locale]);
 
-  /* =========================================================
+  /* =======================================================
      PANIER / FAVORIS
-  ========================================================= */
+  ======================================================= */
 
   useEffect(() => {
     const syncCart = () => {
@@ -344,61 +742,81 @@ function HeaderContent() {
     };
   }, []);
 
-  /* =========================================================
+  /* =======================================================
      SCROLL MOBILE
-     Les coeurs présents dans <main> sont masqués uniquement
-     pendant la descente. Header / bottom nav / filtre restent
-     visibles.
-  ========================================================= */
+  ======================================================= */
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const root = document.documentElement;
+    const root =
+      document.documentElement;
 
-    const applyScrollState = (down: boolean) => {
-      root.dataset.doctechScroll = down
-        ? "down"
-        : "up";
+    const applyScrollState = (
+      down: boolean
+    ) => {
+      root.dataset.doctechScroll =
+        down ? "down" : "up";
     };
 
     const handleScroll = () => {
-      const currentY = window.scrollY;
-      const previousY = lastScrollYRef.current;
+      const currentY =
+        window.scrollY;
+
+      const previousY =
+        lastScrollYRef.current;
 
       if (currentY <= 20) {
         applyScrollState(false);
-        lastScrollYRef.current = currentY;
+        lastScrollYRef.current =
+          currentY;
         return;
       }
 
-      if (currentY > previousY + 8) {
+      if (
+        currentY >
+        previousY + 8
+      ) {
         applyScrollState(true);
-      } else if (currentY < previousY - 8) {
+      } else if (
+        currentY <
+        previousY - 8
+      ) {
         applyScrollState(false);
       }
 
-      lastScrollYRef.current = currentY;
-
+      lastScrollYRef.current =
+        currentY;
     };
 
-    lastScrollYRef.current = window.scrollY;
-    root.dataset.doctechScroll = "up";
+    lastScrollYRef.current =
+      window.scrollY;
 
-    window.addEventListener("scroll", handleScroll, {
-      passive: true,
-    });
+    root.dataset.doctechScroll =
+      "up";
+
+    window.addEventListener(
+      "scroll",
+      handleScroll,
+      {
+        passive: true,
+      }
+    );
 
     return () => {
-      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener(
+        "scroll",
+        handleScroll
+      );
 
-      delete root.dataset.doctechScroll;
+      delete root.dataset
+        .doctechScroll;
     };
   }, []);
 
-  /* =========================================================
-     FERMER MENUS SUR CHANGEMENT PAGE
-  ========================================================= */
+  /* =======================================================
+     FERMER MENUS CHANGEMENT PAGE
+  ======================================================= */
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -406,9 +824,9 @@ function HeaderContent() {
     setBrandsOpen(false);
   }, [pathname, searchParams]);
 
-  /* =========================================================
-     BLOQUER SCROLL MOBILE
-  ========================================================= */
+  /* =======================================================
+     BLOQUER SCROLL MENU MOBILE
+  ======================================================= */
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -425,9 +843,9 @@ function HeaderContent() {
     };
   }, [mobileMenuOpen]);
 
-  /* =========================================================
-     FERMER MENUS AU CLIC EXTERNE
-  ========================================================= */
+  /* =======================================================
+     CLIC EXTERNE
+  ======================================================= */
 
   useEffect(() => {
     const onPointerDown = (
@@ -472,9 +890,9 @@ function HeaderContent() {
     };
   }, []);
 
-  /* =========================================================
+  /* =======================================================
      RECHERCHE / SUGGESTIONS
-  ========================================================= */
+  ======================================================= */
 
   useEffect(() => {
     const value =
@@ -560,28 +978,40 @@ function HeaderContent() {
     products,
   ]);
 
-  /* =========================================================
-     ETAT NAVIGATION
-  ========================================================= */
+  /* =======================================================
+     NAVIGATION STATE
+  ======================================================= */
 
   const catalogActive =
-    pathname.startsWith("/articles") ||
-    pathname.startsWith("/article");
+    pathname.startsWith(
+      "/articles"
+    ) ||
+    pathname.startsWith(
+      "/article"
+    );
 
   const promoActive =
-    pathname.startsWith("/promotions");
+    pathname.startsWith(
+      "/promotions"
+    );
 
   const favoriteActive =
-    pathname.startsWith("/favoris");
+    pathname.startsWith(
+      "/favoris"
+    );
 
   const cartActive =
     cartDrawerOpen ||
-    pathname.startsWith("/panier") ||
-    pathname.startsWith("/commande");
+    pathname.startsWith(
+      "/panier"
+    ) ||
+    pathname.startsWith(
+      "/commande"
+    );
 
-  /* =========================================================
-     MARQUES VISIBLES
-  ========================================================= */
+  /* =======================================================
+     MARQUES
+  ======================================================= */
 
   const visibleBrands =
     useMemo(
@@ -590,9 +1020,9 @@ function HeaderContent() {
       [brands]
     );
 
-  /* =========================================================
+  /* =======================================================
      URL PRODUIT
-  ========================================================= */
+  ======================================================= */
 
   function getProductHref(
     product: Product
@@ -604,9 +1034,9 @@ function HeaderContent() {
     return `/article/${slug}`;
   }
 
-  /* =========================================================
-     IMAGE PRODUIT
-  ========================================================= */
+  /* =======================================================
+     IMAGE
+  ======================================================= */
 
   function getProductImage(
     product: Product
@@ -623,9 +1053,9 @@ function HeaderContent() {
     );
   }
 
-  /* =========================================================
-     NOM PRODUIT
-  ========================================================= */
+  /* =======================================================
+     NOM
+  ======================================================= */
 
   function getProductName(
     product: Product
@@ -636,9 +1066,9 @@ function HeaderContent() {
     );
   }
 
-  /* =========================================================
+  /* =======================================================
      PRIX
-  ========================================================= */
+  ======================================================= */
 
   function formatPrice(
     value: unknown
@@ -657,9 +1087,9 @@ function HeaderContent() {
     )} DA`;
   }
 
-  /* =========================================================
+  /* =======================================================
      RECHERCHE
-  ========================================================= */
+  ======================================================= */
 
   function handleSearch(
     event: FormEvent<HTMLFormElement>
@@ -680,18 +1110,18 @@ function HeaderContent() {
       )}`;
   }
 
-  /* =========================================================
+  /* =======================================================
      CLIC SUGGESTION
-  ========================================================= */
+  ======================================================= */
 
   function handleSuggestionClick() {
     setSearchFocused(false);
     setSuggestions([]);
   }
 
-  /* =========================================================
-     FERMER MENU MOBILE
-  ========================================================= */
+  /* =======================================================
+     FERMER MENU
+  ======================================================= */
 
   function closeMobileMenu() {
     setMobileMenuOpen(false);
@@ -699,14 +1129,18 @@ function HeaderContent() {
 
   return (
     <>
-      {/* =======================================================
-          MOBILE PRODUCT FAVORITE SCROLL STYLE
-          Ne touche ni au menu, ni au filtre, ni à la bottom nav.
-      ======================================================= */}
+      {/* =====================================================
+          STYLE COEURS PRODUITS AU SCROLL MOBILE
+      ===================================================== */}
+
       <style jsx global>{`
         @media (max-width: 767px) {
-          html[data-doctech-scroll="down"] main button:has(svg.lucide-heart),
-          html[data-doctech-scroll="down"] main a:has(svg.lucide-heart) {
+          html[data-doctech-scroll="down"]
+            main
+            button:has(svg.lucide-heart),
+          html[data-doctech-scroll="down"]
+            main
+            a:has(svg.lucide-heart) {
             opacity: 0 !important;
             transform: scale(0.72) !important;
             pointer-events: none !important;
@@ -715,8 +1149,12 @@ function HeaderContent() {
               transform 180ms ease !important;
           }
 
-          html[data-doctech-scroll="up"] main button:has(svg.lucide-heart),
-          html[data-doctech-scroll="up"] main a:has(svg.lucide-heart) {
+          html[data-doctech-scroll="up"]
+            main
+            button:has(svg.lucide-heart),
+          html[data-doctech-scroll="up"]
+            main
+            a:has(svg.lucide-heart) {
             opacity: 1;
             transform: scale(1);
             transition:
@@ -725,19 +1163,45 @@ function HeaderContent() {
           }
         }
       `}</style>
+
       {/* =====================================================
           HEADER
       ===================================================== */}
 
-      <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 shadow-[0_8px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
-
+      <header
+        className={`
+          sticky
+          top-0
+          z-50
+          w-full
+          border-b
+          border-slate-200/80
+          bg-white/95
+          shadow-[0_8px_30px_rgba(15,23,42,0.06)]
+          backdrop-blur-xl
+        `}
+      >
         {/* ===================================================
             TOP BAR
         =================================================== */}
 
         <div className="hidden bg-[#06152b] text-white sm:block">
-          <div className="mx-auto flex h-9 max-w-[1450px] items-center justify-between gap-4 px-4 text-[10px] font-bold text-slate-300 lg:px-8">
-
+          <div
+            className={`
+              mx-auto
+              flex
+              h-9
+              max-w-[1450px]
+              items-center
+              justify-between
+              gap-4
+              px-4
+              text-[10px]
+              font-bold
+              text-slate-300
+              lg:px-8
+            `}
+          >
             <span>
               {text(
                 "Informatique & High-Tech",
@@ -751,7 +1215,6 @@ function HeaderContent() {
                 "التوصيل متوفر · دعم DOCTECH"
               )}
             </span>
-
           </div>
         </div>
 
@@ -759,12 +1222,23 @@ function HeaderContent() {
             HEADER PRINCIPAL
         =================================================== */}
 
-        <div className="relative mx-auto flex min-h-[64px] max-w-[1450px] items-center gap-2 px-3 sm:min-h-[72px] sm:gap-3 sm:px-4 lg:px-8">
-
-          {/* =================================================
-              LOGO
-              MOBILE = CENTRE PARFAIT
-          ================================================= */}
+        <div
+          className={`
+            relative
+            mx-auto
+            flex
+            min-h-[64px]
+            max-w-[1450px]
+            items-center
+            gap-2
+            px-3
+            sm:min-h-[72px]
+            sm:gap-3
+            sm:px-4
+            lg:px-8
+          `}
+        >
+          {/* LOGO */}
 
           <Link
             href="/"
@@ -772,7 +1246,7 @@ function HeaderContent() {
               "DOCTECH - Accueil",
               "DOCTECH - الرئيسية"
             )}
-            className="
+            className={`
               absolute
               left-1/2
               top-1/2
@@ -788,7 +1262,7 @@ function HeaderContent() {
               lg:w-[150px]
               lg:translate-x-0
               lg:translate-y-0
-            "
+            `}
           >
             <Image
               src="/images/logo-doctech.webp"
@@ -806,14 +1280,36 @@ function HeaderContent() {
 
           <div
             ref={searchDesktopRef}
-            className="relative mx-auto hidden min-w-0 max-w-[680px] flex-1 md:block"
+            className={`
+              relative
+              mx-auto
+              hidden
+              min-w-0
+              max-w-[680px]
+              flex-1
+              md:block
+            `}
           >
-
             <form
               onSubmit={handleSearch}
             >
-              <div className="flex h-12 items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 transition focus-within:border-blue-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/10">
-
+              <div
+                className={`
+                  flex
+                  h-12
+                  items-center
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-slate-50
+                  px-3
+                  transition
+                  focus-within:border-blue-400
+                  focus-within:bg-white
+                  focus-within:ring-4
+                  focus-within:ring-blue-500/10
+                `}
+              >
                 <Search
                   size={17}
                   className="shrink-0 text-slate-400"
@@ -823,9 +1319,7 @@ function HeaderContent() {
                   type="search"
                   value={search}
                   onFocus={() =>
-                    setSearchFocused(
-                      true
-                    )
+                    setSearchFocused(true)
                   }
                   onChange={(event) =>
                     setSearch(
@@ -836,7 +1330,18 @@ function HeaderContent() {
                     "Rechercher PC, souris, clavier, casque...",
                     "ابحث عن حاسوب، فأرة، لوحة مفاتيح، سماعات..."
                   )}
-                  className="h-full min-w-0 flex-1 bg-transparent px-3 text-[13px] font-semibold text-slate-800 outline-none placeholder:text-slate-400"
+                  className={`
+                    h-full
+                    min-w-0
+                    flex-1
+                    bg-transparent
+                    px-3
+                    text-[13px]
+                    font-semibold
+                    text-slate-800
+                    outline-none
+                    placeholder:text-slate-400
+                  `}
                 />
 
                 {search && (
@@ -850,12 +1355,23 @@ function HeaderContent() {
                       "Effacer",
                       "مسح"
                     )}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-200 hover:text-slate-600"
+                    className={`
+                      flex
+                      h-8
+                      w-8
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-xl
+                      text-slate-400
+                      transition
+                      hover:bg-slate-200
+                      hover:text-slate-600
+                    `}
                   >
                     <X size={14} />
                   </button>
                 )}
-
               </div>
             </form>
 
@@ -864,10 +1380,32 @@ function HeaderContent() {
             {searchFocused &&
               search.trim() &&
               suggestions.length > 0 && (
-                <div className="absolute start-0 end-0 top-[calc(100%+8px)] z-[100] overflow-hidden rounded-[22px] border border-slate-200 bg-white p-2 shadow-[0_25px_70px_rgba(15,23,42,0.18)]">
-
+                <div
+                  className={`
+                    absolute
+                    start-0
+                    end-0
+                    top-[calc(100%+8px)]
+                    z-[100]
+                    overflow-hidden
+                    rounded-[22px]
+                    border
+                    border-slate-200
+                    bg-white
+                    p-2
+                    shadow-[0_25px_70px_rgba(15,23,42,0.18)]
+                  `}
+                >
                   <div className="px-3 pb-2 pt-2">
-                    <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                    <span
+                      className={`
+                        text-[10px]
+                        font-black
+                        uppercase
+                        tracking-[0.14em]
+                        text-slate-400
+                      `}
+                    >
                       {text(
                         "Suggestions",
                         "اقتراحات"
@@ -876,7 +1414,6 @@ function HeaderContent() {
                   </div>
 
                   <div className="space-y-1">
-
                     {suggestions.map(
                       (product) => (
                         <Link
@@ -890,11 +1427,30 @@ function HeaderContent() {
                           onClick={
                             handleSuggestionClick
                           }
-                          className="group flex items-center gap-3 rounded-2xl p-2.5 transition hover:bg-blue-50"
+                          className={`
+                            group
+                            flex
+                            items-center
+                            gap-3
+                            rounded-2xl
+                            p-2.5
+                            transition
+                            hover:bg-blue-50
+                          `}
                         >
-
-                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-white">
-
+                          <div
+                            className={`
+                              relative
+                              h-14
+                              w-14
+                              shrink-0
+                              overflow-hidden
+                              rounded-xl
+                              border
+                              border-slate-100
+                              bg-white
+                            `}
+                          >
                             <Image
                               src={getProductImage(
                                 product
@@ -907,12 +1463,18 @@ function HeaderContent() {
                               unoptimized
                               className="object-contain p-1.5"
                             />
-
                           </div>
 
                           <div className="min-w-0 flex-1">
-
-                            <p className="truncate text-[12px] font-black text-slate-800 group-hover:text-blue-700">
+                            <p
+                              className={`
+                                truncate
+                                text-[12px]
+                                font-black
+                                text-slate-800
+                                group-hover:text-blue-700
+                              `}
+                            >
                               {getProductName(
                                 product
                               )}
@@ -920,7 +1482,15 @@ function HeaderContent() {
 
                             {(product as any)
                               .brand && (
-                              <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-400">
+                              <p
+                                className={`
+                                  mt-0.5
+                                  truncate
+                                  text-[10px]
+                                  font-semibold
+                                  text-slate-400
+                                `}
+                              >
                                 {typeof (
                                   product as any
                                 ).brand ===
@@ -939,23 +1509,34 @@ function HeaderContent() {
 
                             {product.price !=
                               null && (
-                              <p className="mt-1 text-[11px] font-black text-blue-600">
+                              <p
+                                className={`
+                                  mt-1
+                                  text-[11px]
+                                  font-black
+                                  text-blue-600
+                                `}
+                              >
                                 {formatPrice(
                                   product.price
                                 )}
                               </p>
                             )}
-
                           </div>
 
-                          <span className="shrink-0 text-slate-300 transition group-hover:text-blue-500">
+                          <span
+                            className={`
+                              shrink-0
+                              text-slate-300
+                              transition
+                              group-hover:text-blue-500
+                            `}
+                          >
                             →
                           </span>
-
                         </Link>
                       )
                     )}
-
                   </div>
 
                   <button
@@ -975,14 +1556,29 @@ function HeaderContent() {
                           value
                         )}`;
                     }}
-                    className="mt-2 flex w-full items-center justify-center rounded-xl bg-slate-50 px-3 py-2.5 text-[10px] font-black text-slate-600 transition hover:bg-blue-50 hover:text-blue-700"
+                    className={`
+                      mt-2
+                      flex
+                      w-full
+                      items-center
+                      justify-center
+                      rounded-xl
+                      bg-slate-50
+                      px-3
+                      py-2.5
+                      text-[10px]
+                      font-black
+                      text-slate-600
+                      transition
+                      hover:bg-blue-50
+                      hover:text-blue-700
+                    `}
                   >
                     {text(
                       "Voir tous les résultats",
                       "عرض جميع النتائج"
                     )}
                   </button>
-
                 </div>
               )}
 
@@ -990,10 +1586,22 @@ function HeaderContent() {
               search.trim() &&
               suggestions.length === 0 &&
               products.length > 0 && (
-                <div className="absolute start-0 end-0 top-[calc(100%+8px)] z-[100] rounded-[22px] border border-slate-200 bg-white p-4 shadow-[0_25px_70px_rgba(15,23,42,0.18)]">
-
+                <div
+                  className={`
+                    absolute
+                    start-0
+                    end-0
+                    top-[calc(100%+8px)]
+                    z-[100]
+                    rounded-[22px]
+                    border
+                    border-slate-200
+                    bg-white
+                    p-4
+                    shadow-[0_25px_70px_rgba(15,23,42,0.18)]
+                  `}
+                >
                   <div className="flex items-center gap-3 text-slate-400">
-
                     <Search size={17} />
 
                     <span className="text-[11px] font-bold">
@@ -1002,12 +1610,9 @@ function HeaderContent() {
                         "لا توجد مقالات مطابقة"
                       )}
                     </span>
-
                   </div>
-
                 </div>
               )}
-
           </div>
 
           {/* =================================================
@@ -1015,7 +1620,6 @@ function HeaderContent() {
           ================================================= */}
 
           <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-
             <div className="hidden xl:block">
               <LanguageSwitcher compact />
             </div>
@@ -1044,7 +1648,26 @@ function HeaderContent() {
               />
 
               {favoritesCount > 0 && (
-                <span className="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[8px] font-black text-white">
+                <span
+                  className={`
+                    absolute
+                    -end-1
+                    -top-1
+                    flex
+                    h-5
+                    min-w-5
+                    items-center
+                    justify-center
+                    rounded-full
+                    border-2
+                    border-white
+                    bg-rose-500
+                    px-1
+                    text-[8px]
+                    font-black
+                    text-white
+                  `}
+                >
                   {favoritesCount > 99
                     ? "99+"
                     : favoritesCount}
@@ -1072,7 +1695,26 @@ function HeaderContent() {
               <ShoppingBag size={19} />
 
               {cartCount > 0 && (
-                <span className="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-slate-950 px-1 text-[8px] font-black text-white">
+                <span
+                  className={`
+                    absolute
+                    -end-1
+                    -top-1
+                    flex
+                    h-5
+                    min-w-5
+                    items-center
+                    justify-center
+                    rounded-full
+                    border-2
+                    border-white
+                    bg-slate-950
+                    px-1
+                    text-[8px]
+                    font-black
+                    text-white
+                  `}
+                >
                   {cartCount > 99
                     ? "99+"
                     : cartCount}
@@ -1167,25 +1809,44 @@ function HeaderContent() {
                 )}
               </AnimatePresence>
             </motion.button>
-
           </div>
-
         </div>
 
-        {/* =====================================================
+        {/* ===================================================
             RECHERCHE MOBILE
-        ===================================================== */}
+        =================================================== */}
 
         <div
           ref={searchMobileRef}
-          className="relative border-t border-slate-100 px-3 pb-2.5 pt-2 md:hidden"
+          className={`
+            relative
+            border-t
+            border-slate-100
+            px-3
+            pb-2.5
+            pt-2
+            md:hidden
+          `}
         >
-
           <form
             onSubmit={handleSearch}
-            className="mx-auto flex h-11 max-w-[680px] items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 focus-within:border-blue-400 focus-within:bg-white focus-within:ring-4 focus-within:ring-blue-500/10"
+            className={`
+              mx-auto
+              flex
+              h-11
+              max-w-[680px]
+              items-center
+              rounded-2xl
+              border
+              border-slate-200
+              bg-slate-50
+              px-3
+              focus-within:border-blue-400
+              focus-within:bg-white
+              focus-within:ring-4
+              focus-within:ring-blue-500/10
+            `}
           >
-
             <Search
               size={16}
               className="shrink-0 text-slate-400"
@@ -1206,7 +1867,16 @@ function HeaderContent() {
                 "Rechercher un produit...",
                 "ابحث عن منتج..."
               )}
-              className="h-full min-w-0 flex-1 bg-transparent px-3 text-[13px] font-semibold outline-none"
+              className={`
+                h-full
+                min-w-0
+                flex-1
+                bg-transparent
+                px-3
+                text-[13px]
+                font-semibold
+                outline-none
+              `}
             />
 
             {search && (
@@ -1220,12 +1890,22 @@ function HeaderContent() {
                   "Effacer",
                   "مسح"
                 )}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-200"
+                className={`
+                  flex
+                  h-8
+                  w-8
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-xl
+                  text-slate-400
+                  transition
+                  hover:bg-slate-200
+                `}
               >
                 <X size={14} />
               </button>
             )}
-
           </form>
 
           {/* SUGGESTIONS MOBILE */}
@@ -1233,10 +1913,33 @@ function HeaderContent() {
           {searchFocused &&
             search.trim() &&
             suggestions.length > 0 && (
-              <div className="absolute start-3 end-3 top-[calc(100%-2px)] z-[100] overflow-hidden rounded-b-[22px] border border-t-0 border-slate-200 bg-white p-2 shadow-[0_20px_50px_rgba(15,23,42,0.18)]">
-
+              <div
+                className={`
+                  absolute
+                  start-3
+                  end-3
+                  top-[calc(100%-2px)]
+                  z-[100]
+                  overflow-hidden
+                  rounded-b-[22px]
+                  border
+                  border-t-0
+                  border-slate-200
+                  bg-white
+                  p-2
+                  shadow-[0_20px_50px_rgba(15,23,42,0.18)]
+                `}
+              >
                 <div className="px-3 pb-2 pt-2">
-                  <span className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">
+                  <span
+                    className={`
+                      text-[9px]
+                      font-black
+                      uppercase
+                      tracking-[0.14em]
+                      text-slate-400
+                    `}
+                  >
                     {text(
                       "Suggestions",
                       "اقتراحات"
@@ -1245,7 +1948,6 @@ function HeaderContent() {
                 </div>
 
                 <div className="space-y-1">
-
                   {suggestions.map(
                     (product) => (
                       <Link
@@ -1259,11 +1961,27 @@ function HeaderContent() {
                         onClick={
                           handleSuggestionClick
                         }
-                        className="flex items-center gap-3 rounded-xl p-2 transition active:bg-blue-50"
+                        className={`
+                          flex
+                          items-center
+                          gap-3
+                          rounded-xl
+                          p-2
+                          transition
+                          active:bg-blue-50
+                        `}
                       >
-
-                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white">
-
+                        <div
+                          className={`
+                            relative
+                            h-12
+                            w-12
+                            shrink-0
+                            overflow-hidden
+                            rounded-xl
+                            bg-white
+                          `}
+                        >
                           <Image
                             src={getProductImage(
                               product
@@ -1276,11 +1994,9 @@ function HeaderContent() {
                             unoptimized
                             className="object-contain p-1"
                           />
-
                         </div>
 
                         <div className="min-w-0 flex-1">
-
                           <p className="truncate text-[11px] font-black text-slate-800">
                             {getProductName(
                               product
@@ -1295,13 +2011,10 @@ function HeaderContent() {
                               )}
                             </p>
                           )}
-
                         </div>
-
                       </Link>
                     )
                   )}
-
                 </div>
 
                 <button
@@ -1321,30 +2034,59 @@ function HeaderContent() {
                         value
                       )}`;
                   }}
-                  className="mt-2 flex w-full items-center justify-center rounded-xl bg-slate-50 px-3 py-2.5 text-[10px] font-black text-slate-600"
+                  className={`
+                    mt-2
+                    flex
+                    w-full
+                    items-center
+                    justify-center
+                    rounded-xl
+                    bg-slate-50
+                    px-3
+                    py-2.5
+                    text-[10px]
+                    font-black
+                    text-slate-600
+                  `}
                 >
                   {text(
                     "Voir tous les résultats",
                     "عرض جميع النتائج"
                   )}
                 </button>
-
               </div>
             )}
-
         </div>
 
-        {/* =====================================================
+        {/* ===================================================
             NAVIGATION DESKTOP
-        ===================================================== */}
+        =================================================== */}
 
         <div
           ref={desktopNavRef}
-          className="hidden border-t border-slate-100 bg-white lg:block"
+          className={`
+            hidden
+            border-t
+            border-slate-100
+            bg-white
+            lg:block
+          `}
         >
-
-          <nav className="mx-auto flex h-12 max-w-[1450px] items-center justify-center gap-1 px-8 text-[12px] font-extrabold text-slate-700">
-
+          <nav
+            className={`
+              mx-auto
+              flex
+              h-12
+              max-w-[1450px]
+              items-center
+              justify-center
+              gap-1
+              px-8
+              text-[12px]
+              font-extrabold
+              text-slate-700
+            `}
+          >
             <NavLink
               href="/"
               active={
@@ -1389,7 +2131,6 @@ function HeaderContent() {
                 }, 120);
               }}
             >
-
               <button
                 type="button"
                 onClick={() => {
@@ -1404,7 +2145,6 @@ function HeaderContent() {
                     : "hover:bg-slate-50"
                 }`}
               >
-
                 <Cpu size={14} />
 
                 {text(
@@ -1420,7 +2160,6 @@ function HeaderContent() {
                       : ""
                   }`}
                 />
-
               </button>
 
               {categoriesOpen && (
@@ -1428,12 +2167,38 @@ function HeaderContent() {
                   onMouseEnter={() =>
                     setCategoriesOpen(true)
                   }
-                  className="absolute start-1/2 top-[calc(100%+4px)] z-50 w-[560px] -translate-x-1/2 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.18)]"
+                  className={`
+                    absolute
+                    start-1/2
+                    top-[calc(100%+4px)]
+                    z-50
+                    w-[560px]
+                    -translate-x-1/2
+                    rounded-[24px]
+                    border
+                    border-slate-200
+                    bg-white
+                    p-4
+                    shadow-[0_28px_80px_rgba(15,23,42,0.18)]
+                  `}
                 >
-
                   <Link
                     href="/articles"
-                    className="mb-3 flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3.5 text-[11px] font-black text-slate-800 hover:bg-blue-50 hover:text-blue-700"
+                    className={`
+                      mb-3
+                      flex
+                      items-center
+                      gap-3
+                      rounded-2xl
+                      bg-slate-50
+                      px-4
+                      py-3.5
+                      text-[11px]
+                      font-black
+                      text-slate-800
+                      hover:bg-blue-50
+                      hover:text-blue-700
+                    `}
                   >
                     {text(
                       "Toutes les catégories",
@@ -1442,7 +2207,6 @@ function HeaderContent() {
                   </Link>
 
                   <div className="grid grid-cols-2 gap-2">
-
                     {categories.map(
                       (category) => {
                         const Icon =
@@ -1471,7 +2235,6 @@ function HeaderContent() {
                                 : "hover:bg-slate-50"
                             }`}
                           >
-
                             <Icon size={14} />
 
                             <span className="whitespace-nowrap text-slate-700">
@@ -1479,17 +2242,13 @@ function HeaderContent() {
                                 category.label
                               }
                             </span>
-
                           </Link>
                         );
                       }
                     )}
-
                   </div>
-
                 </div>
               )}
-
             </div>
 
             {/* MARQUES */}
@@ -1506,7 +2265,6 @@ function HeaderContent() {
                 }, 120);
               }}
             >
-
               <button
                 type="button"
                 onClick={() => {
@@ -1523,7 +2281,6 @@ function HeaderContent() {
                     : "hover:bg-slate-50"
                 }`}
               >
-
                 <Cable size={14} />
 
                 {text(
@@ -1539,7 +2296,6 @@ function HeaderContent() {
                       : ""
                   }`}
                 />
-
               </button>
 
               {brandsOpen && (
@@ -1547,12 +2303,37 @@ function HeaderContent() {
                   onMouseEnter={() =>
                     setBrandsOpen(true)
                   }
-                  className="absolute start-1/2 top-[calc(100%+4px)] z-50 w-[560px] -translate-x-1/2 rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.18)]"
+                  className={`
+                    absolute
+                    start-1/2
+                    top-[calc(100%+4px)]
+                    z-50
+                    w-[560px]
+                    -translate-x-1/2
+                    rounded-[24px]
+                    border
+                    border-slate-200
+                    bg-white
+                    p-4
+                    shadow-[0_28px_80px_rgba(15,23,42,0.18)]
+                  `}
                 >
-
                   <Link
                     href="/articles"
-                    className="mb-3 flex items-center rounded-2xl bg-slate-50 px-4 py-3.5 text-[11px] font-black text-slate-800 hover:bg-blue-50 hover:text-blue-700"
+                    className={`
+                      mb-3
+                      flex
+                      items-center
+                      rounded-2xl
+                      bg-slate-50
+                      px-4
+                      py-3.5
+                      text-[11px]
+                      font-black
+                      text-slate-800
+                      hover:bg-blue-50
+                      hover:text-blue-700
+                    `}
                   >
                     {text(
                       "Toutes les marques",
@@ -1561,7 +2342,6 @@ function HeaderContent() {
                   </Link>
 
                   <div className="grid grid-cols-3 gap-3">
-
                     {visibleBrands.map(
                       (brand) => (
                         <Link
@@ -1584,7 +2364,6 @@ function HeaderContent() {
                               : "border-slate-100 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:shadow-sm"
                           }`}
                         >
-
                           {brand.logo ? (
                             <div className="relative mb-2 h-9 w-20 shrink-0">
                               <Image
@@ -1610,16 +2389,12 @@ function HeaderContent() {
                           <span className="whitespace-nowrap text-[10px] font-black">
                             {brand.name}
                           </span>
-
                         </Link>
                       )
                     )}
-
                   </div>
-
                 </div>
               )}
-
             </div>
 
             <NavLink
@@ -1634,22 +2409,19 @@ function HeaderContent() {
               )}
               danger
             />
-
           </nav>
-
         </div>
-
       </header>
 
-      {/* =======================================================
-          MOBILE DRAWER — PREMIUM APP STYLE
-      ======================================================= */}
+      {/* =====================================================
+          MOBILE DRAWER
+      ===================================================== */}
 
       <AnimatePresence>
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-[9999] lg:hidden">
-
             {/* BACKDROP */}
+
             <motion.button
               type="button"
               aria-label={text(
@@ -1657,18 +2429,34 @@ function HeaderContent() {
                 "إغلاق القائمة"
               )}
               onClick={closeMobileMenu}
-              className="absolute inset-0 bg-slate-950/55 backdrop-blur-md"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.22 }}
+              className={`
+                absolute
+                inset-0
+                bg-slate-950/55
+                backdrop-blur-md
+              `}
+              initial={{
+                opacity: 0,
+              }}
+              animate={{
+                opacity: 1,
+              }}
+              exit={{
+                opacity: 0,
+              }}
+              transition={{
+                duration: 0.22,
+              }}
             />
 
-            {/* PREMIUM DRAWER */}
+            {/* DRAWER */}
+
             <motion.aside
               data-mobile-menu="open"
               initial={{
-                x: isArabic ? "-105%" : "105%",
+                x: isArabic
+                  ? "-105%"
+                  : "105%",
                 opacity: 0,
               }}
               animate={{
@@ -1676,7 +2464,9 @@ function HeaderContent() {
                 opacity: 1,
               }}
               exit={{
-                x: isArabic ? "-105%" : "105%",
+                x: isArabic
+                  ? "-105%"
+                  : "105%",
                 opacity: 0,
               }}
               transition={{
@@ -1686,28 +2476,89 @@ function HeaderContent() {
                 mass: 0.75,
               }}
               className={`
-                absolute inset-y-0
-                ${isArabic ? "start-0" : "end-0"}
-                flex w-[min(92vw,410px)] flex-col overflow-hidden
+                absolute
+                inset-y-0
+                ${isArabic
+                  ? "start-0"
+                  : "end-0"}
+                flex
+                w-[min(92vw,410px)]
+                flex-col
+                overflow-hidden
                 bg-[#f8fafc]
                 shadow-[0_0_80px_rgba(15,23,42,0.30)]
               `}
             >
-
               {/* TOP AREA */}
-              <div className="relative shrink-0 overflow-hidden bg-[#06152b] px-5 pb-6 pt-5 text-white">
-                <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-blue-500/20 blur-3xl" />
-                <div className="pointer-events-none absolute -left-20 bottom-[-70px] h-44 w-44 rounded-full bg-cyan-400/10 blur-3xl" />
+
+              <div
+                className={`
+                  relative
+                  shrink-0
+                  overflow-hidden
+                  bg-[#06152b]
+                  px-5
+                  pb-6
+                  pt-5
+                  text-white
+                `}
+              >
+                <div
+                  className={`
+                    pointer-events-none
+                    absolute
+                    -right-20
+                    -top-20
+                    h-52
+                    w-52
+                    rounded-full
+                    bg-blue-500/20
+                    blur-3xl
+                  `}
+                />
+
+                <div
+                  className={`
+                    pointer-events-none
+                    absolute
+                    -left-20
+                    bottom-[-70px]
+                    h-44
+                    w-44
+                    rounded-full
+                    bg-cyan-400/10
+                    blur-3xl
+                  `}
+                />
 
                 <div className="relative flex items-center justify-between gap-4">
                   <motion.div
-                    initial={{ opacity: 0, y: -8, scale: 0.92 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    initial={{
+                      opacity: 0,
+                      y: -8,
+                      scale: 0.92,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      scale: 1,
+                    }}
                     transition={{
                       duration: 0.32,
                       ease: "easeOut",
                     }}
-                    className="relative flex h-11 w-[115px] shrink-0 items-center rounded-[15px] bg-white px-2 shadow-[0_10px_28px_rgba(0,0,0,0.18)]"
+                    className={`
+                      relative
+                      flex
+                      h-11
+                      w-[115px]
+                      shrink-0
+                      items-center
+                      rounded-[15px]
+                      bg-white
+                      px-2
+                      shadow-[0_10px_28px_rgba(0,0,0,0.18)]
+                    `}
                   >
                     <div className="relative h-8 w-full overflow-hidden">
                       <Image
@@ -1724,20 +2575,46 @@ function HeaderContent() {
                   <motion.button
                     type="button"
                     onClick={closeMobileMenu}
-                    whileTap={{ scale: 0.88, rotate: 8 }}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-[0_8px_24px_rgba(0,0,0,0.12)] backdrop-blur-xl transition hover:bg-white/15 active:bg-white/20"
+                    whileTap={{
+                      scale: 0.88,
+                      rotate: 8,
+                    }}
+                    className={`
+                      flex
+                      h-11
+                      w-11
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+                      border
+                      border-white/15
+                      bg-white/10
+                      text-white
+                      shadow-[0_8px_24px_rgba(0,0,0,0.12)]
+                      backdrop-blur-xl
+                    `}
                     aria-label={text(
                       "Fermer le menu",
                       "إغلاق القائمة"
                     )}
                   >
-                    <X size={20} strokeWidth={2.2} />
+                    <X
+                      size={20}
+                      strokeWidth={2.2}
+                    />
                   </motion.button>
                 </div>
 
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{
+                    opacity: 0,
+                    y: 10,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
                   transition={{
                     delay: 0.08,
                     duration: 0.3,
@@ -1761,27 +2638,64 @@ function HeaderContent() {
                 </motion.div>
               </div>
 
-              {/* SCROLL CONTENT */}
-              <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-28 pt-4">
+              {/* CONTENT */}
 
+              <div
+                className={`
+                  flex-1
+                  overflow-y-auto
+                  overscroll-contain
+                  px-4
+                  pb-28
+                  pt-4
+                `}
+              >
                 {/* LANGUAGE */}
+
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="mb-4 rounded-2xl bg-white p-2 shadow-[0_8px_30px_rgba(15,23,42,0.06)] ring-1 ring-slate-100"
+                  initial={{
+                    opacity: 0,
+                    y: 10,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  transition={{
+                    delay: 0.1,
+                  }}
+                  className={`
+                    mb-4
+                    rounded-2xl
+                    bg-white
+                    p-2
+                    shadow-[0_8px_30px_rgba(15,23,42,0.06)]
+                    ring-1
+                    ring-slate-100
+                  `}
                 >
                   <LanguageSwitcher />
                 </motion.div>
 
                 {/* MAIN NAV */}
+
                 <div className="space-y-2">
                   <DrawerItem delay={0.12}>
                     <MobileLink
                       href="/"
-                      active={pathname === "/"}
-                      icon={<Home size={19} strokeWidth={2.4} />}
-                      label={text("Accueil", "الرئيسية")}
+                      active={
+                        pathname === "/"
+                      }
+                      icon={
+                        <Home
+                          size={19}
+                          strokeWidth={2.4}
+                        />
+                      }
+                      label={text(
+                        "Accueil",
+                        "الرئيسية"
+                      )}
                     />
                   </DrawerItem>
 
@@ -1793,7 +2707,12 @@ function HeaderContent() {
                         !currentCategory &&
                         !currentBrand
                       }
-                      icon={<Laptop size={19} strokeWidth={2.4} />}
+                      icon={
+                        <Laptop
+                          size={19}
+                          strokeWidth={2.4}
+                        />
+                      }
                       label={text(
                         "Tout le catalogue",
                         "كل الكتالوج"
@@ -1805,8 +2724,16 @@ function HeaderContent() {
                     <MobileLink
                       href="/promotions"
                       active={promoActive}
-                      icon={<Sparkles size={19} strokeWidth={2.4} />}
-                      label={text("Promotions", "العروض")}
+                      icon={
+                        <Sparkles
+                          size={19}
+                          strokeWidth={2.4}
+                        />
+                      }
+                      label={text(
+                        "Promotions",
+                        "العروض"
+                      )}
                       accent
                     />
                   </DrawerItem>
@@ -1814,22 +2741,37 @@ function HeaderContent() {
                   <DrawerItem delay={0.21}>
                     <MobileLink
                       href="/favoris"
-                      active={favoriteActive}
-                      icon={<Heart size={19} strokeWidth={2.4} />}
+                      active={
+                        favoriteActive
+                      }
+                      icon={
+                        <Heart
+                          size={19}
+                          strokeWidth={2.4}
+                        />
+                      }
                       label={`${text(
                         "Favoris",
                         "المفضلة"
-                      )}${favoritesCount ? ` · ${favoritesCount}` : ""}`}
+                      )}${
+                        favoritesCount
+                          ? ` · ${favoritesCount}`
+                          : ""
+                      }`}
                     />
                   </DrawerItem>
 
                   <DrawerItem delay={0.24}>
                     <motion.button
                       type="button"
-                      whileTap={{ scale: 0.985 }}
+                      whileTap={{
+                        scale: 0.985,
+                      }}
                       onClick={() => {
                         closeMobileMenu();
-                        setCartDrawerOpen(true);
+                        setCartDrawerOpen(
+                          true
+                        );
                       }}
                       className={`relative flex w-full items-center gap-3 overflow-hidden rounded-[20px] px-4 py-4 text-sm font-black transition ${
                         cartActive
@@ -1844,11 +2786,20 @@ function HeaderContent() {
                             : "bg-blue-50 text-blue-600"
                         }`}
                       >
-                        <ShoppingBag size={19} strokeWidth={2.4} />
+                        <ShoppingBag
+                          size={19}
+                          strokeWidth={2.4}
+                        />
                       </span>
 
                       <span className="flex min-w-0 flex-1 flex-col text-start">
-                        <span>{text("Mon panier", "سلتي")}</span>
+                        <span>
+                          {text(
+                            "Mon panier",
+                            "سلتي"
+                          )}
+                        </span>
+
                         <span
                           className={`mt-0.5 text-[10px] font-semibold ${
                             cartActive
@@ -1876,7 +2827,9 @@ function HeaderContent() {
                               : "bg-slate-950 text-white"
                           }`}
                         >
-                          {cartCount > 99 ? "99+" : cartCount}
+                          {cartCount > 99
+                            ? "99+"
+                            : cartCount}
                         </span>
                       )}
                     </motion.button>
@@ -1884,146 +2837,270 @@ function HeaderContent() {
                 </div>
 
                 {/* CATEGORIES */}
+
                 {categories.length > 0 && (
                   <motion.section
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.28 }}
+                    initial={{
+                      opacity: 0,
+                      y: 15,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                    }}
+                    transition={{
+                      delay: 0.28,
+                    }}
                     className="mt-7"
                   >
                     <div className="mb-3 flex items-center justify-between px-1">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                          {text("Explorer", "استكشف")}
+                          {text(
+                            "Explorer",
+                            "استكشف"
+                          )}
                         </p>
+
                         <h3 className="mt-0.5 text-sm font-black text-slate-900">
-                          {text("Catégories", "الفئات")}
+                          {text(
+                            "Catégories",
+                            "الفئات"
+                          )}
                         </h3>
                       </div>
 
                       <Link
                         href="/articles"
-                        onClick={closeMobileMenu}
-                        className="rounded-full bg-blue-50 px-3 py-1.5 text-[9px] font-black text-blue-600 active:scale-95"
+                        onClick={
+                          closeMobileMenu
+                        }
+                        className={`
+                          rounded-full
+                          bg-blue-50
+                          px-3
+                          py-1.5
+                          text-[9px]
+                          font-black
+                          text-blue-600
+                        `}
                       >
-                        {text("Voir tout", "عرض الكل")}
+                        {text(
+                          "Voir tout",
+                          "عرض الكل"
+                        )}
                       </Link>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
-                      {categories.map((category, index) => {
-                        const Icon = getCategoryIcon(category.slug);
+                      {categories.map(
+                        (
+                          category,
+                          index
+                        ) => {
+                          const Icon =
+                            getCategoryIcon(
+                              category.slug
+                            );
 
-                        return (
-                          <motion.div
-                            key={category.id ?? category.slug}
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{
-                              delay: 0.3 + index * 0.025,
-                            }}
-                          >
-                            <Link
-                              href={`/articles?categorie=${encodeURIComponent(
+                          return (
+                            <motion.div
+                              key={
+                                category.id ??
                                 category.slug
-                              )}`}
-                              onClick={closeMobileMenu}
-                              className={`group flex min-h-[72px] items-center gap-3 rounded-[20px] p-3 transition active:scale-[0.98] ${
-                                currentCategory === category.slug
-                                  ? "bg-blue-600 text-white shadow-[0_12px_25px_rgba(37,99,235,0.22)]"
-                                  : "bg-white text-slate-700 shadow-[0_7px_24px_rgba(15,23,42,0.05)] ring-1 ring-slate-100"
-                              }`}
+                              }
+                              initial={{
+                                opacity: 0,
+                                y: 8,
+                              }}
+                              animate={{
+                                opacity: 1,
+                                y: 0,
+                              }}
+                              transition={{
+                                delay:
+                                  0.3 +
+                                  index *
+                                    0.025,
+                              }}
                             >
-                              <span
-                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
-                                  currentCategory === category.slug
-                                    ? "bg-white/15 text-white"
-                                    : "bg-slate-50 text-blue-600 group-active:bg-blue-50"
+                              <Link
+                                href={`/articles?categorie=${encodeURIComponent(
+                                  category.slug
+                                )}`}
+                                onClick={
+                                  closeMobileMenu
+                                }
+                                className={`group flex min-h-[72px] items-center gap-3 rounded-[20px] p-3 transition active:scale-[0.98] ${
+                                  currentCategory ===
+                                  category.slug
+                                    ? "bg-blue-600 text-white shadow-[0_12px_25px_rgba(37,99,235,0.22)]"
+                                    : "bg-white text-slate-700 shadow-[0_7px_24px_rgba(15,23,42,0.05)] ring-1 ring-slate-100"
                                 }`}
                               >
-                                <Icon size={17} strokeWidth={2.3} />
-                              </span>
+                                <span
+                                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                                    currentCategory ===
+                                    category.slug
+                                      ? "bg-white/15 text-white"
+                                      : "bg-slate-50 text-blue-600"
+                                  }`}
+                                >
+                                  <Icon
+                                    size={17}
+                                    strokeWidth={
+                                      2.3
+                                    }
+                                  />
+                                </span>
 
-                              <span className="min-w-0 truncate text-[10px] font-black leading-tight">
-                                {category.label}
-                              </span>
-                            </Link>
-                          </motion.div>
-                        );
-                      })}
+                                <span className="min-w-0 truncate text-[10px] font-black leading-tight">
+                                  {
+                                    category.label
+                                  }
+                                </span>
+                              </Link>
+                            </motion.div>
+                          );
+                        }
+                      )}
                     </div>
                   </motion.section>
                 )}
 
                 {/* BRANDS */}
-                {visibleBrands.length > 0 && (
+
+                {visibleBrands.length >
+                  0 && (
                   <motion.section
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
+                    initial={{
+                      opacity: 0,
+                      y: 15,
+                    }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                    }}
+                    transition={{
+                      delay: 0.4,
+                    }}
                     className="mt-7"
                   >
                     <div className="mb-3 px-1">
                       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                        {text("Les marques", "العلامات")}
+                        {text(
+                          "Les marques",
+                          "العلامات"
+                        )}
                       </p>
+
                       <h3 className="mt-0.5 text-sm font-black text-slate-900">
-                        {text("Choisir une marque", "اختر علامة")}
+                        {text(
+                          "Choisir une marque",
+                          "اختر علامة"
+                        )}
                       </h3>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {visibleBrands.map((brand, index) => (
-                        <motion.div
-                          key={brand.id ?? brand.slug}
-                          initial={{ opacity: 0, scale: 0.92 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{
-                            delay: 0.42 + index * 0.025,
-                          }}
-                        >
-                          <Link
-                            href={`/articles?marque=${encodeURIComponent(
+                      {visibleBrands.map(
+                        (
+                          brand,
+                          index
+                        ) => (
+                          <motion.div
+                            key={
+                              brand.id ??
                               brand.slug
-                            )}`}
-                            onClick={closeMobileMenu}
-                            className={`inline-flex items-center gap-2 rounded-full px-3 py-2.5 text-[10px] font-black transition active:scale-95 ${
-                              currentBrand === brand.slug
-                                ? "bg-slate-950 text-white shadow-lg"
-                                : "bg-white text-slate-700 ring-1 ring-slate-200 active:bg-blue-50"
-                            }`}
+                            }
+                            initial={{
+                              opacity: 0,
+                              scale: 0.92,
+                            }}
+                            animate={{
+                              opacity: 1,
+                              scale: 1,
+                            }}
+                            transition={{
+                              delay:
+                                0.42 +
+                                index *
+                                  0.025,
+                            }}
                           >
-                            {brand.logo && (
-                              <span className="relative h-5 w-8 shrink-0">
-                                <Image
-                                  src={brand.logo}
-                                  alt={brand.name || ""}
-                                  fill
-                                  sizes="32px"
-                                  className="object-contain"
-                                />
+                            <Link
+                              href={`/articles?marque=${encodeURIComponent(
+                                brand.slug
+                              )}`}
+                              onClick={
+                                closeMobileMenu
+                              }
+                              className={`inline-flex items-center gap-2 rounded-full px-3 py-2.5 text-[10px] font-black transition active:scale-95 ${
+                                currentBrand ===
+                                brand.slug
+                                  ? "bg-slate-950 text-white shadow-lg"
+                                  : "bg-white text-slate-700 ring-1 ring-slate-200"
+                              }`}
+                            >
+                              {brand.logo && (
+                                <span className="relative h-5 w-8 shrink-0">
+                                  <Image
+                                    src={
+                                      brand.logo
+                                    }
+                                    alt={
+                                      brand.name ||
+                                      ""
+                                    }
+                                    fill
+                                    sizes="32px"
+                                    className="object-contain"
+                                  />
+                                </span>
+                              )}
+
+                              <span className="max-w-[100px] truncate">
+                                {
+                                  brand.name
+                                }
                               </span>
-                            )}
-                            <span className="max-w-[100px] truncate">
-                              {brand.name}
-                            </span>
-                          </Link>
-                        </motion.div>
-                      ))}
+                            </Link>
+                          </motion.div>
+                        )
+                      )}
                     </div>
                   </motion.section>
                 )}
 
-                {/* FOOTER MINI CARD */}
+                {/* FOOTER CARD */}
+
                 <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.55 }}
-                  className="mt-8 rounded-[24px] bg-gradient-to-br from-[#06152b] to-[#0d2948] p-4 text-white shadow-[0_15px_40px_rgba(6,21,43,0.18)]"
+                  initial={{
+                    opacity: 0,
+                    y: 12,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  transition={{
+                    delay: 0.55,
+                  }}
+                  className={`
+                    mt-8
+                    rounded-[24px]
+                    bg-gradient-to-br
+                    from-[#06152b]
+                    to-[#0d2948]
+                    p-4
+                    text-white
+                    shadow-[0_15px_40px_rgba(6,21,43,0.18)]
+                  `}
                 >
                   <p className="text-[9px] font-black uppercase tracking-[0.16em] text-blue-200">
                     DOCTECH
                   </p>
+
                   <p className="mt-1 text-xs font-bold leading-relaxed text-slate-200">
                     {text(
                       "Informatique & High-Tech · Livraison disponible",
@@ -2037,39 +3114,94 @@ function HeaderContent() {
         )}
       </AnimatePresence>
 
-      {/* =======================================================
-          MOBILE BOTTOM NAV — APP STYLE
-      ======================================================= */}
+      {/* =====================================================
+          MOBILE BOTTOM NAV
+      ===================================================== */}
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 md:hidden">
-        <div className="mx-auto max-w-md rounded-[26px] border border-white/80 bg-white/92 p-1.5 shadow-[0_-8px_35px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
-
+      <nav
+        className={`
+          fixed
+          inset-x-0
+          bottom-0
+          z-40
+          px-3
+          pb-[max(8px,env(safe-area-inset-bottom))]
+          pt-2
+          md:hidden
+        `}
+      >
+        <div
+          className={`
+            mx-auto
+            max-w-md
+            rounded-[26px]
+            border
+            border-white/80
+            bg-white/92
+            p-1.5
+            shadow-[0_-8px_35px_rgba(15,23,42,0.12)]
+            backdrop-blur-2xl
+          `}
+        >
           <div className="grid grid-cols-5 items-center gap-1">
-
             <BottomLink
               href="/"
-              active={pathname === "/"}
-              icon={<Home size={19} strokeWidth={2.2} />}
-              label={text("Accueil", "الرئيسية")}
+              active={
+                pathname === "/"
+              }
+              icon={
+                <Home
+                  size={19}
+                  strokeWidth={2.2}
+                />
+              }
+              label={text(
+                "Accueil",
+                "الرئيسية"
+              )}
             />
 
             <BottomLink
               href="/articles"
-              active={catalogActive}
-              icon={<Laptop size={19} strokeWidth={2.2} />}
-              label={text("Catalogue", "الكتالوج")}
+              active={
+                catalogActive
+              }
+              icon={
+                <Laptop
+                  size={19}
+                  strokeWidth={2.2}
+                />
+              }
+              label={text(
+                "Catalogue",
+                "الكتالوج"
+              )}
             />
 
-            {/* CENTRAL CART */}
+            {/* CART */}
+
             <motion.button
               type="button"
-              whileTap={{ scale: 0.88 }}
-              onClick={() => setCartDrawerOpen(true)}
+              whileTap={{
+                scale: 0.88,
+              }}
+              onClick={() =>
+                setCartDrawerOpen(
+                  true
+                )
+              }
               aria-label={text(
                 "Ouvrir le panier",
                 "فتح السلة"
               )}
-              className="relative -mt-6 flex flex-col items-center justify-center"
+              className={`
+                relative
+                -mt-6
+                flex
+                flex-col
+                items-center
+                justify-center
+              `}
             >
               <span
                 className={`flex h-14 w-14 items-center justify-center rounded-full border-[5px] border-white shadow-[0_10px_28px_rgba(37,99,235,0.28)] ${
@@ -2078,80 +3210,133 @@ function HeaderContent() {
                     : "bg-blue-600 text-white"
                 }`}
               >
-                <ShoppingBag size={21} strokeWidth={2.3} />
+                <ShoppingBag
+                  size={21}
+                  strokeWidth={2.3}
+                />
               </span>
 
               {cartCount > 0 && (
-                <span className="absolute right-[-2px] top-[-2px] flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 text-[7px] font-black text-white">
-                  {cartCount > 99 ? "99+" : cartCount}
+                <span
+                  className={`
+                    absolute
+                    right-[-2px]
+                    top-[-2px]
+                    flex
+                    h-5
+                    min-w-5
+                    items-center
+                    justify-center
+                    rounded-full
+                    border-2
+                    border-white
+                    bg-rose-500
+                    px-1
+                    text-[7px]
+                    font-black
+                    text-white
+                  `}
+                >
+                  {cartCount > 99
+                    ? "99+"
+                    : cartCount}
                 </span>
               )}
 
               <span className="mt-1 text-[10px] font-extrabold leading-none tracking-[-0.01em] text-slate-600">
-                {text("Panier", "السلة")}
+                {text(
+                  "Panier",
+                  "السلة"
+                )}
               </span>
             </motion.button>
 
             <BottomLink
               href="/favoris"
-              active={favoriteActive}
-              icon={<Heart size={19} strokeWidth={2.2} />}
-              label={text("Favoris", "المفضلة")}
-              badge={favoritesCount}
+              active={
+                favoriteActive
+              }
+              icon={
+                <Heart
+                  size={19}
+                  strokeWidth={2.2}
+                />
+              }
+              label={text(
+                "Favoris",
+                "المفضلة"
+              )}
+              badge={
+                favoritesCount
+              }
             />
 
-            {/* MENU */}
+            {/* FILTRE */}
+
             <motion.button
               type="button"
-              whileTap={{ scale: 0.92 }}
-              onClick={() => setMobileMenuOpen((value) => !value)}
-              aria-expanded={mobileMenuOpen}
-              aria-label={mobileMenuOpen
-                ? text("Fermer", "إغلاق")
-                : text("Menu", "القائمة")}
+              whileTap={{
+                scale: 0.92,
+              }}
+              onClick={() => {
+                if (pathname.startsWith("/articles")) {
+                  window.dispatchEvent(
+                    new CustomEvent("doctech:open-filters")
+                  );
+                } else {
+                  window.location.href = "/articles";
+                }
+              }}
+              aria-label={text(
+                "Ouvrir les filtres",
+                "فتح الفلاتر"
+              )}
               className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl py-2 text-[10px] font-extrabold leading-none tracking-[-0.01em] transition ${
-                mobileMenuOpen
-                  ? "bg-slate-950 text-white"
+                pathname.startsWith("/articles")
+                  ? "text-blue-600 active:bg-blue-50"
                   : "text-slate-500 active:bg-slate-100"
               }`}
             >
-              <AnimatePresence mode="wait" initial={false}>
-                {mobileMenuOpen ? (
-                  <motion.span
-                    key="close-bottom"
-                    initial={{ rotate: -90, opacity: 0, scale: 0.7 }}
-                    animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                    exit={{ rotate: 90, opacity: 0, scale: 0.7 }}
-                  >
-                    <X size={19} />
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="menu-bottom"
-                    initial={{ rotate: 90, opacity: 0, scale: 0.7 }}
-                    animate={{ rotate: 0, opacity: 1, scale: 1 }}
-                    exit={{ rotate: -90, opacity: 0, scale: 0.7 }}
-                  >
-                    <Menu size={19} />
-                  </motion.span>
+              <motion.span
+                whileTap={{
+                  rotate: 20,
+                }}
+                className={`flex h-7 w-7 items-center justify-center rounded-xl ${
+                  pathname.startsWith("/articles")
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-slate-500"
+                }`}
+              >
+                <SlidersHorizontal
+                  size={19}
+                  strokeWidth={2.3}
+                />
+              </motion.span>
+
+              <span className="text-[10px] font-extrabold leading-none">
+                {text(
+                  "Filtre",
+                  "تصفية"
                 )}
-              </AnimatePresence>
-
-              <span className="text-[10px] font-extrabold leading-none tracking-[-0.01em]">{text("Menu", "القائمة")}</span>
+              </span>
             </motion.button>
-
           </div>
         </div>
       </nav>
 
-      {/* =======================================================
+      {/* =====================================================
+          FLOATING WHATSAPP + MESSENGER
+          Au-dessus de la bottom navigation
+      ===================================================== */}
+
+      <FloatingContactButtons />
+
+      {/* =====================================================
           CART DRAWER
-      ======================================================= */}
+      ===================================================== */}
 
       <CartDrawer
-        open={
-          cartDrawerOpen
-        }
+        open={cartDrawerOpen}
         onClose={() =>
           setCartDrawerOpen(
             false
@@ -2162,6 +3347,9 @@ function HeaderContent() {
   );
 }
 
+/* =============================================================
+   HEADER EXPORT
+============================================================= */
 
 export default function Header() {
   return (
@@ -2172,7 +3360,7 @@ export default function Header() {
 }
 
 /* =============================================================
-   DRAWER ITEM ANIMATION
+   DRAWER ITEM
 ============================================================= */
 
 function DrawerItem({
@@ -2234,6 +3422,7 @@ function NavLink({
       }`}
     >
       {icon}
+
       <span>{label}</span>
     </Link>
   );
@@ -2272,17 +3461,23 @@ function MobileLink({
           active
             ? "bg-white/15 text-white"
             : accent
-              ? "bg-orange-50 text-orange-500"
-              : "bg-slate-50 text-blue-600"
+            ? "bg-orange-50 text-orange-500"
+            : "bg-slate-50 text-blue-600"
         }`}
       >
         {icon}
       </span>
-      <span className="flex-1 text-start">{label}</span>
+
+      <span className="flex-1 text-start">
+        {label}
+      </span>
+
       <ChevronDown
         size={15}
         className={`-rotate-90 transition ${
-          active ? "text-white/70" : "text-slate-300"
+          active
+            ? "text-white/70"
+            : "text-slate-300"
         }`}
       />
     </Link>
@@ -2315,25 +3510,37 @@ function BottomLink({
           : "text-slate-500"
       }`}
     >
-
       <span className="relative">
-
         {icon}
 
         {badge > 0 && (
-          <b className="absolute -end-2.5 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[7px] text-white">
+          <b
+            className={`
+              absolute
+              -end-2.5
+              -top-2
+              flex
+              h-4
+              min-w-4
+              items-center
+              justify-center
+              rounded-full
+              bg-rose-500
+              px-1
+              text-[7px]
+              text-white
+            `}
+          >
             {badge > 99
               ? "99+"
               : badge}
           </b>
         )}
-
       </span>
 
       <span className="max-w-full truncate text-[10px] font-extrabold leading-none tracking-[-0.01em]">
         {label}
       </span>
-
     </Link>
   );
 }
