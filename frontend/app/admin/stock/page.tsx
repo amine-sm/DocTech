@@ -28,6 +28,10 @@ import { apiFetch, backendUrl } from "@/lib/api";
 const primary = "#2563EB";
 const orange = "#FE5737";
 
+/* =========================================================
+   TYPES
+========================================================= */
+
 type ArticleImage =
   | string
   | {
@@ -51,6 +55,8 @@ type Article = {
   image_url?: string | null;
   image?: string | null;
   imageUrl?: string | null;
+  main_image?: string | null;
+  main_image_url?: string | null;
   images?: ArticleImage[] | null;
   category_id?: number | null;
   category_name?: string | null;
@@ -103,6 +109,10 @@ const empty: Form = {
   notes: "",
 };
 
+/* =========================================================
+   HELPERS
+========================================================= */
+
 function numberValue(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -132,18 +142,23 @@ function date(value?: string | null) {
   }
 }
 
-function resolveImage(value?: string | null) {
+/**
+ * Résolution d'URL d'image
+ * - data: / blob: => tel quel
+ * - http:// / https:// => tel quel
+ * - chemin relatif => backendUrl()
+ */
+function resolveImage(value?: string | null): string {
   if (!value) return "";
 
   const src = String(value).trim();
-
   if (!src) return "";
 
-  if (
-    src.startsWith("http://") ||
-    src.startsWith("https://") ||
-    src.startsWith("data:")
-  ) {
+  if (src.startsWith("data:") || src.startsWith("blob:")) {
+    return src;
+  }
+
+  if (src.startsWith("http://") || src.startsWith("https://")) {
     return src;
   }
 
@@ -154,7 +169,10 @@ function resolveImage(value?: string | null) {
   }
 }
 
-function getArticleImages(article?: Article | null) {
+/**
+ * Récupère toutes les images d'un article (brutes, non résolues)
+ */
+function getArticleImages(article?: Article | null): string[] {
   if (!article) return [];
 
   const result: string[] = [];
@@ -163,7 +181,6 @@ function getArticleImages(article?: Article | null) {
     if (!value) return;
 
     const src = String(value).trim();
-
     if (src && !result.includes(src)) {
       result.push(src);
     }
@@ -172,6 +189,8 @@ function getArticleImages(article?: Article | null) {
   add(article.image_url);
   add(article.image);
   add(article.imageUrl);
+  add(article.main_image);
+  add(article.main_image_url);
 
   if (Array.isArray(article.images)) {
     for (const item of article.images) {
@@ -188,26 +207,46 @@ function getArticleImages(article?: Article | null) {
   return result;
 }
 
+/* =========================================================
+   STOCK STATE (COULEURS)
+========================================================= */
+
 function stockState(stock: number) {
+  // 🔴 RUPTURE
   if (stock <= 0) {
     return {
       label: "Rupture",
-      className: "bg-red-50 text-red-600",
+      className: "bg-red-100 text-red-700 border border-red-200",
+      badge: "bg-red-500 text-white",
+      rowClass: "bg-red-50/40 hover:bg-red-50/70",
+      dot: "bg-red-500",
     };
   }
 
+  // 🟠 STOCK FAIBLE
   if (stock <= 3) {
     return {
       label: "Stock faible",
-      className: "bg-amber-50 text-amber-700",
+      className: "bg-orange-100 text-orange-700 border border-orange-200",
+      badge: "bg-orange-500 text-white",
+      rowClass: "bg-orange-50/40 hover:bg-orange-50/70",
+      dot: "bg-orange-500",
     };
   }
 
+  // 🟢 EN STOCK
   return {
     label: "En stock",
-    className: "bg-emerald-50 text-emerald-700",
+    className: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+    badge: "bg-emerald-500 text-white",
+    rowClass: "",
+    dot: "bg-emerald-500",
   };
 }
+
+/* =========================================================
+   PRODUCT IMAGE
+========================================================= */
 
 function ProductImage({
   article,
@@ -219,8 +258,11 @@ function ProductImage({
   onClick?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
   const images = getArticleImages(article);
-  const src = resolveImage(images[0]);
+  const rawSrc = images[0] || "";
+  const src = resolveImage(rawSrc);
 
   const box =
     size === "lg"
@@ -230,6 +272,12 @@ function ProductImage({
       : "h-16 w-16 rounded-2xl";
 
   const iconSize = size === "lg" ? 30 : size === "sm" ? 17 : 22;
+
+  // Reset state when src changes
+  useEffect(() => {
+    setFailed(false);
+    setLoaded(false);
+  }, [src]);
 
   if (!src || failed) {
     return (
@@ -250,12 +298,31 @@ function ProductImage({
       onClick={onClick}
       className={`group relative shrink-0 overflow-hidden border border-slate-200 bg-white shadow-sm transition hover:border-blue-300 hover:shadow-md ${box}`}
     >
+      {!loaded && (
+        <div className="absolute inset-0 grid place-items-center bg-slate-50">
+          <RefreshCw
+            size={iconSize - 6}
+            className="animate-spin text-slate-300"
+          />
+        </div>
+      )}
+
       <img
         src={src}
         alt={article?.name || "Produit"}
-        className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-105"
+        className={`h-full w-full object-contain p-2 transition duration-300 group-hover:scale-105 ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
         loading="lazy"
-        onError={() => setFailed(true)}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          console.error("[IMAGE FAIL]", {
+            article: article?.name,
+            raw: rawSrc,
+            resolved: src,
+          });
+          setFailed(true);
+        }}
       />
 
       {images.length > 1 && (
@@ -266,6 +333,10 @@ function ProductImage({
     </button>
   );
 }
+
+/* =========================================================
+   STAT CARD
+========================================================= */
 
 function StatCard({
   icon,
@@ -278,7 +349,7 @@ function StatCard({
   label: string;
   value: number | string;
   description: string;
-  tone: "blue" | "green" | "orange" | "purple";
+  tone: "blue" | "green" | "orange" | "purple" | "red";
 }) {
   const styles = {
     blue: {
@@ -300,6 +371,11 @@ function StatCard({
       bg: "bg-purple-50",
       text: "text-purple-600",
       value: "text-purple-600",
+    },
+    red: {
+      bg: "bg-red-50",
+      text: "text-red-600",
+      value: "text-red-600",
     },
   }[tone];
 
@@ -330,6 +406,10 @@ function StatCard({
   );
 }
 
+/* =========================================================
+   FIELD
+========================================================= */
+
 function Field({
   label,
   required,
@@ -355,6 +435,10 @@ function Field({
   );
 }
 
+/* =========================================================
+   SELECTED ARTICLE
+========================================================= */
+
 function SelectedArticle({
   article,
   type,
@@ -363,6 +447,10 @@ function SelectedArticle({
   type: "ENTRY" | "EXIT";
 }) {
   const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    setActive(0);
+  }, [article?.id]);
 
   if (!article) return null;
 
@@ -406,6 +494,9 @@ function SelectedArticle({
                   src={image}
                   alt={article.name}
                   className="h-full w-full object-contain p-5"
+                  onError={(e) => {
+                    console.error("[SELECTED IMG FAIL]", image);
+                  }}
                 />
               ) : (
                 <div className="grid h-24 w-24 place-items-center rounded-2xl bg-slate-50 text-slate-300">
@@ -443,10 +534,7 @@ function SelectedArticle({
               label="Code"
               value={article.code || article.sku || `#${article.id}`}
             />
-            <InfoBox
-              label="SKU"
-              value={article.sku || "—"}
-            />
+            <InfoBox label="SKU" value={article.sku || "—"} />
             <InfoBox
               label="Catégorie"
               value={article.category_name || "Sans catégorie"}
@@ -470,6 +558,10 @@ function SelectedArticle({
     </div>
   );
 }
+
+/* =========================================================
+   INFO BOX
+========================================================= */
 
 function InfoBox({
   label,
@@ -495,6 +587,10 @@ function InfoBox({
     </div>
   );
 }
+
+/* =========================================================
+   EMPTY / LOADING
+========================================================= */
 
 function EmptyState({
   icon,
@@ -534,6 +630,10 @@ function LoadingState() {
   );
 }
 
+/* =========================================================
+   PAGE PRINCIPALE
+========================================================= */
+
 export default function StockPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -552,6 +652,10 @@ export default function StockPage() {
 
   const [previewArticle, setPreviewArticle] = useState<Article | null>(null);
 
+  /* =====================================================
+     LOAD
+  ===================================================== */
+
   async function load() {
     setLoading(true);
     setError("");
@@ -565,32 +669,39 @@ export default function StockPage() {
       const articleData = articlesResult?.data ?? articlesResult;
       const supplierData = suppliersResult?.data ?? suppliersResult;
 
-      setArticles(
-        Array.isArray(articleData)
-          ? articleData
-          : articleData?.rows ||
-              articleData?.data ||
-              articleData?.articles ||
-              []
-      );
+      const articleList = Array.isArray(articleData)
+        ? articleData
+        : articleData?.rows ||
+          articleData?.data ||
+          articleData?.articles ||
+          [];
+
+      setArticles(articleList);
+
+      /* DEBUG IMAGES */
+      if (typeof window !== "undefined" && articleList.length > 0) {
+        console.log("=== DEBUG IMAGES (premier article) ===");
+        const first = articleList[0];
+        console.log("image_url :", first.image_url);
+        console.log("image     :", first.image);
+        console.log("imageUrl  :", first.imageUrl);
+        console.log("main_image:", first.main_image);
+        console.log("images    :", first.images);
+        console.log("URL résolue:", resolveImage(first.image_url || first.image));
+      }
 
       setSuppliers(
         Array.isArray(supplierData)
           ? supplierData
-          : supplierData?.rows ||
-              supplierData?.data ||
-              []
+          : supplierData?.rows || supplierData?.data || []
       );
 
-      // L'historique est indépendant : si son endpoint rencontre
-      // une erreur SQL, la page Stock continue quand même à fonctionner.
       try {
         const movementsResult = await apiFetch<any>(
           "/stock/movements?limit=100"
         );
 
-        const movementData =
-          movementsResult?.data ?? movementsResult;
+        const movementData = movementsResult?.data ?? movementsResult;
 
         setMovements(
           Array.isArray(movementData)
@@ -601,10 +712,7 @@ export default function StockPage() {
                 []
         );
       } catch (movementError) {
-        console.error(
-          "Erreur chargement mouvements:",
-          movementError
-        );
+        console.error("Erreur chargement mouvements:", movementError);
         setMovements([]);
       }
     } catch (e: any) {
@@ -619,21 +727,26 @@ export default function StockPage() {
     load();
   }, []);
 
+  /* =====================================================
+     FILTRES
+  ===================================================== */
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-
     if (!q) return articles;
 
     return articles.filter((article) =>
-      `${article.name} ${article.code || ""} ${
-        article.sku || ""
-      } ${article.category_name || ""} ${
-        article.marque_name || ""
-      } ${article.fournisseur_name || ""}`
+      `${article.name} ${article.code || ""} ${article.sku || ""} ${
+        article.category_name || ""
+      } ${article.marque_name || ""} ${article.fournisseur_name || ""}`
         .toLowerCase()
         .includes(q)
     );
   }, [articles, search]);
+
+  /* =====================================================
+     STATS
+  ===================================================== */
 
   const stats = useMemo(() => {
     const totalStock = articles.reduce(
@@ -653,18 +766,12 @@ export default function StockPage() {
     const stockValue = articles.reduce(
       (sum, article) =>
         sum +
-        numberValue(article.stock) *
-          numberValue(article.purchase_price),
+        numberValue(article.stock) * numberValue(article.purchase_price),
       0
     );
 
-    const entries = movements.filter(
-      (movement) => movement.type === "ENTRY"
-    ).length;
-
-    const exits = movements.filter(
-      (movement) => movement.type === "EXIT"
-    ).length;
+    const entries = movements.filter((m) => m.type === "ENTRY").length;
+    const exits = movements.filter((m) => m.type === "EXIT").length;
 
     return {
       totalArticles: articles.length,
@@ -678,10 +785,12 @@ export default function StockPage() {
     };
   }, [articles, movements]);
 
+  /* =====================================================
+     FORM HELPERS
+  ===================================================== */
+
   function chooseArticle(id: string) {
-    const article = articles.find(
-      (item) => String(item.id) === id
-    );
+    const article = articles.find((item) => String(item.id) === id);
 
     setForm((current) => ({
       ...current,
@@ -691,9 +800,7 @@ export default function StockPage() {
           ? String(article.purchase_price)
           : "",
       sellingPrice:
-        article?.price != null
-          ? String(article.price)
-          : "",
+        article?.price != null ? String(article.price) : "",
       fournisseurId:
         article?.fournisseur_id != null
           ? String(article.fournisseur_id)
@@ -708,9 +815,7 @@ export default function StockPage() {
       setForm({
         ...empty,
         articleId: String(article.id),
-        purchasePrice: String(
-          article.purchase_price ?? 0
-        ),
+        purchasePrice: String(article.purchase_price ?? 0),
         sellingPrice: String(article.price ?? 0),
         fournisseurId:
           article.fournisseur_id != null
@@ -741,6 +846,10 @@ export default function StockPage() {
     setOpen(true);
   }
 
+  /* =====================================================
+     SUBMIT
+  ===================================================== */
+
   async function submit() {
     setError("");
 
@@ -758,8 +867,7 @@ export default function StockPage() {
     }
 
     const selected = articles.find(
-      (article) =>
-        String(article.id) === form.articleId
+      (article) => String(article.id) === form.articleId
     );
 
     if (
@@ -777,8 +885,7 @@ export default function StockPage() {
 
     if (
       type === "ENTRY" &&
-      (form.purchasePrice === "" ||
-        form.sellingPrice === "")
+      (form.purchasePrice === "" || form.sellingPrice === "")
     ) {
       setError(
         "Le prix d'achat et le prix de vente sont obligatoires pour une entrée."
@@ -789,46 +896,40 @@ export default function StockPage() {
     setSaving(true);
 
     try {
-      await apiFetch(
-        type === "ENTRY"
-          ? "/stock/entry"
-          : "/stock/exit",
-        {
-          method: "POST",
-          bodyJson: {
-            articleId: Number(form.articleId),
-            quantity,
-            purchasePrice: Number(
-              form.purchasePrice || 0
-            ),
-            sellingPrice: Number(
-              form.sellingPrice || 0
-            ),
-            fournisseurId: form.fournisseurId
-              ? Number(form.fournisseurId)
-              : null,
-            reference: form.reference || null,
-            notes: form.notes || null,
-          },
-        }
-      );
+      await apiFetch(type === "ENTRY" ? "/stock/entry" : "/stock/exit", {
+        method: "POST",
+        bodyJson: {
+          articleId: Number(form.articleId),
+          quantity,
+          purchasePrice: Number(form.purchasePrice || 0),
+          sellingPrice: Number(form.sellingPrice || 0),
+          fournisseurId: form.fournisseurId
+            ? Number(form.fournisseurId)
+            : null,
+          reference: form.reference || null,
+          notes: form.notes || null,
+        },
+      });
 
       setOpen(false);
       setForm(empty);
       await load();
     } catch (e: any) {
       console.error("Erreur opération stock:", e);
-      setError(
-        e?.message || "Opération impossible."
-      );
+      setError(e?.message || "Opération impossible.");
     } finally {
       setSaving(false);
     }
   }
 
+  /* =====================================================
+     RENDER
+  ===================================================== */
+
   return (
     <div className="admin-page min-h-full bg-slate-50">
-      <div className="mx-auto w-full max-w-[1800px] space-y-6 p-4 md:p-6 lg:p-8">
+      {/* ⚠️ SUPPRESSION DE max-w-[1800px] POUR 100% LARGEUR */}
+      <div className="w-full space-y-6 p-4 md:p-6 lg:p-8">
         <AdminPageHeader
           eyebrow="Gestion commerciale"
           title="Stock & lots"
@@ -840,7 +941,7 @@ export default function StockPage() {
         />
 
         {/* STATS */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <StatCard
             icon={<Boxes size={19} />}
             label="Articles"
@@ -866,6 +967,14 @@ export default function StockPage() {
           />
 
           <StatCard
+            icon={<AlertTriangle size={19} />}
+            label="Rupture"
+            value={stats.outOfStock}
+            description="Stock épuisé"
+            tone="red"
+          />
+
+          <StatCard
             icon={<History size={19} />}
             label="Mouvements"
             value={stats.movements}
@@ -882,7 +991,7 @@ export default function StockPage() {
           />
         </div>
 
-        {/* RUPTURE */}
+        {/* RUPTURE ALERT */}
         {stats.outOfStock > 0 && (
           <div className="flex flex-col gap-3 rounded-[24px] border border-red-100 bg-red-50 p-4 sm:flex-row sm:items-center">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-100 text-red-600">
@@ -896,8 +1005,8 @@ export default function StockPage() {
 
               <p className="mt-1 text-[10px] font-semibold text-red-500">
                 {stats.outOfStock} article
-                {stats.outOfStock > 1 ? "s sont" : " est"} actuellement
-                en rupture de stock.
+                {stats.outOfStock > 1 ? "s sont" : " est"} actuellement en
+                rupture de stock.
               </p>
             </div>
           </div>
@@ -947,14 +1056,14 @@ export default function StockPage() {
             disabled={loading}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-[10px] font-black text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:opacity-60 sm:ml-auto"
           >
-            <RefreshCw
-              size={15}
-              className={loading ? "animate-spin" : ""}
-            />
+            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
             Actualiser
           </button>
         </div>
 
+        {/* =============================================
+            TAB STOCK
+        ============================================= */}
         {tab === "stock" ? (
           <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
             {/* TOOLBAR */}
@@ -982,37 +1091,34 @@ export default function StockPage() {
 
                 <input
                   value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
-                  }
+                  onChange={(event) => setSearch(event.target.value)}
                   placeholder="Rechercher un article, code, SKU..."
                   className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-xs font-semibold text-slate-700 outline-none transition focus:border-[#2563EB]/30 focus:bg-white focus:ring-4 focus:ring-[#2563EB]/5"
                 />
               </div>
             </div>
 
-            {/* TABLE */}
-            <div className="w-full overflow-hidden">
-              <table className="w-full table-fixed">
+            {/* TABLEAU 100% LARGEUR */}
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-full border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70">
-                    <th className="w-[32%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="px-4 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Produit
                     </th>
-                    <th className="w-[20%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
-                      Catégorie / marque
+                    <th className="px-4 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+                      Catégorie / Marque
                     </th>
-
-                    <th className="w-[12%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="px-4 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Stock
                     </th>
-                    <th className="w-[12%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="px-4 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Achat
                     </th>
-                    <th className="w-[12%] px-3 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="px-4 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Vente
                     </th>
-                    <th className="w-[22%] px-3 py-4 text-right text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <th className="px-4 py-4 text-right text-[9px] font-black uppercase tracking-wider text-slate-400">
                       Actions
                     </th>
                   </tr>
@@ -1026,30 +1132,26 @@ export default function StockPage() {
                     return (
                       <tr
                         key={article.id}
-                        className="group transition hover:bg-slate-50/60"
+                        className={`group transition ${state.rowClass}`}
                       >
                         {/* PRODUIT */}
-                        <td className="px-2.5 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex items-center gap-3">
                             <ProductImage
                               article={article}
                               size="md"
-                              onClick={() =>
-                                setPreviewArticle(article)
-                              }
+                              onClick={() => setPreviewArticle(article)}
                             />
 
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
-                                <p className="max-w-[280px] truncate text-xs font-black text-slate-800">
+                                <p className="max-w-[380px] truncate text-xs font-black text-slate-800">
                                   {article.name}
                                 </p>
 
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setPreviewArticle(article)
-                                  }
+                                  onClick={() => setPreviewArticle(article)}
                                   className="hidden rounded-lg p-1 text-slate-300 transition hover:bg-blue-50 hover:text-[#2563EB] sm:block"
                                   title="Voir le produit"
                                 >
@@ -1060,7 +1162,7 @@ export default function StockPage() {
                               {article.name_ar && (
                                 <p
                                   dir="rtl"
-                                  className="mt-1 max-w-[280px] truncate text-[10px] font-medium text-slate-400"
+                                  className="mt-1 max-w-[380px] truncate text-[10px] font-medium text-slate-400"
                                 >
                                   {article.name_ar}
                                 </p>
@@ -1083,44 +1185,47 @@ export default function StockPage() {
                           </div>
                         </td>
 
-                        {/* CATEGORY / MARQUE */}
-                        <td className="px-2.5 py-4">
+                        {/* CATEGORIE / MARQUE */}
+                        <td className="px-4 py-4">
                           <div className="space-y-1.5">
-                            <p className="max-w-[170px] truncate text-[10px] font-black text-slate-700">
-                              {article.category_name ||
-                                "Sans catégorie"}
+                            <p className="max-w-[220px] truncate text-[10px] font-black text-slate-700">
+                              {article.category_name || "Sans catégorie"}
                             </p>
-                            <p className="max-w-[170px] truncate text-[9px] font-semibold text-slate-400">
-                              {article.marque_name ||
-                                "Sans marque"}
+                            <p className="max-w-[220px] truncate text-[9px] font-semibold text-slate-400">
+                              {article.marque_name || "Sans marque"}
                             </p>
                           </div>
                         </td>
 
-                        {/* STOCK */}
-                        <td className="px-2.5 py-4">
+                        {/* STOCK — COULEURS ROUGE / ORANGE / VERT */}
+                        <td className="px-4 py-4">
                           <div className="flex flex-col items-start gap-1.5">
                             <span
-                              className={`inline-flex rounded-xl px-3 py-2 text-[10px] font-black ${state.className}`}
+                              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[10px] font-black ${state.className}`}
                             >
+                              <span
+                                className={`h-2 w-2 rounded-full ${state.dot}`}
+                              />
                               {stock} unités
                             </span>
 
-                            <span className="text-[8px] font-black uppercase text-slate-400">
+                            <span
+                              className={`rounded-md px-2 py-0.5 text-[8px] font-black uppercase ${state.badge}`}
+                            >
                               {state.label}
                             </span>
                           </div>
                         </td>
 
                         {/* ACHAT */}
-                        <td className="px-2.5 py-4">
+                        <td className="px-4 py-4">
                           <span className="text-xs font-bold text-slate-600">
                             {price(article.purchase_price)}
                           </span>
                         </td>
 
                         {/* VENTE */}
-                        <td className="px-2.5 py-4">
+                        <td className="px-4 py-4">
                           <div>
                             <span className="text-xs font-black text-[#2563EB]">
                               {price(article.price)}
@@ -1136,13 +1241,11 @@ export default function StockPage() {
                         </td>
 
                         {/* ACTIONS */}
-                        <td className="px-2.5 py-4">
+                        <td className="px-4 py-4">
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
-                              onClick={() =>
-                                openEntry(article)
-                              }
+                              onClick={() => openEntry(article)}
                               className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#2563EB] px-3 text-[9px] font-black text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#1D4ED8]"
                             >
                               <ArrowDownToLine size={13} />
@@ -1151,9 +1254,7 @@ export default function StockPage() {
 
                             <button
                               type="button"
-                              onClick={() =>
-                                openExit(article)
-                              }
+                              onClick={() => openExit(article)}
                               disabled={stock <= 0}
                               className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-100 px-3 text-[9px] font-black text-slate-600 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40"
                             >
@@ -1201,7 +1302,9 @@ export default function StockPage() {
             )}
           </section>
         ) : (
-          /* HISTORIQUE */
+          /* =============================================
+              TAB HISTORIQUE
+          ============================================= */
           <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-2 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -1219,8 +1322,8 @@ export default function StockPage() {
               <History size={18} className="text-slate-300" />
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-[1100px] w-full">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[1100px]">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70">
                     <th className="px-5 py-4 text-left text-[9px] font-black uppercase tracking-wider text-slate-400">
@@ -1256,8 +1359,7 @@ export default function StockPage() {
 
                     const article = articles.find(
                       (item) =>
-                        Number(item.id) ===
-                        Number(movement.article_id)
+                        Number(item.id) === Number(movement.article_id)
                     );
 
                     return (
@@ -1282,8 +1384,7 @@ export default function StockPage() {
                               article={article}
                               size="sm"
                               onClick={() =>
-                                article &&
-                                setPreviewArticle(article)
+                                article && setPreviewArticle(article)
                               }
                             />
 
@@ -1292,8 +1393,7 @@ export default function StockPage() {
                                 {movement.article_name}
                               </p>
                               <p className="mt-1 text-[8px] font-bold text-slate-400">
-                                {movement.article_code ||
-                                  "Article"}
+                                {movement.article_code || "Article"}
                                 {movement.lot_id
                                   ? ` · Lot #${movement.lot_id}`
                                   : ""}
@@ -1348,9 +1448,7 @@ export default function StockPage() {
                             <span className="text-slate-300">→</span>
                             <span
                               className={`rounded-lg px-2 py-1 text-[9px] font-black ${
-                                numberValue(
-                                  movement.stock_after
-                                ) <= 0
+                                numberValue(movement.stock_after) <= 0
                                   ? "bg-red-50 text-red-600"
                                   : "bg-emerald-50 text-emerald-700"
                               }`}
@@ -1391,7 +1489,9 @@ export default function StockPage() {
         )}
       </div>
 
-      {/* PREVIEW PRODUIT */}
+      {/* =============================================
+          MODAL PREVIEW
+      ============================================= */}
       {previewArticle && (
         <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
@@ -1422,23 +1522,16 @@ export default function StockPage() {
             </div>
 
             <div className="max-h-[calc(92vh-82px)] overflow-y-auto p-5 sm:p-7">
-              <SelectedArticle
-                article={previewArticle}
-                type="ENTRY"
-              />
+              <SelectedArticle article={previewArticle} type="ENTRY" />
 
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <InfoBox
                   label="Stock"
-                  value={`${numberValue(
-                    previewArticle.stock
-                  )} unités`}
+                  value={`${numberValue(previewArticle.stock)} unités`}
                 />
                 <InfoBox
                   label="Prix achat"
-                  value={price(
-                    previewArticle.purchase_price
-                  )}
+                  value={price(previewArticle.purchase_price)}
                 />
                 <InfoBox
                   label="Prix vente"
@@ -1447,10 +1540,7 @@ export default function StockPage() {
                 />
                 <InfoBox
                   label="Fournisseur"
-                  value={
-                    previewArticle.fournisseur_name ||
-                    "Aucun"
-                  }
+                  value={previewArticle.fournisseur_name || "Aucun"}
                 />
               </div>
             </div>
@@ -1458,7 +1548,9 @@ export default function StockPage() {
         </div>
       )}
 
-      {/* MODAL ENTRÉE / SORTIE */}
+      {/* =============================================
+          MODAL ENTRÉE / SORTIE
+      ============================================= */}
       {open && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
@@ -1525,10 +1617,7 @@ export default function StockPage() {
             <div className="max-h-[calc(94vh-145px)] overflow-y-auto p-5 sm:p-7">
               {error && (
                 <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs font-bold text-red-600">
-                  <AlertTriangle
-                    size={16}
-                    className="mt-0.5 shrink-0"
-                  />
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0" />
                   <span>{error}</span>
                 </div>
               )}
@@ -1544,21 +1633,14 @@ export default function StockPage() {
                     <select
                       value={form.articleId}
                       onChange={(event) =>
-                        chooseArticle(
-                          event.target.value
-                        )
+                        chooseArticle(event.target.value)
                       }
                       className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 pe-10 text-xs font-bold text-slate-700 outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-50"
                     >
-                      <option value="">
-                        Sélectionner un article...
-                      </option>
+                      <option value="">Sélectionner un article...</option>
 
                       {articles.map((article) => (
-                        <option
-                          key={article.id}
-                          value={article.id}
-                        >
+                        <option key={article.id} value={article.id}>
                           {article.name} — stock{" "}
                           {numberValue(article.stock)}
                         </option>
@@ -1594,10 +1676,7 @@ export default function StockPage() {
 
                 {type === "ENTRY" && (
                   <>
-                    <Field
-                      label="Prix d'achat"
-                      required
-                    >
+                    <Field label="Prix d'achat" required>
                       <input
                         type="number"
                         min="0"
@@ -1605,8 +1684,7 @@ export default function StockPage() {
                         onChange={(event) =>
                           setForm({
                             ...form,
-                            purchasePrice:
-                              event.target.value,
+                            purchasePrice: event.target.value,
                           })
                         }
                         placeholder="Ex. 5500"
@@ -1614,10 +1692,7 @@ export default function StockPage() {
                       />
                     </Field>
 
-                    <Field
-                      label="Prix de vente"
-                      required
-                    >
+                    <Field label="Prix de vente" required>
                       <input
                         type="number"
                         min="0"
@@ -1625,8 +1700,7 @@ export default function StockPage() {
                         onChange={(event) =>
                           setForm({
                             ...form,
-                            sellingPrice:
-                              event.target.value,
+                            sellingPrice: event.target.value,
                           })
                         }
                         placeholder="Ex. 7800"
@@ -1634,31 +1708,22 @@ export default function StockPage() {
                       />
                     </Field>
 
-                    <Field
-                      label="Fournisseur"
-                      icon={<Truck size={14} />}
-                    >
+                    <Field label="Fournisseur" icon={<Truck size={14} />}>
                       <div className="relative">
                         <select
                           value={form.fournisseurId}
                           onChange={(event) =>
                             setForm({
                               ...form,
-                              fournisseurId:
-                                event.target.value,
+                              fournisseurId: event.target.value,
                             })
                           }
                           className="h-12 w-full appearance-none rounded-xl border border-slate-200 bg-slate-50 px-4 pe-10 text-xs font-bold outline-none transition focus:border-blue-300 focus:bg-white focus:ring-4 focus:ring-blue-50"
                         >
-                          <option value="">
-                            Aucun fournisseur
-                          </option>
+                          <option value="">Aucun fournisseur</option>
 
                           {suppliers.map((supplier) => (
-                            <option
-                              key={supplier.id}
-                              value={supplier.id}
-                            >
+                            <option key={supplier.id} value={supplier.id}>
                               {supplier.nom}
                             </option>
                           ))}
@@ -1691,11 +1756,7 @@ export default function StockPage() {
                   />
                 </Field>
 
-                <Field
-                  label="Note"
-                  icon={<FileText size={14} />}
-                  full
-                >
+                <Field label="Note" icon={<FileText size={14} />} full>
                   <textarea
                     value={form.notes}
                     onChange={(event) =>
@@ -1713,9 +1774,7 @@ export default function StockPage() {
               {form.articleId && (
                 <SelectedArticle
                   article={articles.find(
-                    (item) =>
-                      String(item.id) ===
-                      form.articleId
+                    (item) => String(item.id) === form.articleId
                   )}
                   type={type}
                 />
@@ -1737,18 +1796,12 @@ export default function StockPage() {
                   onClick={submit}
                   className="inline-flex h-11 items-center justify-center gap-2 rounded-xl px-6 text-[10px] font-black text-white shadow-sm transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
                   style={{
-                    background:
-                      type === "ENTRY"
-                        ? primary
-                        : orange,
+                    background: type === "ENTRY" ? primary : orange,
                   }}
                 >
                   {saving ? (
                     <>
-                      <RefreshCw
-                        size={13}
-                        className="animate-spin"
-                      />
+                      <RefreshCw size={13} className="animate-spin" />
                       Enregistrement...
                     </>
                   ) : (

@@ -387,6 +387,16 @@ const [showFloatingFilter, setShowFloatingFilter] = useState(false);
     setMobileFiltersOpen(false);
   };
 
+  const resetFilters = () => {
+    setSearch("");
+    setSort("featured");
+    setCurrentPage(1);
+    setMobileFiltersOpen(false);
+
+    window.history.pushState({}, "", "/articles");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
   /* =========================================================
      OUVERTURE DU FILTRE DEPUIS LE BOTTOM NAVIGATION MOBILE
      ========================================================= */
@@ -1141,33 +1151,57 @@ const [showFloatingFilter, setShowFloatingFilter] = useState(false);
                 p-4
               `}
             >
-              <button
-                type="button"
-                onClick={
-                  closeMobileFilters
-                }
-                className={`
-                  flex
-                  h-12
-                  w-full
-                  items-center
-                  justify-center
-                  rounded-2xl
-                  bg-slate-950
-                  text-xs
-                  font-black
-                  text-white
-                  shadow-lg
-                  shadow-slate-950/10
-                  transition
-                  hover:bg-blue-600
-                `}
-              >
-                {text(
-                  "Voir les produits",
-                  "عرض المنتجات"
-                )}
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className={`
+                    flex
+                    h-12
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-red-50
+                    text-xs
+                    font-black
+                    text-red-600
+                    transition
+                    hover:bg-red-100
+                    active:scale-[0.98]
+                  `}
+                >
+                  {text(
+                    "Réinitialiser",
+                    "إعادة ضبط"
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={closeMobileFilters}
+                  className={`
+                    flex
+                    h-12
+                    items-center
+                    justify-center
+                    rounded-2xl
+                    bg-slate-950
+                    text-xs
+                    font-black
+                    text-white
+                    shadow-lg
+                    shadow-slate-950/10
+                    transition
+                    hover:bg-blue-600
+                    active:scale-[0.98]
+                  `}
+                >
+                  {text(
+                    "Voir les produits",
+                    "عرض المنتجات"
+                  )}
+                </button>
+              </div>
             </div>
           </aside>
         </div>
@@ -1342,24 +1376,27 @@ const [showFloatingFilter, setShowFloatingFilter] = useState(false);
                 </div>
 
                 {(category ||
-                  brand) && (
-                  <Link
-                    href="/articles"
+                  brand ||
+                  search ||
+                  sort !== "featured") && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
                     className={`
                       inline-flex
                       w-fit
                       items-center
                       gap-2
                       rounded-xl
-                      bg-slate-100
+                      bg-red-50
                       px-3
                       py-2
                       text-[10px]
                       font-black
-                      text-slate-600
+                      text-red-600
                       transition-all
-                      hover:bg-red-50
-                      hover:text-red-600
+                      hover:bg-red-100
+                      active:scale-[0.97]
                     `}
                   >
                     <span
@@ -1367,15 +1404,15 @@ const [showFloatingFilter, setShowFloatingFilter] = useState(false);
                         h-1.5
                         w-1.5
                         rounded-full
-                        bg-blue-600
+                        bg-red-500
                       `}
                     />
 
                     {text(
-                      "Réinitialiser les filtres",
-                      "إعادة ضبط الفلاتر"
+                      "Réinitialiser",
+                      "إعادة ضبط"
                     )}
-                  </Link>
+                  </button>
                 )}
               </div>
 

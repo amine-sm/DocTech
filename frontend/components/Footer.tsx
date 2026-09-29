@@ -17,6 +17,7 @@ import {
   Mail,
   MapPin,
   MessageCircle,
+  Music2,
   Navigation,
   PackageCheck,
   Phone,
@@ -33,13 +34,26 @@ const STORE_NAME = "DOCTECH";
 const STORE_LATITUDE = "35.6613059";
 const STORE_LONGITUDE = "-0.6324169";
 
-const STORE_ADDRESS = "Es Sénia, Oran, Algérie";
+const STORE_ADDRESS = "Es Sénia,En Face Université IGMO, Oran, Algérie";
 const STORE_PLUS_CODE = "M969+G2 Es Sénia";
 
 const STORE_PHONE_DISPLAY = "0563 26 67 74";
 const STORE_PHONE_LINK = "+213563266774";
 
 const STORE_EMAIL = "contact@doctech.dz";
+
+/* =========================================================
+   RÉSEAUX SOCIAUX
+========================================================= */
+
+const FACEBOOK_URL =
+  "https://www.facebook.com/profile.php?id=100082827856125";
+
+const INSTAGRAM_URL =
+  "https://www.instagram.com/doctech___";
+
+const TIKTOK_URL =
+  "https://www.tiktok.com/@doctech_";
 
 /* =========================================================
    GOOGLE MAPS
@@ -59,12 +73,36 @@ const GOOGLE_MAP_EMBED_URL =
 ========================================================= */
 
 const boutiqueLinks = [
-  { label: "PC Portables", labelAr: "الحواسيب المحمولة", href: "/articles?categorie=ordinateurs-portables" },
-  { label: "PC Fixes", labelAr: "الحواسيب المكتبية", href: "/articles?categorie=pc-fixes" },
-  { label: "Écrans", labelAr: "الشاشات", href: "/articles?categorie=ecrans" },
-  { label: "Périphériques", labelAr: "الأجهزة الطرفية", href: "/articles?categorie=peripheriques" },
-  { label: "Accessoires", labelAr: "الملحقات", href: "/articles?categorie=accessoires" },
-  { label: "Promotions", labelAr: "العروض", href: "/promotions" },
+  {
+    label: "PC Portables",
+    labelAr: "الحواسيب المحمولة",
+    href: "/articles?categorie=ordinateurs-portables",
+  },
+  {
+    label: "PC Fixes",
+    labelAr: "الحواسيب المكتبية",
+    href: "/articles?categorie=pc-fixes",
+  },
+  {
+    label: "Écrans",
+    labelAr: "الشاشات",
+    href: "/articles?categorie=ecrans",
+  },
+  {
+    label: "Périphériques",
+    labelAr: "الأجهزة الطرفية",
+    href: "/articles?categorie=peripheriques",
+  },
+  {
+    label: "Accessoires",
+    labelAr: "الملحقات",
+    href: "/articles?categorie=accessoires",
+  },
+  {
+    label: "Promotions",
+    labelAr: "العروض",
+    href: "/promotions",
+  },
 ];
 
 /* =========================================================
@@ -72,18 +110,32 @@ const boutiqueLinks = [
 ========================================================= */
 
 const informationLinks = [
-  { label: "À propos", labelAr: "من نحن", href: "/a-propos" },
-  { label: "Livraison", labelAr: "التوصيل", href: "/livraison" },
-  { label: "Garantie", labelAr: "الضمان", href: "/garantie" },
-  { label: "Suivi de commande", labelAr: "تتبع الطلب", href: "/suivi" },
-  { label: "Contact", labelAr: "اتصل بنا", href: "/contact" },
+  {
+    label: "À propos",
+    labelAr: "من نحن",
+    href: "/a-propos",
+  },
+  {
+    label: "Livraison",
+    labelAr: "التوصيل",
+    href: "/livraison",
+  },
+  {
+    label: "Garantie",
+    labelAr: "الضمان",
+    href: "/garantie",
+  },
+  {
+    label: "Suivi de commande",
+    labelAr: "تتبع الطلب",
+    href: "/suivi",
+  },
+  {
+    label: "Contact",
+    labelAr: "اتصل بنا",
+    href: "/contact",
+  },
 ];
-
-/* =========================================================
-   MARQUES
-========================================================= */
-
-
 
 /* =========================================================
    FOOTER
@@ -91,19 +143,30 @@ const informationLinks = [
 
 export default function Footer() {
   const { locale, text } = useLocale();
+
   const [brands, setBrands] = useState<CatalogBrand[]>([]);
 
   useEffect(() => {
-    fetchBrands(locale).then(setBrands).catch(() => setBrands([]));
+    fetchBrands(locale)
+      .then(setBrands)
+      .catch(() => setBrands([]));
   }, [locale]);
 
-  const localizedBoutiqueLinks = boutiqueLinks.map((item) => ({ ...item, label: text(item.label, item.labelAr) }));
-  const localizedInformationLinks = informationLinks.map((item) => ({ ...item, label: text(item.label, item.labelAr) }));
+  const localizedBoutiqueLinks = boutiqueLinks.map((item) => ({
+    ...item,
+    label: text(item.label, item.labelAr),
+  }));
+
+  const localizedInformationLinks = informationLinks.map((item) => ({
+    ...item,
+    label: text(item.label, item.labelAr),
+  }));
 
   return (
     <footer className="relative overflow-hidden bg-[#050d1f] text-white">
+
       {/* =====================================================
-          BACKGROUND (gardé)
+          BACKGROUND
       ====================================================== */}
 
       <div
@@ -146,7 +209,7 @@ export default function Footer() {
       />
 
       {/* =====================================================
-          AVANTAGES – version cartes avec icônes plus grandes
+          AVANTAGES
       ====================================================== */}
 
       <div className="relative border-b border-white/10">
@@ -171,30 +234,57 @@ export default function Footer() {
           >
             <BenefitCard
               icon={<Truck size={24} />}
-              title={text("Livraison nationale", "توصيل إلى جميع الولايات")}
-              text={text("Disponible dans 48 wilayas", "متوفر في 48 ولاية")}
+              title={text(
+                "Livraison nationale",
+                "توصيل إلى جميع الولايات"
+              )}
+              text={text(
+                "Disponible dans 48 wilayas",
+                "متوفر في 48 ولاية"
+              )}
             />
+
             <BenefitCard
               icon={<CreditCard size={24} />}
-              title={text("Paiement sécurisé", "دفع آمن")}
-              text={text("Achetez en toute confiance", "تسوّق بكل ثقة")}
+              title={text(
+                "Paiement sécurisé",
+                "دفع آمن"
+              )}
+              text={text(
+                "Achetez en toute confiance",
+                "تسوّق بكل ثقة"
+              )}
             />
+
             <BenefitCard
               icon={<ShieldCheck size={24} />}
-              title={text("Produits garantis", "منتجات مضمونة")}
-              text={text("Garantie jusqu’à 12 mois", "ضمان يصل إلى 12 شهراً")}
+              title={text(
+                "Produits garantis",
+                "منتجات مضمونة"
+              )}
+              text={text(
+                "Garantie jusqu’à 12 mois",
+                "ضمان يصل إلى 12 شهراً"
+              )}
             />
+
             <BenefitCard
               icon={<Headphones size={24} />}
-              title={text("Support DOCTECH", "دعم DOCTECH")}
-              text={text("Une équipe à votre écoute", "فريق في خدمتك")}
+              title={text(
+                "Support DOCTECH",
+                "دعم DOCTECH"
+              )}
+              text={text(
+                "Une équipe à votre écoute",
+                "فريق في خدمتك"
+              )}
             />
           </div>
         </div>
       </div>
 
       {/* =====================================================
-          CONTENU PRINCIPAL – nouvelle disposition avec colonnes équilibrées
+          CONTENU PRINCIPAL
       ====================================================== */}
 
       <div
@@ -216,7 +306,11 @@ export default function Footer() {
             lg:grid-cols-[1.5fr_1fr_1fr_1.2fr]
           "
         >
-          {/* Colonne 1 : Logo + description + contact rapide */}
+
+          {/* =================================================
+              COLONNE 1
+          ================================================= */}
+
           <div>
             <Link
               href="/"
@@ -240,7 +334,7 @@ export default function Footer() {
               >
                 <Image
                   src="/images/logo-doctech.webp"
-                  alt="DOCTECH"
+                  alt={STORE_NAME}
                   fill
                   sizes="180px"
                   className="object-contain p-3"
@@ -264,63 +358,135 @@ export default function Footer() {
               )}
             </p>
 
+            {/* CONTACT RAPIDE */}
+
             <div className="mt-8 flex flex-col gap-4">
-              <ContactCompact icon={<Phone size={16} />} label={text("Téléphone", "الهاتف")} value={STORE_PHONE_DISPLAY} href={`tel:${STORE_PHONE_LINK}`} />
-              <ContactCompact icon={<Mail size={16} />} label={text("Email", "البريد الإلكتروني")} value={STORE_EMAIL} href={`mailto:${STORE_EMAIL}`} />
-              <ContactCompact icon={<MapPin size={16} />} label={text("Adresse", "العنوان")} value="Es Sénia, Oran" href={GOOGLE_MAP_URL} external />
+
+              <ContactCompact
+                icon={<Phone size={16} />}
+                label={text("Téléphone", "الهاتف")}
+                value={STORE_PHONE_DISPLAY}
+                href={`tel:${STORE_PHONE_LINK}`}
+              />
+
+              <ContactCompact
+                icon={<Mail size={16} />}
+                label={text("Email", "البريد الإلكتروني")}
+                value={STORE_EMAIL}
+                href={`mailto:${STORE_EMAIL}`}
+              />
+
+              <ContactCompact
+                icon={<MapPin size={16} />}
+                label={text("Adresse", "العنوان")}
+                value="Es Sénia, Oran"
+                href={GOOGLE_MAP_URL}
+                external
+              />
+
             </div>
 
+            {/* =================================================
+                RÉSEAUX SOCIAUX
+            ================================================= */}
+
             <div className="mt-8 flex items-center gap-3">
+
+              {/* FACEBOOK */}
+
               <SocialButton
                 label="Facebook"
-                href="#"
+                href={FACEBOOK_URL}
                 icon={<FacebookIcon />}
               />
+
+              {/* INSTAGRAM */}
+
               <SocialButton
                 label="Instagram"
-                href="#"
+                href={INSTAGRAM_URL}
                 icon={<InstagramIcon />}
               />
+
+              {/* TIKTOK */}
+
+              <SocialButton
+                label="TikTok"
+                href={TIKTOK_URL}
+                icon={<Music2 size={20} />}
+              />
+
+              {/* WHATSAPP */}
+
               <SocialButton
                 label="WhatsApp"
                 href={`https://wa.me/${STORE_PHONE_LINK.replace("+", "")}`}
                 icon={<MessageCircle size={20} />}
               />
+
             </div>
           </div>
 
-          {/* Colonne 2 : Boutique */}
-          <FooterColumn title={text("Boutique", "المتجر")} links={localizedBoutiqueLinks} />
+          {/* =================================================
+              COLONNE 2 : BOUTIQUE
+          ================================================= */}
 
-          {/* Colonne 3 : Informations */}
-          <FooterColumn title={text("Informations", "معلومات")} links={localizedInformationLinks} />
+          <FooterColumn
+            title={text("Boutique", "المتجر")}
+            links={localizedBoutiqueLinks}
+          />
 
-          {/* Colonne 4 : Contact + suivi commande */}
+          {/* =================================================
+              COLONNE 3 : INFORMATIONS
+          ================================================= */}
+
+          <FooterColumn
+            title={text("Informations", "معلومات")}
+            links={localizedInformationLinks}
+          />
+
+          {/* =================================================
+              COLONNE 4 : CONTACT
+          ================================================= */}
+
           <div>
-            <FooterTitle>{text("Nous contacter", "اتصل بنا")}</FooterTitle>
+
+            <FooterTitle>
+              {text("Nous contacter", "اتصل بنا")}
+            </FooterTitle>
 
             <div className="mt-7 space-y-5">
+
               <ContactRow
                 icon={<MapPin size={17} />}
                 title={text("Adresse", "العنوان")}
                 value={STORE_ADDRESS}
               />
+
               <ContactRow
                 icon={<Phone size={17} />}
                 title={text("Téléphone", "الهاتف")}
                 value={STORE_PHONE_DISPLAY}
               />
+
               <ContactRow
                 icon={<Mail size={17} />}
                 title={text("E-mail", "البريد الإلكتروني")}
                 value={STORE_EMAIL}
               />
+
               <ContactRow
                 icon={<Clock3 size={17} />}
                 title={text("Horaires", "أوقات العمل")}
-                value={text("Fermeture à 19h00", "الإغلاق على الساعة 19:00")}
+                value={text(
+                  "Fermeture à 19h00",
+                  "الإغلاق على الساعة 19:00"
+                )}
               />
+
             </div>
+
+            {/* SUIVI COMMANDE */}
 
             <Link
               href="/suivi"
@@ -360,21 +526,30 @@ export default function Footer() {
               >
                 <PackageCheck size={22} />
               </div>
+
               <div>
                 <p className="text-[12px] font-extrabold text-white">
-                  {text("Suivi de commande", "تتبع الطلب")}
+                  {text(
+                    "Suivi de commande",
+                    "تتبع الطلب"
+                  )}
                 </p>
+
                 <p className="mt-0.5 text-[10px] text-slate-500">
-                  {text("Consultez facilement votre commande.", "تابع طلبك بسهولة.")}
+                  {text(
+                    "Consultez facilement votre commande.",
+                    "تابع طلبك بسهولة."
+                  )}
                 </p>
               </div>
             </Link>
+
           </div>
         </div>
       </div>
 
       {/* =====================================================
-          GOOGLE MAPS – style intégré avec ombre et badge
+          GOOGLE MAPS
       ====================================================== */}
 
       <div
@@ -408,7 +583,11 @@ export default function Footer() {
               lg:grid-cols-[0.4fr_0.6fr]
             "
           >
-            {/* Partie gauche : infos magasin */}
+
+            {/* =================================================
+                INFORMATIONS MAGASIN
+            ================================================= */}
+
             <div
               className="
                 relative
@@ -433,6 +612,7 @@ export default function Footer() {
                   blur-[80px]
                 "
               />
+
               <div
                 className="
                   pointer-events-none
@@ -448,6 +628,7 @@ export default function Footer() {
               />
 
               <div className="relative z-10">
+
                 <div
                   className="
                     flex
@@ -475,7 +656,10 @@ export default function Footer() {
                     text-blue-400
                   "
                 >
-                  {text("Notre magasin", "متجرنا")}
+                  {text(
+                    "Notre magasin",
+                    "متجرنا"
+                  )}
                 </span>
 
                 <h3 className="mt-2 text-3xl font-black tracking-tight text-white">
@@ -483,12 +667,20 @@ export default function Footer() {
                 </h3>
 
                 <p className="mt-1 text-sm font-semibold text-blue-300">
-                  {text("Magasin d’informatique", "متجر إعلام آلي")}
+                  {text(
+                    "Magasin d’informatique",
+                    "متجر إعلام آلي"
+                  )}
                 </p>
 
                 <p className="mt-4 max-w-sm text-[13px] leading-7 text-slate-400">
-                  {text("Venez nous rendre visite à Es Sénia et découvrez notre sélection de matériel informatique.", "زورونا في السانية واكتشفوا تشكيلتنا من تجهيزات الإعلام الآلي.")}
+                  {text(
+                    "Venez nous rendre visite à Es Sénia et découvrez notre sélection de matériel informatique.",
+                    "زورونا في السانية واكتشفوا تشكيلتنا من تجهيزات الإعلام الآلي."
+                  )}
                 </p>
+
+                {/* LOCALISATION */}
 
                 <div
                   className="
@@ -501,6 +693,7 @@ export default function Footer() {
                   "
                 >
                   <div className="flex items-start gap-4">
+
                     <div
                       className="
                         flex
@@ -516,24 +709,36 @@ export default function Footer() {
                     >
                       <MapPin size={18} />
                     </div>
+
                     <div>
+
                       <p className="text-[9px] font-black uppercase tracking-[0.12em] text-slate-600">
-                        {text("Localisation", "الموقع")}
+                        {text(
+                          "Localisation",
+                          "الموقع"
+                        )}
                       </p>
+
                       <p className="mt-1 text-[13px] font-bold text-slate-300">
                         {STORE_ADDRESS}
                       </p>
+
                       <p className="mt-1 text-[10px] font-medium text-slate-500">
                         {STORE_PLUS_CODE}
                       </p>
+
                       <p className="mt-1 text-[9px] font-medium text-slate-600">
                         {STORE_LATITUDE}, {STORE_LONGITUDE}
                       </p>
+
                     </div>
                   </div>
                 </div>
 
+                {/* BOUTONS MAPS */}
+
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
+
                   <a
                     href={GOOGLE_DIRECTIONS_URL}
                     target="_blank"
@@ -559,7 +764,12 @@ export default function Footer() {
                     "
                   >
                     <Navigation size={16} />
-                    Itinéraire
+
+                    {text(
+                      "Itinéraire",
+                      "الاتجاهات"
+                    )}
+
                     <ExternalLink
                       size={14}
                       className="
@@ -598,6 +808,7 @@ export default function Footer() {
                     "
                   >
                     Google Maps
+
                     <ExternalLink
                       size={14}
                       className="
@@ -608,11 +819,16 @@ export default function Footer() {
                       "
                     />
                   </a>
+
                 </div>
+
               </div>
             </div>
 
-            {/* Partie droite : iframe map */}
+            {/* =================================================
+                GOOGLE MAP IFRAME
+            ================================================= */}
+
             <div
               className="
                 relative
@@ -622,6 +838,7 @@ export default function Footer() {
                 lg:min-h-[500px]
               "
             >
+
               <iframe
                 title="DOCTECH Es Sénia Google Maps"
                 src={GOOGLE_MAP_EMBED_URL}
@@ -639,7 +856,8 @@ export default function Footer() {
                 "
               />
 
-              {/* Badge en haut à gauche */}
+              {/* BADGE */}
+
               <div
                 className="
                   pointer-events-none
@@ -674,13 +892,20 @@ export default function Footer() {
                 >
                   <MapPin size={17} />
                 </div>
+
                 <div>
-                  <p className="text-[11px] font-black text-white">DOCTECH</p>
-                  <p className="mt-0.5 text-[9px] text-slate-400">Es Sénia, Oran</p>
+                  <p className="text-[11px] font-black text-white">
+                    DOCTECH
+                  </p>
+
+                  <p className="mt-0.5 text-[9px] text-slate-400">
+                    Es Sénia, Oran
+                  </p>
                 </div>
               </div>
 
-              {/* Bouton téléphone en bas à droite */}
+              {/* TÉLÉPHONE */}
+
               <a
                 href={`tel:${STORE_PHONE_LINK}`}
                 className="
@@ -708,15 +933,17 @@ export default function Footer() {
                 "
               >
                 <Phone size={14} />
+
                 {STORE_PHONE_DISPLAY}
               </a>
+
             </div>
           </div>
         </div>
       </div>
 
       {/* =====================================================
-          MARQUES – style "pills"
+          MARQUES
       ====================================================== */}
 
       <div
@@ -744,8 +971,27 @@ export default function Footer() {
           {brands.map((brand) => (
             <Link
               key={brand.id}
-              href={`/articles?marque=${encodeURIComponent(brand.slug)}`}
-              className="rounded-full border border-white/5 bg-white/[0.03] px-5 py-2 text-[10px] font-black tracking-[0.06em] text-slate-500 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-400"
+              href={`/articles?marque=${encodeURIComponent(
+                brand.slug
+              )}`}
+              className="
+                rounded-full
+                border
+                border-white/5
+                bg-white/[0.03]
+                px-5
+                py-2
+                text-[10px]
+                font-black
+                tracking-[0.06em]
+                text-slate-500
+                transition-all
+                duration-300
+                hover:-translate-y-0.5
+                hover:border-blue-500/30
+                hover:bg-blue-500/10
+                hover:text-blue-400
+              "
             >
               {brand.name}
             </Link>
@@ -774,10 +1020,17 @@ export default function Footer() {
             lg:px-8
           "
         >
+
           <p className="text-[10px] font-medium text-slate-500">
             © 2026{" "}
-            <span className="font-extrabold text-slate-300">DOCTECH</span>
-            . {text("Tous droits réservés.", "جميع الحقوق محفوظة.")}
+            <span className="font-extrabold text-slate-300">
+              DOCTECH
+            </span>
+            .{" "}
+            {text(
+              "Tous droits réservés.",
+              "جميع الحقوق محفوظة."
+            )}
           </p>
 
           <div
@@ -792,27 +1045,41 @@ export default function Footer() {
               text-slate-500
             "
           >
+
             <Link
               href="/confidentialite"
               className="transition hover:text-white"
             >
-              {text("Politique de confidentialité", "سياسة الخصوصية")}
+              {text(
+                "Politique de confidentialité",
+                "سياسة الخصوصية"
+              )}
             </Link>
+
             <Link
               href="/conditions"
               className="transition hover:text-white"
             >
-              {text("Conditions d’utilisation", "شروط الاستخدام")}
+              {text(
+                "Conditions d’utilisation",
+                "شروط الاستخدام"
+              )}
             </Link>
+
             <Link
               href="/contact"
               className="transition hover:text-white"
             >
-              {text("Contact", "اتصل بنا")}
+              {text(
+                "Contact",
+                "اتصل بنا"
+              )}
             </Link>
+
           </div>
         </div>
       </div>
+
     </footer>
   );
 }
@@ -821,9 +1088,10 @@ export default function Footer() {
    COMPOSANTS
 ========================================================= */
 
-// -------------------------------------
-// BenefitCard (avantages en cartes)
-// -------------------------------------
+/* =========================================================
+   BenefitCard
+========================================================= */
+
 function BenefitCard({
   icon,
   title,
@@ -871,39 +1139,58 @@ function BenefitCard({
       >
         {icon}
       </div>
+
       <div>
-        <p className="text-[13px] font-extrabold text-white">{title}</p>
-        <p className="mt-0.5 text-[10px] font-medium text-slate-500">{text}</p>
+        <p className="text-[13px] font-extrabold text-white">
+          {title}
+        </p>
+
+        <p className="mt-0.5 text-[10px] font-medium text-slate-500">
+          {text}
+        </p>
       </div>
     </div>
   );
 }
 
-// -------------------------------------
-// FooterTitle (titre avec trait)
-// -------------------------------------
-function FooterTitle({ children }: { children: ReactNode }) {
+/* =========================================================
+   FooterTitle
+========================================================= */
+
+function FooterTitle({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <div>
-      <h3 className="text-sm font-black text-white">{children}</h3>
+      <h3 className="text-sm font-black text-white">
+        {children}
+      </h3>
+
       <div className="mt-3 h-[3px] w-8 rounded-full bg-gradient-to-r from-blue-600 to-cyan-400" />
     </div>
   );
 }
 
-// -------------------------------------
-// FooterColumn (liste de liens)
-// -------------------------------------
+/* =========================================================
+   FooterColumn
+========================================================= */
+
 function FooterColumn({
   title,
   links,
 }: {
   title: string;
-  links: { label: string; href: string }[];
+  links: {
+    label: string;
+    href: string;
+  }[];
 }) {
   return (
     <div>
       <FooterTitle>{title}</FooterTitle>
+
       <ul className="mt-7 space-y-4">
         {links.map((item) => (
           <li key={item.label}>
@@ -935,6 +1222,7 @@ function FooterColumn({
                   group-hover:shadow-[0_0_8px_rgba(59,130,246,0.8)]
                 "
               />
+
               {item.label}
             </Link>
           </li>
@@ -944,9 +1232,10 @@ function FooterColumn({
   );
 }
 
-// -------------------------------------
-// ContactRow (pour la colonne contact)
-// -------------------------------------
+/* =========================================================
+   ContactRow
+========================================================= */
+
 function ContactRow({
   icon,
   title,
@@ -958,6 +1247,7 @@ function ContactRow({
 }) {
   return (
     <div className="group flex items-start gap-4">
+
       <div
         className="
           mt-0.5
@@ -978,21 +1268,25 @@ function ContactRow({
       >
         {icon}
       </div>
+
       <div>
         <p className="text-[9px] font-bold uppercase tracking-wider text-slate-600">
           {title}
         </p>
+
         <p className="mt-1 text-[12px] font-semibold leading-5 text-slate-400">
           {value}
         </p>
       </div>
+
     </div>
   );
 }
 
-// -------------------------------------
-// ContactCompact (pour la colonne 1)
-// -------------------------------------
+/* =========================================================
+   ContactCompact
+========================================================= */
+
 function ContactCompact({
   icon,
   label,
@@ -1006,12 +1300,18 @@ function ContactCompact({
   href: string;
   external?: boolean;
 }) {
-  const isExternal = external || href.startsWith("http");
+  const isExternal =
+    external || href.startsWith("http");
+
   return (
     <a
       href={href}
       target={isExternal ? "_blank" : undefined}
-      rel={isExternal ? "noopener noreferrer" : undefined}
+      rel={
+        isExternal
+          ? "noopener noreferrer"
+          : undefined
+      }
       className="
         group
         flex
@@ -1043,19 +1343,24 @@ function ContactCompact({
       >
         {icon}
       </span>
+
       <span>
         <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-600">
           {label}
         </span>
-        <span className="block text-[12px] font-semibold">{value}</span>
+
+        <span className="block text-[12px] font-semibold">
+          {value}
+        </span>
       </span>
     </a>
   );
 }
 
-// -------------------------------------
-// SocialButton
-// -------------------------------------
+/* =========================================================
+   SocialButton
+========================================================= */
+
 function SocialButton({
   icon,
   label,
@@ -1066,12 +1371,21 @@ function SocialButton({
   href: string;
 }) {
   const isExternal = href !== "#";
+
   return (
     <a
       href={href}
       aria-label={label}
-      target={isExternal ? "_blank" : undefined}
-      rel={isExternal ? "noopener noreferrer" : undefined}
+      target={
+        isExternal
+          ? "_blank"
+          : undefined
+      }
+      rel={
+        isExternal
+          ? "noopener noreferrer"
+          : undefined
+      }
       className="
         flex
         h-11
@@ -1097,9 +1411,10 @@ function SocialButton({
   );
 }
 
-// -------------------------------------
-// FacebookIcon
-// -------------------------------------
+/* =========================================================
+   FacebookIcon
+========================================================= */
+
 function FacebookIcon() {
   return (
     <svg
@@ -1114,9 +1429,10 @@ function FacebookIcon() {
   );
 }
 
-// -------------------------------------
-// InstagramIcon
-// -------------------------------------
+/* =========================================================
+   InstagramIcon
+========================================================= */
+
 function InstagramIcon() {
   return (
     <svg
@@ -1130,9 +1446,27 @@ function InstagramIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <rect x="3" y="3" width="18" height="18" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+      <rect
+        x="3"
+        y="3"
+        width="18"
+        height="18"
+        rx="5"
+      />
+
+      <circle
+        cx="12"
+        cy="12"
+        r="4"
+      />
+
+      <circle
+        cx="17.5"
+        cy="6.5"
+        r="1"
+        fill="currentColor"
+        stroke="none"
+      />
     </svg>
   );
 }
