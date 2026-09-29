@@ -56,5 +56,10 @@ router.patch(
   authorize("commandes.update"),
   asyncHandler(commandesController.updateStatus)
 );
-
+router.get(
+  "/export/excel",
+  auth,
+  authorize("commandes.view"),
+  asyncHandler(commandesController.exportExcel)
+);
 module.exports = router;
