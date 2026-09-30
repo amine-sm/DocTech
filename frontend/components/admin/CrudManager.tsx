@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertCircle,
   Edit3,
   ImagePlus,
   Plus,
@@ -102,7 +103,7 @@ export default function CrudManager({
   pageSize?: number;
   onLoadOptions?: () => Promise<Record<string, FieldOption[]>>;
 }) {
-  const { text } = useLocale();
+  const { text, isArabic } = useLocale();
 
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +116,10 @@ export default function CrudManager({
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [opts, setOpts] = useState<Record<string, FieldOption[]>>({});
+
+  /* SUPPRESSION */
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   /* =========================================================
      DEBOUNCE DE LA RECHERCHE
@@ -334,29 +339,33 @@ export default function CrudManager({
   }
 
   /* =========================================================
-     SUPPRESSION
+     SUPPRESSION — OUVERTURE DE LA MODALE
      ========================================================= */
 
-  async function remove(row: any) {
-    if (
-      !confirm(
-        `${text("Supprimer", "حذف")} ${
-          row.name ||
-          row.nom ||
-          row.code ||
-          text("cet élément", "هذا العنصر")
-        } ?`
-      )
-    ) {
-      return;
-    }
+  function remove(row: any) {
+    setDeleteTarget(row);
+  }
+
+  /* =========================================================
+     SUPPRESSION — CONFIRMATION
+     ========================================================= */
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
 
     try {
-      await adminDelete(endpoint, row.id);
+      setDeleting(true);
+      setError("");
+
+      await adminDelete(endpoint, deleteTarget.id);
+
+      setDeleteTarget(null);
 
       await load();
     } catch (e: any) {
-      alert(e.message);
+      setError(e.message || text("Erreur", "خطأ"));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -883,6 +892,93 @@ export default function CrudManager({
                   {saving
                     ? text("Enregistrement...", "جارٍ الحفظ...")
                     : text("Enregistrer", "حفظ")}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =====================================================
+          MODAL CONFIRMATION SUPPRESSION
+          ===================================================== */}
+
+      <AnimatePresence>
+        {deleteTarget && (
+          <div
+            className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !deleting) {
+                setDeleteTarget(null);
+              }
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 30, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 30, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              dir={isArabic ? "rtl" : "ltr"}
+              className="w-full max-w-md overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:rounded-[28px]"
+            >
+              <div className="flex flex-col items-center px-6 pt-8 text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+                  <Trash2 size={28} />
+                </div>
+
+                <h3 className="mt-5 text-lg font-black text-slate-900">
+                  {text("Confirmer la suppression", "تأكيد الحذف")}
+                </h3>
+
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                  {text(
+                    "Voulez-vous vraiment supprimer",
+                    "هل تريد حقاً حذف"
+                  )}{" "}
+                  <b className="text-slate-800">
+                    "
+                    {deleteTarget?.name ||
+                      deleteTarget?.nom ||
+                      deleteTarget?.code ||
+                      text("cet élément", "هذا العنصر")}
+                    "
+                  </b>{" "}
+                  ?
+                  <br />
+                  <span className="mt-2 inline-block text-xs font-bold text-red-500">
+                    {text(
+                      "Cette action est irréversible.",
+                      "هذا الإجراء لا يمكن التراجع عنه."
+                    )}
+                  </span>
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 p-5 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setDeleteTarget(null)}
+                  className="h-11 rounded-xl border border-slate-200 px-5 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {text("Annuler", "إلغاء")}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={confirmDelete}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-500 px-5 text-xs font-black text-white shadow-lg shadow-red-500/20 transition hover:bg-red-600 disabled:opacity-60"
+                >
+                  {deleting ? (
+                    <RefreshCw size={14} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={14} />
+                  )}
+
+                  {deleting
+                    ? text("Suppression...", "جارٍ الحذف...")
+                    : text("Supprimer", "حذف")}
                 </button>
               </div>
             </motion.div>

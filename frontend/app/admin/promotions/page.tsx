@@ -8,6 +8,7 @@ import { adminList } from "@/lib/admin-api";
 import { apiFetch, backendUrl } from "@/lib/api";
 
 import {
+  AlertCircle,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -21,7 +22,7 @@ import {
   ShoppingBag,
   Tag,
   Trash2,
-  X,
+  X,RefreshCw
 } from "lucide-react";
 
 /* =========================================================
@@ -223,6 +224,11 @@ export default function Page() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] =
     useState<Promotion | null>(null);
+
+  /* DELETE CONFIRM MODAL */
+  const [deleteTarget, setDeleteTarget] =
+    useState<Promotion | null>(null);
+  const [deleteError, setDeleteError] = useState("");
 
   const [form, setForm] =
     useState<PromotionForm>(emptyForm());
@@ -696,28 +702,33 @@ async function loadPromotions() {
   }
 
   /* =========================================================
-     DELETE
+     DELETE — OPEN CONFIRM MODAL
   ========================================================= */
 
-  async function deletePromotion(
-    id: number | string
-  ) {
-    const confirmed =
-      window.confirm(
-        text("Voulez-vous vraiment supprimer cette promotion ?", "هل أنت متأكد من حذف هذا العرض؟")
-      );
+  function deletePromotion(promotion: Promotion) {
+    setDeleteError("");
+    setDeleteTarget(promotion);
+  }
 
-    if (!confirmed) return;
+  /* =========================================================
+     DELETE — CONFIRM
+  ========================================================= */
+
+  async function confirmDeletePromotion() {
+    if (!deleteTarget) return;
 
     try {
-      setDeletingId(id);
+      setDeletingId(deleteTarget.id);
+      setDeleteError("");
 
       await apiFetch(
-        `/promotions/${id}`,
+        `/promotions/${deleteTarget.id}`,
         {
           method: "DELETE",
         }
       );
+
+      setDeleteTarget(null);
 
       await loadPromotions();
     } catch (err: any) {
@@ -726,7 +737,7 @@ async function loadPromotions() {
         err
       );
 
-      window.alert(
+      setDeleteError(
         err?.message ||
           "Impossible de supprimer la promotion."
       );
@@ -1191,7 +1202,7 @@ async function loadPromotions() {
                                   type="button"
                                   onClick={() =>
                                     deletePromotion(
-                                      promotion.id
+                                      promotion
                                     )
                                   }
                                   disabled={
@@ -2046,6 +2057,95 @@ async function loadPromotions() {
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* =======================================================
+          MODAL CONFIRMATION SUPPRESSION
+      ======================================================== */}
+
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              deletingId === null
+            ) {
+              setDeleteTarget(null);
+              setDeleteError("");
+            }
+          }}
+        >
+          <div
+            dir={isArabic ? "rtl" : "ltr"}
+            className="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl"
+          >
+            <div className="flex flex-col items-center px-6 pt-8 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+                <Trash2 size={28} />
+              </div>
+
+              <h3 className="mt-5 text-lg font-black text-slate-900">
+                {text("Confirmer la suppression", "تأكيد الحذف")}
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {text(
+                  "Voulez-vous vraiment supprimer la promotion",
+                  "هل تريد حقاً حذف العرض"
+                )}{" "}
+                <b className="text-slate-800">
+                  "{deleteTarget.name || `#${deleteTarget.id}`}"
+                </b>{" "}
+                ?
+                <br />
+                <span className="mt-2 inline-block text-xs font-bold text-red-500">
+                  {text(
+                    "Cette action est irréversible.",
+                    "هذا الإجراء لا يمكن التراجع عنه."
+                  )}
+                </span>
+              </p>
+
+              {deleteError && (
+                <div className="mt-4 flex w-full items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-left text-[11px] font-bold text-red-600">
+                  <AlertCircle size={15} className="mt-0.5 shrink-0" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 p-5 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={deletingId === deleteTarget.id}
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeleteError("");
+                }}
+                className="h-11 rounded-xl border border-slate-200 px-5 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                {text("Annuler", "إلغاء")}
+              </button>
+
+              <button
+                type="button"
+                disabled={deletingId === deleteTarget.id}
+                onClick={confirmDeletePromotion}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-500 px-5 text-xs font-black text-white shadow-lg shadow-red-500/20 transition hover:bg-red-600 disabled:opacity-60"
+              >
+                {deletingId === deleteTarget.id ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}
+                {deletingId === deleteTarget.id
+                  ? text("Suppression...", "جاري الحذف...")
+                  : text("Supprimer", "حذف")}
+              </button>
+            </div>
           </div>
         </div>
       )}

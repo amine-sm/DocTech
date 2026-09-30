@@ -396,6 +396,9 @@ export default function ArticlesPage() {
   const [viewLoading, setViewLoading] = useState(false);
   const [selectedViewImage, setSelectedViewImage] = useState<string | null>(null);
 
+  /* DELETE CONFIRM MODAL */
+  const [deleteTarget, setDeleteTarget] = useState<Article | null>(null);
+
   const emptyArticleForm: ArticleForm = {
     name: "",
     nameAr: "",
@@ -1295,23 +1298,29 @@ export default function ArticlesPage() {
   }
 
   /* =======================================================
-     DELETE
+     DELETE — OPEN CONFIRM MODAL
   ======================================================= */
 
-  async function handleDelete(article: Article) {
-    const confirmed = window.confirm(
-      `Voulez-vous vraiment supprimer l'article "${article.name}" ?`
-    );
+  function handleDelete(article: Article) {
+    setDeleteTarget(article);
+  }
 
-    if (!confirmed) return;
+  /* =======================================================
+     DELETE — CONFIRM
+  ======================================================= */
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
 
     try {
-      setDeletingId(article.id);
+      setDeletingId(deleteTarget.id);
       setError("");
 
-      await apiFetch(`/articles/${article.id}`, {
+      await apiFetch(`/articles/${deleteTarget.id}`, {
         method: "DELETE",
       });
+
+      setDeleteTarget(null);
 
       await loadArticles({
         page,
@@ -2920,6 +2929,78 @@ export default function ArticlesPage() {
                     : text("Créer l'article", "إنشاء المنتج")}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal CONFIRMATION SUPPRESSION */}
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-[220] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              deletingId === null
+            ) {
+              setDeleteTarget(null);
+            }
+          }}
+        >
+          <div
+            dir={isArabic ? "rtl" : "ltr"}
+            className="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl"
+          >
+            <div className="flex flex-col items-center px-6 pt-8 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50 text-red-500">
+                <Trash2 size={28} />
+              </div>
+
+              <h3 className="mt-5 text-lg font-black text-slate-900">
+                {text("Confirmer la suppression", "تأكيد الحذف")}
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {text(
+                  "Voulez-vous vraiment supprimer l'article",
+                  "هل تريد حقاً حذف المنتج"
+                )}{" "}
+                <b className="text-slate-800">"{deleteTarget.name}"</b> ?
+                <br />
+                <span className="mt-2 inline-block text-xs font-bold text-red-500">
+                  {text(
+                    "Cette action est irréversible.",
+                    "هذا الإجراء لا يمكن التراجع عنه."
+                  )}
+                </span>
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 border-t border-slate-100 p-5 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={deletingId === deleteTarget.id}
+                onClick={() => setDeleteTarget(null)}
+                className="h-11 rounded-xl border border-slate-200 px-5 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                {text("Annuler", "إلغاء")}
+              </button>
+
+              <button
+                type="button"
+                disabled={deletingId === deleteTarget.id}
+                onClick={confirmDelete}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-500 px-5 text-xs font-black text-white shadow-lg shadow-red-500/20 transition hover:bg-red-600 disabled:opacity-60"
+              >
+                {deletingId === deleteTarget.id ? (
+                  <RefreshCw size={14} className="animate-spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}
+                {deletingId === deleteTarget.id
+                  ? text("Suppression...", "جاري الحذف...")
+                  : text("Supprimer", "حذف")}
+              </button>
             </div>
           </div>
         </div>
