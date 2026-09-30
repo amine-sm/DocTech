@@ -30,8 +30,11 @@ export default function CategoryCarousel({
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [progress, setProgress] = useState(0);
   const sectionRef = useRef<HTMLElement>(null);
+
+  // Progress bar via motionValue — évite 60 re-renders/sec
+  const progressMV = useMotionValue(0);
+  const progressWidth = useTransform(progressMV, [0, 1], ["0%", "100%"]);
 
   const safeCategories = Array.isArray(categories) ? categories : [];
   const total = safeCategories.length;
@@ -42,8 +45,16 @@ export default function CategoryCarousel({
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
     check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    let raf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(check);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   /* =========================================================
@@ -68,21 +79,21 @@ export default function CategoryCarousel({
   );
 
   /* =========================================================
-     AUTOPLAY + PROGRESS
+     AUTOPLAY + PROGRESS (via motionValue)
   ========================================================= */
   useEffect(() => {
-    if (!autoPlayMs || total <= 1 || isPaused) {
-      setProgress(0);
+    if (!autoPlayMs || total <= 1 || isPaused || isMobile) {
+      progressMV.set(0);
       return;
     }
 
-    let raf: number;
+    let raf = 0;
     const start = performance.now();
 
     const tick = (now: number) => {
       const elapsed = now - start;
       const p = Math.min(1, elapsed / autoPlayMs);
-      setProgress(p);
+      progressMV.set(p);
       if (p >= 1) {
         next();
         return;
@@ -92,7 +103,7 @@ export default function CategoryCarousel({
     raf = requestAnimationFrame(tick);
 
     return () => cancelAnimationFrame(raf);
-  }, [autoPlayMs, total, isPaused, next, activeIndex]);
+  }, [autoPlayMs, total, isPaused, next, activeIndex, progressMV, isMobile]);
 
   /* =========================================================
      RESET
@@ -109,13 +120,14 @@ export default function CategoryCarousel({
      KEYBOARD
   ========================================================= */
   useEffect(() => {
+    if (isMobile) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") next();
       if (e.key === "ArrowLeft") prev();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [next, prev]);
+  }, [next, prev, isMobile]);
 
   /* =========================================================
      LOADING
@@ -155,7 +167,7 @@ export default function CategoryCarousel({
       className="
         relative w-full overflow-hidden
         bg-gradient-to-b from-white via-blue-50/40 to-white
-        py-12 sm:py-16 lg:py-20
+        py-10 sm:py-16 lg:py-20
       "
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -163,154 +175,181 @@ export default function CategoryCarousel({
       onTouchEnd={() => setIsPaused(false)}
     >
       {/* =====================================================
-          BACKGROUND — AURORA + GRID + PARTICLES
+          BACKGROUND — simplifié sur mobile
       ===================================================== */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {/* Base gradient riche */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50/60 to-cyan-50/40" />
 
-        {/* Aurora blobs visibles */}
-        <motion.div
-          animate={{
-            x: [0, 80, -60, 0],
-            y: [0, -40, 50, 0],
-            scale: [1, 1.2, 0.9, 1],
-          }}
-          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-          className="
-            absolute left-1/2 top-1/2
-            h-[500px] w-[800px]
-            -translate-x-1/2 -translate-y-1/2
-            rounded-full
-            bg-gradient-to-br from-blue-300/50 via-cyan-200/40 to-blue-200/30
-            blur-[120px]
-            sm:h-[600px] sm:w-[1000px]
-          "
-        />
-        <motion.div
-          animate={{
-            x: [0, -60, 40, 0],
-            y: [0, 50, -30, 0],
-            scale: [1, 0.85, 1.15, 1],
-          }}
-          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
-          className="
-            absolute -left-32 top-10
-            h-96 w-96 rounded-full
-            bg-cyan-300/40 blur-[110px]
-          "
-        />
-        <motion.div
-          animate={{
-            x: [0, 50, -40, 0],
-            y: [0, -30, 40, 0],
-          }}
-          transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-          className="
-            absolute -right-32 bottom-0
-            h-96 w-96 rounded-full
-            bg-blue-300/40 blur-[110px]
-          "
-        />
+        {/* Aurora blobs — desktop uniquement */}
+        {!isMobile && (
+          <>
+            <motion.div
+              animate={{
+                x: [0, 80, -60, 0],
+                y: [0, -40, 50, 0],
+                scale: [1, 1.2, 0.9, 1],
+              }}
+              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+              className="
+                absolute left-1/2 top-1/2
+                h-[600px] w-[1000px]
+                -translate-x-1/2 -translate-y-1/2
+                rounded-full
+                bg-gradient-to-br from-blue-300/50 via-cyan-200/40 to-blue-200/30
+                blur-[120px]
+                will-change-transform
+              "
+            />
+            <motion.div
+              animate={{
+                x: [0, -60, 40, 0],
+                y: [0, 50, -30, 0],
+                scale: [1, 0.85, 1.15, 1],
+              }}
+              transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+              className="
+                absolute -left-32 top-10
+                h-96 w-96 rounded-full
+                bg-cyan-300/40 blur-[110px]
+                will-change-transform
+              "
+            />
+            <motion.div
+              animate={{
+                x: [0, 50, -40, 0],
+                y: [0, -30, 40, 0],
+              }}
+              transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+              className="
+                absolute -right-32 bottom-0
+                h-96 w-96 rounded-full
+                bg-blue-300/40 blur-[110px]
+                will-change-transform
+              "
+            />
+          </>
+        )}
 
-        {/* Grille lumineuse */}
+        {/* Sur mobile : un simple radial gradient statique, pas de blur animé */}
+        {isMobile && (
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, rgba(147,197,253,0.35), transparent 70%)",
+            }}
+          />
+        )}
+
+        {/* Grille — statique, ok partout */}
         <div
           className="
             absolute inset-0
-            opacity-25
+            opacity-20
             [background-image:linear-gradient(to_right,rgb(37,99,235,0.18)_1px,transparent_1px),linear-gradient(to_bottom,rgb(37,99,235,0.18)_1px,transparent_1px)]
             [background-size:64px_64px]
             [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_75%)]
           "
         />
 
-        {/* Particules flottantes */}
-        {[...Array(12)].map((_, i) => (
-          <motion.div
-            key={`particle-${i}`}
-            className="absolute h-1.5 w-1.5 rounded-full bg-blue-500/50 shadow-[0_0_8px_rgba(59,130,246,0.6)]"
-            style={{
-              left: `${8 + i * 8}%`,
-              top: `${10 + (i % 5) * 18}%`,
-            }}
-            animate={{
-              y: [0, -40, 0],
-              opacity: [0, 1, 0],
-              scale: [0.5, 1.4, 0.5],
-            }}
-            transition={{
-              duration: 4 + i * 0.5,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.3,
-            }}
-          />
-        ))}
+        {/* Particules — desktop uniquement */}
+        {!isMobile &&
+          [...Array(12)].map((_, i) => (
+            <motion.div
+              key={`particle-${i}`}
+              className="absolute h-1.5 w-1.5 rounded-full bg-blue-500/50 shadow-[0_0_8px_rgba(59,130,246,0.6)] will-change-transform"
+              style={{
+                left: `${8 + i * 8}%`,
+                top: `${10 + (i % 5) * 18}%`,
+              }}
+              animate={{
+                y: [0, -40, 0],
+                opacity: [0, 1, 0],
+                scale: [0.5, 1.4, 0.5],
+              }}
+              transition={{
+                duration: 4 + i * 0.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: i * 0.3,
+              }}
+            />
+          ))}
       </div>
 
       {/* =====================================================
-          HEADER PREMIUM
+          HEADER
       ===================================================== */}
-      <div className="relative z-30 mx-auto mb-8 max-w-7xl px-5 sm:mb-12 sm:px-8 lg:px-10">
+      <div className="relative z-30 mx-auto mb-6 max-w-7xl px-5 sm:mb-12 sm:px-8 lg:px-10">
         <div className="flex items-end justify-between gap-4">
           <div>
-            {/* MINI LABEL */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="mb-4 flex items-center gap-2"
+              className="mb-3 flex items-center gap-2 sm:mb-4"
             >
               <motion.div
-                animate={{ rotate: [0, 15, -15, 0] }}
+                animate={isMobile ? undefined : { rotate: [0, 15, -15, 0] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 className="
-                  flex h-10 w-10 items-center justify-center
+                  flex h-9 w-9 items-center justify-center
                   rounded-full
                   bg-gradient-to-br from-blue-500 to-cyan-400
                   text-white
                   shadow-[0_10px_30px_rgba(37,99,235,0.45)]
+                  sm:h-10 sm:w-10
                 "
               >
-                <Sparkles size={17} strokeWidth={2.5} />
+                <Sparkles size={16} strokeWidth={2.5} />
               </motion.div>
 
               <span
                 className="
                   bg-gradient-to-r from-blue-600 to-cyan-500
                   bg-clip-text
-                  text-[11px] font-black uppercase tracking-[0.28em]
+                  text-[10px] font-black uppercase tracking-[0.28em]
                   text-transparent
+                  sm:text-[11px]
                 "
               >
                 Découvrez
               </span>
 
-              <span className="h-px w-12 bg-gradient-to-r from-blue-400 to-transparent" />
+              <span className="h-px w-8 bg-gradient-to-r from-blue-400 to-transparent sm:w-12" />
             </motion.div>
 
-            {/* TITLE */}
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
-              animate={{
-                opacity: 1,
-                y: 0,
-                backgroundPosition: ["0% center", "100% center", "0% center"],
-              }}
+              animate={
+                isMobile
+                  ? { opacity: 1, y: 0 }
+                  : {
+                      opacity: 1,
+                      y: 0,
+                      backgroundPosition: [
+                        "0% center",
+                        "100% center",
+                        "0% center",
+                      ],
+                    }
+              }
               transition={{
                 opacity: { duration: 0.7, delay: 0.1 },
                 y: { duration: 0.7, delay: 0.1 },
-                backgroundPosition: {
-                  duration: 6,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                },
+                backgroundPosition: isMobile
+                  ? undefined
+                  : {
+                      duration: 6,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    },
               }}
               className="
                 bg-gradient-to-r from-slate-950 via-blue-700 to-slate-950
                 bg-[length:200%_auto]
                 bg-clip-text
-                text-3xl font-black tracking-[-0.04em]
+                text-2xl font-black tracking-[-0.04em]
                 text-transparent
                 sm:text-4xl
                 lg:text-5xl
@@ -324,211 +363,209 @@ export default function CategoryCarousel({
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
               className="
-                mt-3 max-w-xl
-                text-sm font-medium leading-6 text-slate-500
-                sm:text-base
+                mt-2 max-w-xl
+                text-xs font-medium leading-5 text-slate-500
+                sm:mt-3 sm:text-base sm:leading-6
               "
             >
               Explorez notre sélection informatique et high-tech.
             </motion.p>
           </div>
 
-          {/* COUNTER */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="
-              hidden items-center gap-3
-              rounded-2xl
-              border border-white/80
-              bg-white/80
-              px-5 py-3.5
-              shadow-[0_15px_40px_rgba(15,23,42,0.08)]
-              backdrop-blur-xl
-              sm:flex
-            "
-          >
-            <div className="relative h-11 w-11 overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 p-[2px] shadow-[0_8px_20px_rgba(37,99,235,0.35)]">
-              <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-white">
-                <AnimatePresence mode="wait">
-                  <motion.span
-                    key={activeIndex}
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -20, opacity: 0 }}
-                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                    className="text-sm font-black text-slate-950"
-                  >
-                    {String(activeIndex + 1).padStart(2, "0")}
-                  </motion.span>
-                </AnimatePresence>
+          {/* COUNTER — desktop uniquement */}
+          {!isMobile && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.3 }}
+              className="
+                hidden items-center gap-3
+                rounded-2xl
+                border border-white/80
+                bg-white/80
+                px-5 py-3.5
+                shadow-[0_15px_40px_rgba(15,23,42,0.08)]
+                backdrop-blur-xl
+                sm:flex
+              "
+            >
+              <div className="relative h-11 w-11 overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 p-[2px] shadow-[0_8px_20px_rgba(37,99,235,0.35)]">
+                <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-white">
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={activeIndex}
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: -20, opacity: 0 }}
+                      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                      className="text-sm font-black text-slate-950"
+                    >
+                      {String(activeIndex + 1).padStart(2, "0")}
+                    </motion.span>
+                  </AnimatePresence>
+                </div>
               </div>
-            </div>
 
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                Catégorie
-              </span>
-              <span className="text-sm font-black text-slate-950">
-                {String(total).padStart(2, "0")} au total
-              </span>
-            </div>
-          </motion.div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                  Catégorie
+                </span>
+                <span className="text-sm font-black text-slate-950">
+                  {String(total).padStart(2, "0")} au total
+                </span>
+              </div>
+            </motion.div>
+          )}
         </div>
 
-        {/* PROGRESS BAR */}
-        <div className="relative mt-6 h-1 w-full overflow-hidden rounded-full bg-slate-200/70 shadow-inner">
-          <motion.div
-            className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 shadow-[0_0_12px_rgba(37,99,235,0.6)]"
-            style={{ width: `${progress * 100}%` }}
-            transition={{ duration: 0.1 }}
-          />
-        </div>
+        {/* PROGRESS BAR — uniquement desktop */}
+        {!isMobile && (
+          <div className="relative mt-6 h-1 w-full overflow-hidden rounded-full bg-slate-200/70 shadow-inner">
+            <motion.div
+              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 shadow-[0_0_12px_rgba(37,99,235,0.6)]"
+              style={{ width: progressWidth }}
+            />
+          </div>
+        )}
       </div>
 
       {/* =====================================================
-          CAROUSEL 3D
+          CAROUSEL
       ===================================================== */}
-      <div
-        className="
-          relative mx-auto
-          h-[430px] w-full max-w-[1500px]
-          overflow-visible
-          sm:h-[500px]
-          lg:h-[560px]
-        "
-        style={{
-          perspective: "1600px",
-          perspectiveOrigin: "50% 50%",
-        }}
-      >
-        {/* FLOOR SHADOW */}
-        <motion.div
-          animate={{ scale: [1, 1.08, 1], opacity: [0.6, 1, 0.6] }}
-          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-          className="
-            pointer-events-none absolute
-            bottom-[30px] left-1/2
-            h-[40px] w-[240px]
-            -translate-x-1/2
-            rounded-[50%]
-            bg-blue-500/25
-            blur-3xl
-            sm:w-[420px]
-          "
+      {isMobile ? (
+        /* ---------- VERSION MOBILE : SCROLL SNAP NATIF ---------- */
+        <MobileScroller
+          categories={safeCategories}
+          activeIndex={activeIndex}
+          onActiveChange={setActiveIndex}
+          text={text}
         />
+      ) : (
+        /* ---------- VERSION DESKTOP : CAROUSEL 3D ---------- */
         <div
           className="
-            pointer-events-none absolute
-            bottom-[40px] left-1/2
-            h-[25px] w-[180px]
-            -translate-x-1/2
-            rounded-[50%]
-            bg-slate-950/15
-            blur-2xl
-            sm:w-[340px]
+            relative mx-auto
+            h-[500px] w-full max-w-[1500px]
+            overflow-visible
+            lg:h-[560px]
           "
-        />
+          style={{
+            perspective: "1600px",
+            perspectiveOrigin: "50% 50%",
+          }}
+        >
+          {/* FLOOR SHADOW */}
+          <motion.div
+            animate={{ scale: [1, 1.08, 1], opacity: [0.6, 1, 0.6] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="
+              pointer-events-none absolute
+              bottom-[30px] left-1/2
+              h-[40px] w-[420px]
+              -translate-x-1/2
+              rounded-[50%]
+              bg-blue-500/25
+              blur-3xl
+            "
+          />
+          <div
+            className="
+              pointer-events-none absolute
+              bottom-[40px] left-1/2
+              h-[25px] w-[340px]
+              -translate-x-1/2
+              rounded-[50%]
+              bg-slate-950/15
+              blur-2xl
+            "
+          />
 
-        {/* ===================================================
-            CARDS
-        =================================================== */}
-        {safeCategories.map((category, index) => {
-          const offset = getOffset(index);
-          const isActive = offset === 0;
+          {/* CARDS */}
+          {safeCategories.map((category, index) => {
+            const offset = getOffset(index);
+            const isActive = offset === 0;
 
-          if (Math.abs(offset) > 2) return null;
+            if (Math.abs(offset) > 2) return null;
 
-          /* POSITION */
-          let x = 0;
-          if (offset === -2) x = -540;
-          else if (offset === -1) x = -310;
-          else if (offset === 1) x = 310;
-          else if (offset === 2) x = 540;
+            let x = 0;
+            if (offset === -2) x = -540;
+            else if (offset === -1) x = -310;
+            else if (offset === 1) x = 310;
+            else if (offset === 2) x = 540;
 
-          const xMobile = offset === 0 ? 0 : offset < 0 ? -190 : 190;
+            const scale =
+              offset === 0 ? 1 : Math.abs(offset) === 1 ? 0.86 : 0.7;
 
-          /* SCALE */
-          const scale =
-            offset === 0 ? 1 : Math.abs(offset) === 1 ? 0.86 : 0.7;
+            let rotateY = 0;
+            if (offset === -2) rotateY = 22;
+            if (offset === -1) rotateY = 11;
+            if (offset === 1) rotateY = -11;
+            if (offset === 2) rotateY = -22;
 
-          /* ROTATION Y */
-          let rotateY = 0;
-          if (offset === -2) rotateY = 22;
-          if (offset === -1) rotateY = 11;
-          if (offset === 1) rotateY = -11;
-          if (offset === 2) rotateY = -22;
+            const rotateZ =
+              offset === 0
+                ? 0
+                : offset < 0
+                ? -1.2 * Math.abs(offset)
+                : 1.2 * Math.abs(offset);
 
-          /* ROTATION Z */
-          const rotateZ =
-            offset === 0
-              ? 0
-              : offset < 0
-              ? -1.2 * Math.abs(offset)
-              : 1.2 * Math.abs(offset);
+            const opacity =
+              offset === 0 ? 1 : Math.abs(offset) === 1 ? 0.85 : 0.45;
 
-          /* OPACITY — moins agressive */
-          const opacity =
-            offset === 0 ? 1 : Math.abs(offset) === 1 ? 0.85 : 0.45;
+            const blur = offset === 0 ? 0 : Math.abs(offset) === 1 ? 0.8 : 2;
+            const brightness =
+              offset === 0 ? 1 : Math.abs(offset) === 1 ? 0.85 : 0.65;
 
-          /* FILTER — blur réduit */
-          const blur = offset === 0 ? 0 : Math.abs(offset) === 1 ? 0.8 : 2;
-          const brightness =
-            offset === 0 ? 1 : Math.abs(offset) === 1 ? 0.85 : 0.65;
+            return (
+              <motion.div
+                key={category.id ?? category.slug ?? index}
+                className="
+                  absolute left-1/2 top-1/2
+                  h-[400px] w-[280px]
+                  -translate-y-1/2
+                  lg:h-[440px] lg:w-[305px]
+                "
+                initial={false}
+                animate={{
+                  x,
+                  scale,
+                  rotateY,
+                  rotateZ,
+                  opacity,
+                  filter: `blur(${blur}px) brightness(${brightness})`,
+                }}
+                transition={{
+                  duration: 0.85,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                style={{
+                  marginLeft: "-152.5px",
+                  transformStyle: "preserve-3d",
+                  transformOrigin: "center center",
+                  zIndex: 100 - Math.abs(offset),
+                  willChange: "transform, opacity",
+                }}
+              >
+                <Card3D
+                  category={category}
+                  index={index}
+                  isActive={isActive}
+                  text={text}
+                  isMobile={false}
+                />
+              </motion.div>
+            );
+          })}
 
-          return (
-            <motion.div
-              key={category.id ?? category.slug ?? index}
-              className="
-                absolute left-1/2 top-1/2
-                h-[360px] w-[250px]
-                -translate-y-1/2
-                sm:h-[400px] sm:w-[280px]
-                lg:h-[440px] lg:w-[305px]
-              "
-              initial={false}
-              animate={{
-                x: isMobile ? xMobile : x,
-                scale,
-                rotateY,
-                rotateZ,
-                opacity,
-                filter: `blur(${blur}px) brightness(${brightness})`,
-              }}
-              transition={{
-                duration: 0.85,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-              style={{
-                marginLeft: isMobile ? "-125px" : "-152.5px",
-                transformStyle: "preserve-3d",
-                transformOrigin: "center center",
-                zIndex: 100 - Math.abs(offset),
-              }}
-            >
-              <Card3D
-                category={category}
-                index={index}
-                isActive={isActive}
-                text={text}
-              />
-            </motion.div>
-          );
-        })}
-
-        {/* =====================================================
-            NAV BUTTONS
-        ===================================================== */}
-        <NavButton side="left" onClick={prev} label="Catégorie précédente" />
-        <NavButton side="right" onClick={next} label="Catégorie suivante" />
-      </div>
+          <NavButton side="left" onClick={prev} label="Catégorie précédente" />
+          <NavButton side="right" onClick={next} label="Catégorie suivante" />
+        </div>
+      )}
 
       {/* =====================================================
           INDICATORS
       ===================================================== */}
-      <div className="relative z-30 mt-4 flex flex-col items-center gap-5">
-        {/* DOTS */}
+      <div className="relative z-30 mt-6 flex flex-col items-center gap-4 sm:mt-4 sm:gap-5">
         <div className="flex items-center gap-2">
           {safeCategories.map((_, index) => {
             const active = index === activeIndex;
@@ -551,7 +588,7 @@ export default function CategoryCarousel({
                     }
                   `}
                 />
-                {active && (
+                {active && !isMobile && (
                   <motion.span
                     animate={{ opacity: [0.4, 1, 0.4] }}
                     transition={{ duration: 2, repeat: Infinity }}
@@ -563,7 +600,6 @@ export default function CategoryCarousel({
           })}
         </div>
 
-        {/* CURRENT NAME */}
         <div className="flex max-w-full items-center gap-2 px-5">
           <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
             Catégorie
@@ -588,18 +624,103 @@ export default function CategoryCarousel({
 }
 
 /* =========================================================
-   CARD 3D — avec tilt, spotlight, reflets, halo
+   MOBILE SCROLLER — scroll-snap natif, léger et fluide
+========================================================= */
+function MobileScroller({
+  categories,
+  activeIndex,
+  onActiveChange,
+  text,
+}: {
+  categories: CatalogCategory[];
+  activeIndex: number;
+  onActiveChange: (i: number) => void;
+  text: (fr: string, ar: string) => string;
+}) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const isProgrammatic = useRef(false);
+
+  // Sync scroll → activeIndex
+  const handleScroll = useCallback(() => {
+    if (isProgrammatic.current) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    const cardWidth = 260 + 16; // largeur + gap
+    const i = Math.round(el.scrollLeft / cardWidth);
+    if (i !== activeIndex && i >= 0 && i < categories.length) {
+      onActiveChange(i);
+    }
+  }, [activeIndex, categories.length, onActiveChange]);
+
+  // Sync activeIndex → scroll (quand on clique sur les dots)
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const cardWidth = 260 + 16;
+    const target = activeIndex * cardWidth;
+    if (Math.abs(el.scrollLeft - target) > 4) {
+      isProgrammatic.current = true;
+      el.scrollTo({ left: target, behavior: "smooth" });
+      const timeout = setTimeout(() => {
+        isProgrammatic.current = false;
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [activeIndex]);
+
+  return (
+    <div
+      ref={scrollerRef}
+      onScroll={handleScroll}
+      className="
+        relative w-full
+        flex gap-4
+        overflow-x-auto overflow-y-hidden
+        snap-x snap-mandatory
+        scroll-smooth
+        px-5 pb-2
+        [-webkit-overflow-scrolling:touch]
+        [scrollbar-width:none]
+        [&::-webkit-scrollbar]:hidden
+      "
+    >
+      {categories.map((category, index) => {
+        const isActive = index === activeIndex;
+        return (
+          <div
+            key={category.id ?? category.slug ?? index}
+            className="shrink-0 snap-center"
+            style={{ width: 260, height: 380 }}
+          >
+            <Card3D
+              category={category}
+              index={index}
+              isActive={isActive}
+              text={text}
+              isMobile
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* =========================================================
+   CARD 3D — simplifiée sur mobile
 ========================================================= */
 function Card3D({
   category,
   index,
   isActive,
   text,
+  isMobile,
 }: {
   category: CatalogCategory;
   index: number;
   isActive: boolean;
   text: (fr: string, ar: string) => string;
+  isMobile: boolean;
 }) {
   const ref = useRef<HTMLAnchorElement>(null);
   const mouseX = useMotionValue(0);
@@ -615,7 +736,7 @@ function Card3D({
   });
 
   const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!ref.current) return;
+    if (isMobile || !ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
@@ -634,8 +755,8 @@ function Card3D({
   return (
     <motion.div
       style={{
-        rotateX: isActive ? rotateX : 0,
-        rotateY: isActive ? rotateY : 0,
+        rotateX: isActive && !isMobile ? rotateX : 0,
+        rotateY: isActive && !isMobile ? rotateY : 0,
         transformStyle: "preserve-3d",
       }}
       className="h-full w-full"
@@ -647,13 +768,13 @@ function Card3D({
         onMouseLeave={handleMouseLeave}
         className={`
           group relative block h-full w-full
-          overflow-hidden rounded-[32px]
+          overflow-hidden rounded-[28px]
           bg-slate-950
-          transition-all duration-500
+          transition-shadow duration-500
           ${
             isActive
-              ? "shadow-[0_50px_120px_-20px_rgba(37,99,235,0.6),0_30px_60px_-15px_rgba(15,23,42,0.4)] ring-2 ring-blue-400/40"
-              : "shadow-[0_25px_60px_rgba(15,23,42,0.2)]"
+              ? "shadow-[0_30px_70px_-15px_rgba(37,99,235,0.55),0_20px_40px_-10px_rgba(15,23,42,0.35)] ring-2 ring-blue-400/40"
+              : "shadow-[0_20px_50px_rgba(15,23,42,0.2)]"
           }
         `}
       >
@@ -663,14 +784,19 @@ function Card3D({
             src={category.image}
             alt={category.label ?? "Catégorie"}
             fill
-            sizes="(max-width: 640px) 250px, (max-width: 1024px) 280px, 305px"
-            quality={100}
-            priority={isActive}
+            sizes={
+              isMobile
+                ? "260px"
+                : "(max-width: 1024px) 280px, 305px"
+            }
+            quality={isMobile ? 70 : 88}
+            priority={index === 0}
+            loading={index === 0 ? "eager" : "lazy"}
             draggable={false}
             className={`
               object-cover object-center
-              transition-transform duration-[1800ms] ease-out
-              ${isActive ? "scale-[1.08] group-hover:scale-[1.15]" : "scale-[1.02]"}
+              transition-transform duration-[1400ms] ease-out
+              ${isActive ? "scale-[1.06]" : "scale-[1.02]"}
             `}
           />
         ) : (
@@ -689,11 +815,11 @@ function Card3D({
           `}
         />
 
-        {/* TOP LIGHT / REFLET VERRE */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-white/25 via-white/5 to-transparent" />
+        {/* TOP LIGHT */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/20 via-white/5 to-transparent" />
 
-        {/* SPOTLIGHT */}
-        {isActive && (
+        {/* SPOTLIGHT — desktop uniquement */}
+        {isActive && !isMobile && (
           <div
             className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
             style={{
@@ -703,10 +829,10 @@ function Card3D({
           />
         )}
 
-        {/* SHIMMER */}
-        {isActive && (
+        {/* SHIMMER — desktop uniquement */}
+        {isActive && !isMobile && (
           <motion.div
-            className="pointer-events-none absolute inset-0 -translate-x-full"
+            className="pointer-events-none absolute inset-0 -translate-x-full will-change-transform"
             animate={{ x: ["-100%", "200%"] }}
             transition={{
               duration: 3,
@@ -725,65 +851,49 @@ function Card3D({
         <div
           className={`
             absolute right-4 top-4
-            flex h-11 w-11 items-center justify-center
+            flex h-10 w-10 items-center justify-center
             rounded-2xl
-            text-[12px] font-black tracking-wider
-            backdrop-blur-2xl
+            text-[11px] font-black tracking-wider
             transition-all duration-500
             ${
               isActive
-                ? "scale-110 bg-white text-slate-950 shadow-[0_10px_30px_rgba(255,255,255,0.4)] ring-1 ring-blue-200"
-                : "bg-black/40 text-white/90 ring-1 ring-white/25"
+                ? "scale-105 bg-white text-slate-950 shadow-[0_10px_30px_rgba(255,255,255,0.35)] ring-1 ring-blue-200"
+                : "bg-black/40 text-white/90 ring-1 ring-white/25 backdrop-blur-sm"
             }
           `}
         >
           {String(index + 1).padStart(2, "0")}
         </div>
 
-        {/* ACTIVE GLOW + EFFETS APPLE-LIKE */}
-        {isActive && (
+        {/* ACTIVE GLOW — desktop uniquement */}
+        {isActive && !isMobile && (
           <>
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-blue-600/40 via-blue-500/15 to-transparent" />
-            <div className="pointer-events-none absolute inset-0 rounded-[32px] ring-1 ring-inset ring-white/40" />
-            <div className="pointer-events-none absolute -inset-4 rounded-[40px] bg-gradient-to-r from-blue-500/20 via-cyan-400/20 to-blue-500/20 blur-2xl" />
-            <motion.div
-              className="pointer-events-none absolute inset-0 rounded-[32px]"
-              animate={{
-                boxShadow: [
-                  "0 0 0 0 rgba(59,130,246,0)",
-                  "0 0 40px 4px rgba(59,130,246,0.4)",
-                  "0 0 0 0 rgba(59,130,246,0)",
-                ],
-              }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            />
+            <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/40" />
           </>
         )}
 
         {/* CONTENT */}
-        <div className="absolute inset-x-0 bottom-0 z-10 p-5 sm:p-6">
-          {/* ACCENT LINE */}
+        <div className="absolute inset-x-0 bottom-0 z-10 p-5">
           <div
             className={`
               mb-3 h-[3px] rounded-full
               bg-gradient-to-r from-blue-400 via-cyan-300 to-transparent
               transition-all duration-500
-              ${isActive ? "w-16 shadow-[0_0_12px_rgba(59,130,246,0.8)]" : "w-8"}
+              ${isActive ? "w-16" : "w-8"}
             `}
           />
 
-          {/* TITLE */}
           <h3
             className={`
               font-black leading-tight tracking-tight text-white
               transition-all duration-500
-              ${isActive ? "text-xl sm:text-2xl" : "text-base"}
+              ${isActive ? "text-xl" : "text-base"}
             `}
           >
             {category.label ?? ""}
           </h3>
 
-          {/* DESCRIPTION */}
           {category.description && (
             <p
               className={`
@@ -791,7 +901,7 @@ function Card3D({
                 transition-all duration-500
                 ${
                   isActive
-                    ? "text-xs font-medium sm:text-sm"
+                    ? "text-xs font-medium"
                     : "text-[10px] font-medium"
                 }
               `}
@@ -800,7 +910,6 @@ function Card3D({
             </p>
           )}
 
-          {/* CTA */}
           <div
             className={`
               mt-4 inline-flex items-center gap-2
@@ -808,17 +917,13 @@ function Card3D({
               transition-all duration-300
               ${
                 isActive
-                  ? "bg-white px-4 py-2.5 text-xs text-slate-950 shadow-lg group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-cyan-500 group-hover:text-white group-hover:shadow-[0_8px_24px_rgba(37,99,235,0.5)]"
-                  : "bg-white/10 px-4 py-2.5 text-[10px] text-white backdrop-blur-md"
+                  ? "bg-white px-4 py-2 text-xs text-slate-950 shadow-md"
+                  : "bg-white/10 px-3.5 py-1.5 text-[10px] text-white"
               }
             `}
           >
             {text("Découvrir", "اكتشف")}
-            <ArrowRight
-              size={14}
-              strokeWidth={2.5}
-              className="transition-transform duration-300 group-hover:translate-x-1"
-            />
+            <ArrowRight size={13} strokeWidth={2.5} />
           </div>
         </div>
       </Link>
@@ -827,7 +932,7 @@ function Card3D({
 }
 
 /* =========================================================
-   NAV BUTTON — moderne avec halo
+   NAV BUTTON
 ========================================================= */
 function NavButton({
   side,
@@ -844,11 +949,11 @@ function NavButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      whileHover={{ scale: 1.15 }}
+      whileHover={{ scale: 1.12 }}
       whileTap={{ scale: 0.92 }}
       className={`
         group absolute top-1/2 z-[200]
-        flex h-14 w-14 -translate-y-1/2
+        flex h-16 w-16 -translate-y-1/2
         items-center justify-center
         rounded-full
         border border-white/80
@@ -859,15 +964,13 @@ function NavButton({
         transition-all duration-300
         hover:border-blue-500 hover:bg-gradient-to-br hover:from-blue-600 hover:to-cyan-500 hover:text-white
         hover:shadow-[0_25px_60px_rgba(37,99,235,0.5),0_0_0_8px_rgba(59,130,246,0.15)]
-        sm:h-16 sm:w-16
-        ${isLeft ? "left-3 sm:left-6 lg:left-12" : "right-3 sm:right-6 lg:right-12"}
+        ${isLeft ? "left-6 lg:left-12" : "right-6 lg:right-12"}
       `}
     >
-      <span className="absolute inset-0 rounded-full bg-blue-400/0 opacity-0 blur-xl transition-all duration-300 group-hover:bg-blue-400/40 group-hover:opacity-100" />
       {isLeft ? (
-        <ChevronLeft size={26} strokeWidth={2.5} className="relative z-10" />
+        <ChevronLeft size={26} strokeWidth={2.5} />
       ) : (
-        <ChevronRight size={26} strokeWidth={2.5} className="relative z-10" />
+        <ChevronRight size={26} strokeWidth={2.5} />
       )}
     </motion.button>
   );
