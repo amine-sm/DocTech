@@ -18,7 +18,7 @@ import {
   ShoppingBag,
   SlidersHorizontal,
   Sparkles,
-  X,
+  X,MessageCircle
 } from "lucide-react";
 
 import {
@@ -228,293 +228,860 @@ function MessengerIcon({
    FLOATING CONTACT BUTTONS
 ========================================================= */
 
+/* =========================================================
+   FLOATING CONTACT BUTTONS
+========================================================= */
+
 function FloatingContactButtons() {
-  const [visible, setVisible] = useState(true);
+  const whatsappNumber = "213563266774";
 
-  useEffect(() => {
-    let lastY = window.scrollY;
+  const messengerUrl =
+    "https://m.me/1627625560841341";
 
-    const handleScroll = () => {
-      const currentY = window.scrollY;
+  const instagramUrl =
+    "https://ig.me/m/doctech___";
 
-      // Toujours visible tout en haut
-      if (currentY <= 20) {
-        setVisible(true);
-        lastY = currentY;
-        return;
-      }
+  const tiktokUrl =
+    "https://www.tiktok.com/@doctech_";
 
-      // Les boutons restent visibles pendant le scroll.
-      // On garde simplement l'état actif pour permettre
-      // une légère animation de flottement.
-      setVisible(true);
-
-      lastY = currentY;
-    };
-
-    window.addEventListener("scroll", handleScroll, {
-      passive: true,
-    });
-
-    return () => {
-      window.removeEventListener(
-        "scroll",
-        handleScroll
-      );
-    };
-  }, []);
-
-  if (!visible) return null;
+  const [socialOpen, setSocialOpen] = useState(false);
 
   return (
-    <div
-      className={`
-        fixed
-        bottom-[105px]
-        end-4
-        z-[90]
-        flex
-        flex-col
-        items-end
-        gap-3
-        sm:bottom-7
-        sm:end-6
-        md:bottom-8
-      `}
-    >
-      {/* ===================================================
-          WHATSAPP
-      =================================================== */}
+    <>
+      {/* =====================================================
+          DESKTOP
+          WhatsApp + Messenger + Instagram + TikTok
+      ===================================================== */}
 
-      <motion.a
-        href={`https://wa.me/${WHATSAPP_NUMBER}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="WhatsApp"
-        initial={{
-          opacity: 0,
-          scale: 0.4,
-          x: 35,
-        }}
-        animate={{
-          opacity: 1,
-          scale: 1,
-          x: 0,
-        }}
-        transition={{
-          delay: 0.2,
-          duration: 0.45,
-          type: "spring",
-          stiffness: 260,
-          damping: 18,
-        }}
-        whileHover={{
-          scale: 1.08,
-          y: -4,
-        }}
-        whileTap={{
-          scale: 0.9,
-        }}
-        className={`
-          group
-          relative
-          flex
-          h-14
-          w-14
+      <div
+        className="
+          fixed
+          bottom-8
+          right-6
+          z-[9999]
+          hidden
+          flex-col
           items-center
-          justify-center
-          rounded-full
-          bg-[#25D366]
-          text-white
-          shadow-[0_10px_35px_rgba(37,211,102,0.40)]
-          ring-4
-          ring-white
-          sm:h-16
-          sm:w-16
-        `}
+          gap-3
+          sm:flex
+        "
       >
-        {/* Pulse */}
+        {/* ================= WHATSAPP ================= */}
 
-        <motion.span
-          className={`
-            pointer-events-none
-            absolute
-            inset-0
+        <motion.a
+          href={`https://wa.me/${whatsappNumber}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="WhatsApp"
+          initial={{
+            opacity: 0,
+            scale: 0.5,
+            x: 30,
+          }}
+          animate={{
+            opacity: 1,
+            scale: 1,
+            x: 0,
+          }}
+          transition={{
+            delay: 0.15,
+            duration: 0.45,
+            type: "spring",
+            stiffness: 260,
+            damping: 18,
+          }}
+          whileHover={{
+            scale: 1.08,
+            y: -3,
+          }}
+          whileTap={{
+            scale: 0.9,
+          }}
+          className="
+            group
+            relative
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
             rounded-full
-            border-2
-            border-[#25D366]
-          `}
-          animate={{
-            scale: [1, 1.28, 1],
-            opacity: [0.75, 0, 0.75],
-          }}
-          transition={{
-            duration: 2.2,
-            repeat: Infinity,
-            ease: "easeOut",
-          }}
-        />
-
-        <motion.span
-          animate={{
-            y: [0, -3, 0, 3, 0],
-            rotate: [0, 2, 0, -2, 0],
-          }}
-          transition={{
-            duration: 3.2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          className="relative z-10"
-        >
-          <WhatsAppIcon size={30} />
-        </motion.span>
-
-        {/* Tooltip */}
-
-        <span
-          className={`
-            pointer-events-none
-            absolute
-            end-[calc(100%+12px)]
-            whitespace-nowrap
-            rounded-xl
-            bg-slate-950
-            px-3
-            py-2
-            text-[10px]
-            font-black
+            bg-[#25D366]
             text-white
-            opacity-0
-            shadow-xl
-            transition
-            duration-200
-            group-hover:opacity-100
-          `}
+            shadow-[0_10px_35px_rgba(37,211,102,0.38)]
+            ring-4
+            ring-white
+            sm:h-16
+            sm:w-16
+          "
         >
-          WhatsApp
-        </span>
-      </motion.a>
+          <motion.span
+            className="
+              pointer-events-none
+              absolute
+              inset-0
+              rounded-full
+              border-2
+              border-[#25D366]
+            "
+            animate={{
+              scale: [1, 1.25, 1],
+              opacity: [0.7, 0, 0.7],
+            }}
+            transition={{
+              duration: 2.2,
+              repeat: Infinity,
+              ease: "easeOut",
+            }}
+          />
 
-      {/* ===================================================
-          MESSENGER
-      =================================================== */}
+          <svg
+            viewBox="0 0 32 32"
+            className="relative z-10 h-7 w-7 sm:h-8 sm:w-8"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              d="
+                M16 3
+                C8.82 3 3 8.82 3 16
+                C3 18.29 3.59 20.45 4.72 22.38
+                L3 29
+                L9.8 27.32
+                C11.69 28.42 13.82 29 16 29
+                C23.18 29 29 23.18 29 16
+                C29 8.82 23.18 3 16 3Z
 
-      <motion.a
-        href={MESSENGER_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Messenger"
-        initial={{
-          opacity: 0,
-          scale: 0.4,
-          x: 35,
-        }}
-        animate={{
-          opacity: 1,
-          scale: 1,
-          x: 0,
-        }}
-        transition={{
-          delay: 0.35,
-          duration: 0.45,
-          type: "spring",
-          stiffness: 260,
-          damping: 18,
-        }}
-        whileHover={{
-          scale: 1.08,
-          y: -4,
-        }}
-        whileTap={{
-          scale: 0.9,
-        }}
-        className={`
-          group
-          relative
+                M16 26.75
+                C13.98 26.75 12.02 26.21 10.31 25.18
+                L9.9 24.94
+                L5.86 25.94
+                L6.84 22
+                L6.57 21.58
+                C5.7 20.25 5.25 18.66 5.25 16
+                C5.25 10.07 10.07 5.25 16 5.25
+                C21.93 5.25 26.75 10.07 26.75 16
+                C26.75 21.93 21.93 26.75 16 26.75Z
+
+                M21.87 18.77
+                C21.55 18.61 19.99 17.84 19.7 17.74
+                C19.41 17.63 19.2 17.58 18.99 17.9
+                C18.78 18.22 18.18 18.93 18 19.14
+                C17.82 19.35 17.63 19.38 17.31 19.22
+                C16.99 19.06 15.96 18.72 14.74 17.63
+                C13.79 16.78 13.15 15.74 12.97 15.42
+                C12.79 15.1 12.95 14.93 13.11 14.77
+                C13.25 14.63 13.43 14.4 13.59 14.22
+                C13.75 14.04 13.8 13.88 13.91 13.67
+                C14.02 13.46 13.96 13.27 13.88 13.11
+                C13.8 12.95 13.17 11.39 12.91 10.75
+                C12.65 10.13 12.39 10.22 12.2 10.21
+                C12.01 10.2 11.8 10.2 11.59 10.2
+                C11.38 10.2 11.04 10.28 10.75 10.6
+                C10.46 10.92 9.65 11.68 9.65 13.24
+                C9.65 14.8 10.78 16.31 10.94 16.52
+                C11.1 16.73 13.16 19.91 16.32 21.28
+                C17.07 21.6 17.66 21.79 18.12 21.93
+                C18.88 22.17 19.57 22.14 20.11 22.06
+                C20.72 21.97 21.99 21.29 22.25 20.55
+                C22.51 19.81 22.51 19.17 22.43 19.04
+                C22.35 18.91 22.19 18.85 21.87 18.77Z
+              "
+            />
+          </svg>
+
+          <span
+            className="
+              pointer-events-none
+              absolute
+              right-[calc(100%+12px)]
+              whitespace-nowrap
+              rounded-xl
+              bg-slate-950
+              px-3
+              py-2
+              text-[10px]
+              font-black
+              text-white
+              opacity-0
+              shadow-xl
+              transition
+              duration-200
+              group-hover:opacity-100
+            "
+          >
+            WhatsApp
+          </span>
+        </motion.a>
+
+        {/* ================= MESSENGER ================= */}
+
+        <motion.a
+          href={messengerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Messenger"
+          whileHover={{
+            scale: 1.08,
+            y: -3,
+          }}
+          whileTap={{
+            scale: 0.9,
+          }}
+          className="
+            group
+            relative
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-full
+            bg-gradient-to-br
+            from-[#00B2FF]
+            via-[#006AFF]
+            to-[#A033FF]
+            shadow-[0_10px_35px_rgba(0,106,255,0.35)]
+            ring-4
+            ring-white
+            sm:h-16
+            sm:w-16
+          "
+        >
+          <svg
+            viewBox="0 0 32 32"
+            className="h-7 w-7 sm:h-8 sm:w-8"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="
+                M16 3
+                C8.82 3 3 8.6 3 15.5
+                C3 19.44 4.88 22.98 7.88 25.28
+                V29
+                L12.36 26.54
+                C13.51 26.85 14.73 27 16 27
+                C23.18 27 29 21.4 29 14.5
+                C29 7.6 23.18 3 16 3Z
+              "
+              fill="white"
+            />
+
+            <path
+              d="
+                M9 18.2
+                L14.15 12.75
+                L17.2 15.55
+                L23 12.2
+                L17.85 17.65
+                L14.8 14.85
+                L9 18.2Z
+              "
+              fill="#168AFF"
+            />
+          </svg>
+
+          <span
+            className="
+              pointer-events-none
+              absolute
+              right-[calc(100%+12px)]
+              whitespace-nowrap
+              rounded-xl
+              bg-slate-950
+              px-3
+              py-2
+              text-[10px]
+              font-black
+              text-white
+              opacity-0
+              shadow-xl
+              transition
+              group-hover:opacity-100
+            "
+          >
+            Messenger
+          </span>
+        </motion.a>
+
+        {/* ================= INSTAGRAM ================= */}
+
+        <motion.a
+          href={instagramUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Instagram"
+          whileHover={{
+            scale: 1.08,
+            y: -3,
+          }}
+          whileTap={{
+            scale: 0.9,
+          }}
+          className="
+            group
+            relative
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-full
+            bg-gradient-to-tr
+            from-[#FFB300]
+            via-[#FF0069]
+            to-[#8A3FFC]
+            shadow-[0_10px_35px_rgba(225,48,108,0.38)]
+            ring-4
+            ring-white
+            sm:h-16
+            sm:w-16
+          "
+        >
+          <svg
+            viewBox="0 0 32 32"
+            className="h-7 w-7 sm:h-8 sm:w-8"
+            fill="none"
+            aria-hidden="true"
+          >
+            <rect
+              x="5"
+              y="5"
+              width="22"
+              height="22"
+              rx="6"
+              stroke="white"
+              strokeWidth="2.5"
+            />
+
+            <circle
+              cx="16"
+              cy="16"
+              r="5"
+              stroke="white"
+              strokeWidth="2.5"
+            />
+
+            <circle
+              cx="23"
+              cy="9"
+              r="1.5"
+              fill="white"
+            />
+          </svg>
+
+          <span
+            className="
+              pointer-events-none
+              absolute
+              right-[calc(100%+12px)]
+              whitespace-nowrap
+              rounded-xl
+              bg-slate-950
+              px-3
+              py-2
+              text-[10px]
+              font-black
+              text-white
+              opacity-0
+              shadow-xl
+              transition
+              group-hover:opacity-100
+            "
+          >
+            Instagram
+          </span>
+        </motion.a>
+
+        {/* ================= TIKTOK ================= */}
+
+        <motion.a
+          href={tiktokUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="TikTok"
+          whileHover={{
+            scale: 1.08,
+            y: -3,
+          }}
+          whileTap={{
+            scale: 0.9,
+          }}
+          className="
+            group
+            relative
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-full
+            bg-black
+            shadow-[0_10px_35px_rgba(0,0,0,0.40)]
+            ring-4
+            ring-white
+            sm:h-16
+            sm:w-16
+          "
+        >
+          <svg
+            viewBox="0 0 32 32"
+            className="h-7 w-7 sm:h-8 sm:w-8"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M19 5V19.2A5.8 5.8 0 1 1 14.9 13.65"
+              stroke="#25F4EE"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+
+            <path
+              d="M20 5C20.45 7.65 22.2 9.35 25 9.8"
+              stroke="#FE2C55"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+
+            <path
+              d="M18.2 5V19.2A5.8 5.8 0 1 1 14.1 13.65"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+
+            <path
+              d="M19.2 5C19.65 7.65 21.4 9.35 24.2 9.8"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+
+          <span
+            className="
+              pointer-events-none
+              absolute
+              right-[calc(100%+12px)]
+              whitespace-nowrap
+              rounded-xl
+              bg-slate-950
+              px-3
+              py-2
+              text-[10px]
+              font-black
+              text-white
+              opacity-0
+              shadow-xl
+              transition
+              group-hover:opacity-100
+            "
+          >
+            TikTok
+          </span>
+        </motion.a>
+      </div>
+
+
+      {/* =====================================================
+          MOBILE
+          WhatsApp reste toujours visible
+      ===================================================== */}
+
+      <div
+        className="
+          fixed
+          bottom-[88px]
+          right-4
+          z-[9999]
           flex
-          h-14
-          w-14
+          flex-col
           items-center
-          justify-center
-          rounded-full
-          bg-gradient-to-br
-          from-[#00B2FF]
-          via-[#006AFF]
-          to-[#A033FF]
-          text-white
-          shadow-[0_10px_35px_rgba(0,106,255,0.38)]
-          ring-4
-          ring-white
-          sm:h-16
-          sm:w-16
-        `}
+          gap-2.5
+          sm:hidden
+        "
       >
-        {/* Pulse */}
+        {/* =================================================
+            RÉSEAUX SOCIAUX
+            Messenger + Instagram + TikTok
+        ================================================= */}
 
-        <motion.span
-          className={`
-            pointer-events-none
-            absolute
-            inset-0
+        <AnimatePresence>
+          {socialOpen && (
+            <>
+              {/* TikTok */}
+
+              <motion.a
+                href={tiktokUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="TikTok"
+                initial={{
+                  opacity: 0,
+                  scale: 0.5,
+                  y: 20,
+                }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.5,
+                  y: 20,
+                }}
+                transition={{
+                  duration: 0.2,
+                }}
+                whileTap={{
+                  scale: 0.9,
+                }}
+                className="
+                  flex
+                  h-12
+                  w-12
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-black
+                  shadow-lg
+                  ring-3
+                  ring-white
+                "
+              >
+                <svg
+                  viewBox="0 0 32 32"
+                  className="h-6 w-6"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M19 5V19.2A5.8 5.8 0 1 1 14.9 13.65"
+                    stroke="#25F4EE"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  <path
+                    d="M20 5C20.45 7.65 22.2 9.35 25 9.8"
+                    stroke="#FE2C55"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+
+                  <path
+                    d="M18.2 5V19.2A5.8 5.8 0 1 1 14.1 13.65"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+
+                  <path
+                    d="M19.2 5C19.65 7.65 21.4 9.35 24.2 9.8"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </motion.a>
+
+              {/* Instagram */}
+
+              <motion.a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Instagram"
+                initial={{
+                  opacity: 0,
+                  scale: 0.5,
+                  y: 20,
+                }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.5,
+                  y: 20,
+                }}
+                transition={{
+                  duration: 0.2,
+                  delay: 0.04,
+                }}
+                whileTap={{
+                  scale: 0.9,
+                }}
+                className="
+                  flex
+                  h-12
+                  w-12
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-gradient-to-tr
+                  from-[#FFB300]
+                  via-[#FF0069]
+                  to-[#8A3FFC]
+                  shadow-lg
+                  ring-3
+                  ring-white
+                "
+              >
+                <svg
+                  viewBox="0 0 32 32"
+                  className="h-6 w-6"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <rect
+                    x="5"
+                    y="5"
+                    width="22"
+                    height="22"
+                    rx="6"
+                    stroke="white"
+                    strokeWidth="2.5"
+                  />
+
+                  <circle
+                    cx="16"
+                    cy="16"
+                    r="5"
+                    stroke="white"
+                    strokeWidth="2.5"
+                  />
+
+                  <circle
+                    cx="23"
+                    cy="9"
+                    r="1.5"
+                    fill="white"
+                  />
+                </svg>
+              </motion.a>
+
+              {/* Messenger */}
+
+              <motion.a
+                href={messengerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Messenger"
+                initial={{
+                  opacity: 0,
+                  scale: 0.5,
+                  y: 20,
+                }}
+                animate={{
+                  opacity: 1,
+                  scale: 1,
+                  y: 0,
+                }}
+                exit={{
+                  opacity: 0,
+                  scale: 0.5,
+                  y: 20,
+                }}
+                transition={{
+                  duration: 0.2,
+                  delay: 0.08,
+                }}
+                whileTap={{
+                  scale: 0.9,
+                }}
+                className="
+                  flex
+                  h-12
+                  w-12
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-gradient-to-br
+                  from-[#00B2FF]
+                  via-[#006AFF]
+                  to-[#A033FF]
+                  shadow-lg
+                  ring-3
+                  ring-white
+                "
+              >
+                <svg
+                  viewBox="0 0 32 32"
+                  className="h-6 w-6"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="
+                      M16 3
+                      C8.82 3 3 8.6 3 15.5
+                      C3 19.44 4.88 22.98 7.88 25.28
+                      V29
+                      L12.36 26.54
+                      C13.51 26.85 14.73 27 16 27
+                      C23.18 27 29 21.4 29 14.5
+                      C29 7.6 23.18 3 16 3Z
+                    "
+                    fill="white"
+                  />
+
+                  <path
+                    d="
+                      M9 18.2
+                      L14.15 12.75
+                      L17.2 15.55
+                      L23 12.2
+                      L17.85 17.65
+                      L14.8 14.85
+                      L9 18.2Z
+                    "
+                    fill="#168AFF"
+                  />
+                </svg>
+              </motion.a>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* =================================================
+            SOCIAL TOGGLE
+        ================================================= */}
+
+        <motion.button
+          type="button"
+          aria-label={
+            socialOpen
+              ? "Fermer les réseaux sociaux"
+              : "Ouvrir les réseaux sociaux"
+          }
+          aria-expanded={socialOpen}
+          onClick={() => setSocialOpen((prev) => !prev)}
+          whileTap={{
+            scale: 0.9,
+          }}
+          className="
+            flex
+            h-12
+            w-12
+            items-center
+            justify-center
             rounded-full
-            border-2
-            border-[#168AFF]
-          `}
-          animate={{
-            scale: [1, 1.28, 1],
-            opacity: [0.65, 0, 0.65],
-          }}
-          transition={{
-            duration: 2.4,
-            repeat: Infinity,
-            ease: "easeOut",
-            delay: 0.8,
-          }}
-        />
-
-        <motion.span
-          animate={{
-            y: [0, -3, 0, 3, 0],
-            rotate: [0, -2, 0, 2, 0],
-          }}
-          transition={{
-            duration: 3.5,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 0.5,
-          }}
-          className="relative z-10"
-        >
-          <MessengerIcon size={30} />
-        </motion.span>
-
-        {/* Tooltip */}
-
-        <span
-          className={`
-            pointer-events-none
-            absolute
-            end-[calc(100%+12px)]
-            whitespace-nowrap
-            rounded-xl
             bg-slate-950
-            px-3
-            py-2
-            text-[10px]
-            font-black
             text-white
-            opacity-0
             shadow-xl
-            transition
-            duration-200
-            group-hover:opacity-100
-          `}
+            ring-3
+            ring-white
+          "
         >
-          Messenger
-        </span>
-      </motion.a>
-    </div>
+          <motion.div
+            animate={{
+              rotate: socialOpen ? 45 : 0,
+            }}
+            transition={{
+              duration: 0.2,
+            }}
+          >
+            <MessageCircle
+              size={21}
+              strokeWidth={2.5}
+            />
+          </motion.div>
+        </motion.button>
+
+        {/* =================================================
+            WHATSAPP
+            TOUJOURS VISIBLE
+        ================================================= */}
+
+        <motion.a
+          href={`https://wa.me/${whatsappNumber}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="WhatsApp"
+          whileTap={{
+            scale: 0.9,
+          }}
+          className="
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-full
+            bg-[#25D366]
+            text-white
+            shadow-[0_8px_25px_rgba(37,211,102,0.40)]
+            ring-3
+            ring-white
+          "
+        >
+          <svg
+            viewBox="0 0 32 32"
+            className="h-7 w-7"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              d="
+                M16 3
+                C8.82 3 3 8.82 3 16
+                C3 18.29 3.59 20.45 4.72 22.38
+                L3 29
+                L9.8 27.32
+                C11.69 28.42 13.82 29 16 29
+                C23.18 29 29 23.18 29 16
+                C29 8.82 23.18 3 16 3Z
+
+                M16 26.75
+                C13.98 26.75 12.02 26.21 10.31 25.18
+                L9.9 24.94
+                L5.86 25.94
+                L6.84 22
+                L6.57 21.58
+                C5.7 20.25 5.25 18.66 5.25 16
+                C5.25 10.07 10.07 5.25 16 5.25
+                C21.93 5.25 26.75 10.07 26.75 16
+                C26.75 21.93 21.93 26.75 16 26.75Z
+
+                M21.87 18.77
+                C21.55 18.61 19.99 17.84 19.7 17.74
+                C19.41 17.63 19.2 17.58 18.99 17.9
+                C18.78 18.22 18.18 18.93 18 19.14
+                C17.82 19.35 17.63 19.38 17.31 19.22
+                C16.99 19.06 15.96 18.72 14.74 17.63
+                C13.79 16.78 13.15 15.74 12.97 15.42
+                C12.79 15.1 12.95 14.93 13.11 14.77
+                C13.25 14.63 13.43 14.4 13.59 14.22
+                C13.75 14.04 13.8 13.88 13.91 13.67
+                C14.02 13.46 13.96 13.27 13.88 13.11
+                C13.8 12.95 13.17 11.39 12.91 10.75
+                C12.65 10.13 12.39 10.22 12.2 10.21
+                C12.01 10.2 11.8 10.2 11.59 10.2
+                C11.38 10.2 11.04 10.28 10.75 10.6
+                C10.46 10.92 9.65 11.68 9.65 13.24
+                C9.65 14.8 10.78 16.31 10.94 16.52
+                C11.1 16.73 13.16 19.91 16.32 21.28
+                C17.07 21.6 17.66 21.79 18.12 21.93
+                C18.88 22.17 19.57 22.14 20.11 22.06
+                C20.72 21.97 21.99 21.29 22.25 20.55
+                C22.51 19.81 22.51 19.17 22.43 19.04
+                C22.35 18.91 22.19 18.85 21.87 18.77Z
+              "
+            />
+          </svg>
+        </motion.a>
+      </div>
+    </>
   );
 }
 
