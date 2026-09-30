@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ReactNode } from "react";
@@ -7,7 +8,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { useLocale } from "@/components/LocaleProvider";
-import { fetchBrands, type CatalogBrand } from "@/lib/catalog";
+
+import {
+  fetchBrands,
+  fetchCategories,
+  type CatalogBrand,
+  type CatalogCategory,
+} from "@/lib/catalog";
 
 import {
   Clock3,
@@ -34,7 +41,9 @@ const STORE_NAME = "DOCTECH";
 const STORE_LATITUDE = "35.6613059";
 const STORE_LONGITUDE = "-0.6324169";
 
-const STORE_ADDRESS = "Es Sénia,En Face Université IGMO, Oran, Algérie";
+const STORE_ADDRESS =
+  "Es Sénia,En Face Université IGMO, Oran, Algérie";
+
 const STORE_PLUS_CODE = "M969+G2 Es Sénia";
 
 const STORE_PHONE_DISPLAY = "0563 26 67 74";
@@ -69,43 +78,6 @@ const GOOGLE_MAP_EMBED_URL =
   `https://www.google.com/maps?q=${STORE_LATITUDE},${STORE_LONGITUDE}&z=18&output=embed`;
 
 /* =========================================================
-   LIENS BOUTIQUE
-========================================================= */
-
-const boutiqueLinks = [
-  {
-    label: "PC Portables",
-    labelAr: "الحواسيب المحمولة",
-    href: "/articles?categorie=ordinateurs-portables",
-  },
-  {
-    label: "PC Fixes",
-    labelAr: "الحواسيب المكتبية",
-    href: "/articles?categorie=pc-fixes",
-  },
-  {
-    label: "Écrans",
-    labelAr: "الشاشات",
-    href: "/articles?categorie=ecrans",
-  },
-  {
-    label: "Périphériques",
-    labelAr: "الأجهزة الطرفية",
-    href: "/articles?categorie=peripheriques",
-  },
-  {
-    label: "Accessoires",
-    labelAr: "الملحقات",
-    href: "/articles?categorie=accessoires",
-  },
-  {
-    label: "Promotions",
-    labelAr: "العروض",
-    href: "/promotions",
-  },
-];
-
-/* =========================================================
    LIENS INFORMATIONS
 ========================================================= */
 
@@ -113,27 +85,27 @@ const informationLinks = [
   {
     label: "À propos",
     labelAr: "من نحن",
-    href: "/a-propos",
+    href: "#",
   },
   {
     label: "Livraison",
     labelAr: "التوصيل",
-    href: "/livraison",
+    href: "#",
   },
   {
     label: "Garantie",
     labelAr: "الضمان",
-    href: "/garantie",
+    href: "#",
   },
   {
     label: "Suivi de commande",
     labelAr: "تتبع الطلب",
-    href: "/suivi",
+    href: "/#",
   },
   {
     label: "Contact",
     labelAr: "اتصل بنا",
-    href: "/contact",
+    href: "/#",
   },
 ];
 
@@ -145,22 +117,85 @@ export default function Footer() {
   const { locale, text } = useLocale();
 
   const [brands, setBrands] = useState<CatalogBrand[]>([]);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+
+  /* =======================================================
+     CHARGEMENT DES MARQUES + CATÉGORIES DEPUIS LA BDD
+  ======================================================= */
 
   useEffect(() => {
-    fetchBrands(locale)
-      .then(setBrands)
-      .catch(() => setBrands([]));
+    let cancelled = false;
+
+    const loadFooterData = async () => {
+      try {
+        const [brandsData, categoriesData] = await Promise.all([
+          fetchBrands(locale),
+          fetchCategories(locale),
+        ]);
+
+        if (cancelled) return;
+
+        setBrands(
+          Array.isArray(brandsData)
+            ? brandsData
+            : []
+        );
+
+        setCategories(
+          Array.isArray(categoriesData)
+            ? categoriesData
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Erreur chargement Footer :",
+          error
+        );
+
+        if (!cancelled) {
+          setBrands([]);
+          setCategories([]);
+        }
+      }
+    };
+
+    loadFooterData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [locale]);
 
-  const localizedBoutiqueLinks = boutiqueLinks.map((item) => ({
-    ...item,
-    label: text(item.label, item.labelAr),
-  }));
+  /* =======================================================
+     CATÉGORIES → LIENS FOOTER
+  ======================================================= */
 
-  const localizedInformationLinks = informationLinks.map((item) => ({
-    ...item,
-    label: text(item.label, item.labelAr),
-  }));
+  const localizedCategoryLinks = categories
+    .filter(
+      (category) =>
+        category &&
+        category.slug &&
+        category.label
+    )
+    .map((category) => ({
+      label: category.label ?? "",
+      href: `/articles?categorie=${encodeURIComponent(
+        category.slug ?? ""
+      )}`,
+    }));
+
+  /* =======================================================
+     LIENS INFORMATIONS
+  ======================================================= */
+
+  const localizedInformationLinks =
+    informationLinks.map((item) => ({
+      ...item,
+      label: text(
+        item.label,
+        item.labelAr
+      ),
+    }));
 
   return (
     <footer className="relative overflow-hidden bg-[#050d1f] text-white">
@@ -232,6 +267,7 @@ export default function Footer() {
               lg:grid-cols-4
             "
           >
+
             <BenefitCard
               icon={<Truck size={24} />}
               title={text(
@@ -279,6 +315,7 @@ export default function Footer() {
                 "فريق في خدمتك"
               )}
             />
+
           </div>
         </div>
       </div>
@@ -312,6 +349,7 @@ export default function Footer() {
           ================================================= */}
 
           <div>
+
             <Link
               href="/"
               className="
@@ -364,22 +402,31 @@ export default function Footer() {
 
               <ContactCompact
                 icon={<Phone size={16} />}
-                label={text("Téléphone", "الهاتف")}
+                label={text(
+                  "Téléphone",
+                  "الهاتف"
+                )}
                 value={STORE_PHONE_DISPLAY}
                 href={`tel:${STORE_PHONE_LINK}`}
               />
 
               <ContactCompact
                 icon={<Mail size={16} />}
-                label={text("Email", "البريد الإلكتروني")}
+                label={text(
+                  "Email",
+                  "البريد الإلكتروني"
+                )}
                 value={STORE_EMAIL}
                 href={`mailto:${STORE_EMAIL}`}
               />
 
               <ContactCompact
                 icon={<MapPin size={16} />}
-                label={text("Adresse", "العنوان")}
-                value="Es Sénia, En  Face Université IGMO,Oran"
+                label={text(
+                  "Adresse",
+                  "العنوان"
+                )}
+                value="Es Sénia, En Face Université IGMO, Oran"
                 href={GOOGLE_MAP_URL}
                 external
               />
@@ -392,15 +439,11 @@ export default function Footer() {
 
             <div className="mt-8 flex items-center gap-3">
 
-              {/* FACEBOOK */}
-
               <SocialButton
                 label="Facebook"
                 href={FACEBOOK_URL}
                 icon={<FacebookIcon />}
               />
-
-              {/* INSTAGRAM */}
 
               <SocialButton
                 label="Instagram"
@@ -408,32 +451,35 @@ export default function Footer() {
                 icon={<InstagramIcon />}
               />
 
-              {/* TIKTOK */}
-
               <SocialButton
                 label="TikTok"
                 href={TIKTOK_URL}
                 icon={<Music2 size={20} />}
               />
 
-              {/* WHATSAPP */}
-
               <SocialButton
                 label="WhatsApp"
-                href={`https://wa.me/${STORE_PHONE_LINK.replace("+", "")}`}
+                href={`https://wa.me/${STORE_PHONE_LINK.replace(
+                  "+",
+                  ""
+                )}`}
                 icon={<MessageCircle size={20} />}
               />
 
             </div>
+
           </div>
 
           {/* =================================================
-              COLONNE 2 : BOUTIQUE
+              COLONNE 2 : CATÉGORIES BDD
           ================================================= */}
 
           <FooterColumn
-            title={text("Boutique", "المتجر")}
-            links={localizedBoutiqueLinks}
+            title={text(
+              "Catégories",
+              "الفئات"
+            )}
+            links={localizedCategoryLinks}
           />
 
           {/* =================================================
@@ -441,7 +487,10 @@ export default function Footer() {
           ================================================= */}
 
           <FooterColumn
-            title={text("Informations", "معلومات")}
+            title={text(
+              "Informations",
+              "معلومات"
+            )}
             links={localizedInformationLinks}
           />
 
@@ -452,32 +501,47 @@ export default function Footer() {
           <div>
 
             <FooterTitle>
-              {text("Nous contacter", "اتصل بنا")}
+              {text(
+                "Nous contacter",
+                "اتصل بنا"
+              )}
             </FooterTitle>
 
             <div className="mt-7 space-y-5">
 
               <ContactRow
                 icon={<MapPin size={17} />}
-                title={text("Adresse", "العنوان")}
+                title={text(
+                  "Adresse",
+                  "العنوان"
+                )}
                 value={STORE_ADDRESS}
               />
 
               <ContactRow
                 icon={<Phone size={17} />}
-                title={text("Téléphone", "الهاتف")}
+                title={text(
+                  "Téléphone",
+                  "الهاتف"
+                )}
                 value={STORE_PHONE_DISPLAY}
               />
 
               <ContactRow
                 icon={<Mail size={17} />}
-                title={text("E-mail", "البريد الإلكتروني")}
+                title={text(
+                  "E-mail",
+                  "البريد الإلكتروني"
+                )}
                 value={STORE_EMAIL}
               />
 
               <ContactRow
                 icon={<Clock3 size={17} />}
-                title={text("Horaires", "أوقات العمل")}
+                title={text(
+                  "Horaires",
+                  "أوقات العمل"
+                )}
                 value={text(
                   "Fermeture à 19h00",
                   "الإغلاق على الساعة 19:00"
@@ -507,6 +571,7 @@ export default function Footer() {
                 hover:bg-blue-500/10
               "
             >
+
               <div
                 className="
                   flex
@@ -528,6 +593,7 @@ export default function Footer() {
               </div>
 
               <div>
+
                 <p className="text-[12px] font-extrabold text-white">
                   {text(
                     "Suivi de commande",
@@ -541,10 +607,13 @@ export default function Footer() {
                     "تابع طلبك بسهولة."
                   )}
                 </p>
+
               </div>
+
             </Link>
 
           </div>
+
         </div>
       </div>
 
@@ -563,6 +632,7 @@ export default function Footer() {
           lg:px-8
         "
       >
+
         <div
           className="
             overflow-hidden
@@ -574,6 +644,7 @@ export default function Footer() {
             shadow-[0_30px_80px_rgba(0,0,0,0.25)]
           "
         >
+
           <div
             className="
               grid
@@ -599,6 +670,7 @@ export default function Footer() {
                 lg:p-12
               "
             >
+
               <div
                 className="
                   pointer-events-none
@@ -692,6 +764,7 @@ export default function Footer() {
                     p-5
                   "
                 >
+
                   <div className="flex items-start gap-4">
 
                     <div
@@ -728,11 +801,14 @@ export default function Footer() {
                       </p>
 
                       <p className="mt-1 text-[9px] font-medium text-slate-600">
-                        {STORE_LATITUDE}, {STORE_LONGITUDE}
+                        {STORE_LATITUDE},{" "}
+                        {STORE_LONGITUDE}
                       </p>
 
                     </div>
+
                   </div>
+
                 </div>
 
                 {/* BOUTONS MAPS */}
@@ -763,6 +839,7 @@ export default function Footer() {
                       hover:bg-blue-500
                     "
                   >
+
                     <Navigation size={16} />
 
                     {text(
@@ -779,6 +856,7 @@ export default function Footer() {
                         group-hover:-translate-y-0.5
                       "
                     />
+
                   </a>
 
                   <a
@@ -807,6 +885,7 @@ export default function Footer() {
                       hover:bg-white/10
                     "
                   >
+
                     Google Maps
 
                     <ExternalLink
@@ -818,11 +897,13 @@ export default function Footer() {
                         group-hover:-translate-y-0.5
                       "
                     />
+
                   </a>
 
                 </div>
 
               </div>
+
             </div>
 
             {/* =================================================
@@ -878,6 +959,7 @@ export default function Footer() {
                   backdrop-blur-xl
                 "
               >
+
                 <div
                   className="
                     flex
@@ -894,14 +976,17 @@ export default function Footer() {
                 </div>
 
                 <div>
+
                   <p className="text-[11px] font-black text-white">
                     DOCTECH
                   </p>
 
                   <p className="mt-0.5 text-[9px] text-slate-400">
-                    Es Sénia,En face Université IGMO , Oran
+                    Es Sénia, En face Université IGMO, Oran
                   </p>
+
                 </div>
+
               </div>
 
               {/* TÉLÉPHONE */}
@@ -933,13 +1018,15 @@ export default function Footer() {
                 "
               >
                 <Phone size={14} />
-
                 {STORE_PHONE_DISPLAY}
               </a>
 
             </div>
+
           </div>
+
         </div>
+
       </div>
 
       {/* =====================================================
@@ -956,6 +1043,7 @@ export default function Footer() {
           lg:px-8
         "
       >
+
         <div
           className="
             flex
@@ -968,6 +1056,7 @@ export default function Footer() {
             py-10
           "
         >
+
           {brands.map((brand) => (
             <Link
               key={brand.id}
@@ -996,7 +1085,9 @@ export default function Footer() {
               {brand.name}
             </Link>
           ))}
+
         </div>
+
       </div>
 
       {/* =====================================================
@@ -1004,6 +1095,7 @@ export default function Footer() {
       ====================================================== */}
 
       <div className="relative border-t border-white/10 bg-black/10">
+
         <div
           className="
             mx-auto
@@ -1022,15 +1114,20 @@ export default function Footer() {
         >
 
           <p className="text-[10px] font-medium text-slate-500">
+
             © 2026{" "}
+
             <span className="font-extrabold text-slate-300">
               DOCTECH
             </span>
+
             .{" "}
+
             {text(
               "Tous droits réservés.",
               "جميع الحقوق محفوظة."
             )}
+
           </p>
 
           <div
@@ -1077,7 +1174,9 @@ export default function Footer() {
             </Link>
 
           </div>
+
         </div>
+
       </div>
 
     </footer>
@@ -1120,6 +1219,7 @@ function BenefitCard({
         hover:shadow-[0_10px_30px_rgba(0,0,0,0.2)]
       "
     >
+
       <div
         className="
           flex
@@ -1141,6 +1241,7 @@ function BenefitCard({
       </div>
 
       <div>
+
         <p className="text-[13px] font-extrabold text-white">
           {title}
         </p>
@@ -1148,7 +1249,9 @@ function BenefitCard({
         <p className="mt-0.5 text-[10px] font-medium text-slate-500">
           {text}
         </p>
+
       </div>
+
     </div>
   );
 }
@@ -1164,11 +1267,13 @@ function FooterTitle({
 }) {
   return (
     <div>
+
       <h3 className="text-sm font-black text-white">
         {children}
       </h3>
 
       <div className="mt-3 h-[3px] w-8 rounded-full bg-gradient-to-r from-blue-600 to-cyan-400" />
+
     </div>
   );
 }
@@ -1189,45 +1294,65 @@ function FooterColumn({
 }) {
   return (
     <div>
-      <FooterTitle>{title}</FooterTitle>
+
+      <FooterTitle>
+        {title}
+      </FooterTitle>
 
       <ul className="mt-7 space-y-4">
-        {links.map((item) => (
-          <li key={item.label}>
-            <Link
-              href={item.href}
-              className="
-                group
-                flex
-                items-center
-                gap-3
-                text-[13px]
-                font-medium
-                text-slate-400
-                transition-all
-                duration-300
-                hover:translate-x-1
-                hover:text-white
-              "
+
+        {links.length > 0 ? (
+          links.map((item, index) => (
+            <li
+              key={`${item.href}-${item.label}-${index}`}
             >
-              <span
+              <Link
+                href={item.href}
                 className="
-                  h-1.5
-                  w-1.5
-                  rounded-full
-                  bg-slate-700
+                  group
+                  flex
+                  items-center
+                  gap-3
+                  text-[13px]
+                  font-medium
+                  text-slate-400
                   transition-all
                   duration-300
-                  group-hover:bg-blue-500
-                  group-hover:shadow-[0_0_8px_rgba(59,130,246,0.8)]
+                  hover:translate-x-1
+                  hover:text-white
                 "
-              />
+              >
 
-              {item.label}
-            </Link>
+                <span
+                  className="
+                    h-1.5
+                    w-1.5
+                    rounded-full
+                    bg-slate-700
+                    transition-all
+                    duration-300
+                    group-hover:bg-blue-500
+                    group-hover:shadow-[0_0_8px_rgba(59,130,246,0.8)]
+                  "
+                />
+
+                {item.label}
+
+              </Link>
+            </li>
+          ))
+        ) : (
+          <li>
+            <span className="text-[12px] text-slate-600">
+              {title === "Catégories"
+                ? "Aucune catégorie"
+                : "Aucun élément"}
+            </span>
           </li>
-        ))}
+        )}
+
       </ul>
+
     </div>
   );
 }
@@ -1270,6 +1395,7 @@ function ContactRow({
       </div>
 
       <div>
+
         <p className="text-[9px] font-bold uppercase tracking-wider text-slate-600">
           {title}
         </p>
@@ -1277,6 +1403,7 @@ function ContactRow({
         <p className="mt-1 text-[12px] font-semibold leading-5 text-slate-400">
           {value}
         </p>
+
       </div>
 
     </div>
@@ -1306,7 +1433,11 @@ function ContactCompact({
   return (
     <a
       href={href}
-      target={isExternal ? "_blank" : undefined}
+      target={
+        isExternal
+          ? "_blank"
+          : undefined
+      }
       rel={
         isExternal
           ? "noopener noreferrer"
@@ -1325,6 +1456,7 @@ function ContactCompact({
         hover:text-white
       "
     >
+
       <span
         className="
           flex
@@ -1345,6 +1477,7 @@ function ContactCompact({
       </span>
 
       <span>
+
         <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-600">
           {label}
         </span>
@@ -1352,7 +1485,9 @@ function ContactCompact({
         <span className="block text-[12px] font-semibold">
           {value}
         </span>
+
       </span>
+
     </a>
   );
 }
