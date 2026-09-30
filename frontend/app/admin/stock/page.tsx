@@ -350,6 +350,7 @@ function ProductImage({
           loaded ? "opacity-100" : "opacity-0"
         }`}
         loading="lazy"
+        decoding="async"
         onLoad={() => setLoaded(true)}
         onError={() => {
           console.error("[IMAGE FAIL]", {
@@ -557,6 +558,8 @@ function SelectedArticle({
                     <img
                       src={resolveImage(item)}
                       alt={`${article.name} ${index + 1}`}
+                      loading="lazy"
+                      decoding="async"
                       className="h-full w-full object-contain p-1"
                     />
                   </button>
@@ -769,13 +772,18 @@ export default function StockPage() {
     setError("");
 
     try {
-      const [articlesResult, suppliersResult] = await Promise.all([
-        apiFetch<any>("/stock/articles"),
-        apiFetch<any>("/fournisseurs"),
-      ]);
+      // /stock/articles renvoie déjà directement image_url.
+      // On évite donc un appel /articles/:id pour chaque produit.
+      const [articlesResult, suppliersResult, movementsResult] =
+        await Promise.all([
+          apiFetch<any>("/stock/articles"),
+          apiFetch<any>("/fournisseurs"),
+          apiFetch<any>("/stock/movements?limit=100"),
+        ]);
 
       const articleData = articlesResult?.data ?? articlesResult;
       const supplierData = suppliersResult?.data ?? suppliersResult;
+      const movementData = movementsResult?.data ?? movementsResult;
 
       const articleList = Array.isArray(articleData)
         ? articleData
@@ -784,160 +792,43 @@ export default function StockPage() {
           articleData?.articles ||
           [];
 
-      /* =====================================================
-         IMPORTANT : LE ENDPOINT /stock/articles NE RENVOIE PAS
-         TOUJOURS LES IMAGES.
+      const supplierList = Array.isArray(supplierData)
+        ? supplierData
+        : supplierData?.rows || supplierData?.data || [];
 
-         La page Articles, elle, récupère le détail avec
-         /articles/:id et c'est ce détail qui contient images[].
+      const movementList = Array.isArray(movementData)
+        ? movementData
+        : movementData?.rows ||
+          movementData?.data ||
+          movementData?.movements ||
+          [];
 
-         On recharge donc le détail de chaque article ici et on
-         fusionne les données stock + les images du détail.
-      ===================================================== */
-      const hydratedArticles: Article[] = await Promise.all(
-        articleList.map(async (article: Article) => {
-          try {
-            const detailResult = await apiFetch<any>(`/articles/${article.id}`);
-            const detail = detailResult?.data ?? detailResult;
+      // L'endpoint stock renvoie déjà image_url + les informations utiles.
+      // On conserve les champs existants sans refaire de requêtes article par article.
+      const normalizedArticles: Article[] = articleList.map((article: Article) => ({
+        ...article,
+        id: Number(article.id),
+        stock: article.stock ?? 0,
+        purchase_price: article.purchase_price ?? 0,
+        price: article.price ?? 0,
+        image_url:
+          article.image_url ||
+          article.imageUrl ||
+          article.image ||
+          article.main_image ||
+          article.main_image_url ||
+          null,
+      }));
 
-            if (!detail || typeof detail !== "object") {
-              return article;
-            }
-
-            const rawImages = Array.isArray(detail.images)
-              ? detail.images
-              : [];
-
-            const images: ArticleImage[] = rawImages
-              .map((image: any) => {
-                if (typeof image === "string") {
-                  return image;
-                }
-
-                return {
-                  url: String(
-                    image?.url ||
-                      image?.image_url ||
-                      image?.src ||
-                      image?.image ||
-                      ""
-                  ),
-                };
-              })
-              .filter((image: ArticleImage) => {
-                if (typeof image === "string") return Boolean(image);
-                return Boolean(image.url);
-              });
-
-            /* Fallback sur image_url si images[] est vide */
-            if (!images.length) {
-              const fallback =
-                detail.image_url ||
-                detail.imageUrl ||
-                detail.image ||
-                detail.main_image ||
-                detail.main_image_url ||
-                article.image_url ||
-                article.imageUrl ||
-                article.image ||
-                article.main_image ||
-                article.main_image_url;
-
-              if (fallback) {
-                images.push(String(fallback));
-              }
-            }
-
-            const primaryImage =
-              images.length > 0
-                ? typeof images[0] === "string"
-                  ? images[0]
-                  : images[0].url
-                : null;
-
-            return {
-              ...article,
-              ...detail,
-              id: Number(article.id),
-              /* Le stock vient en priorité de /stock/articles */
-              stock: article.stock ?? detail.stock,
-              purchase_price:
-                article.purchase_price ?? detail.purchase_price,
-              price: article.price ?? detail.price,
-              fournisseur_id:
-                article.fournisseur_id ?? detail.fournisseur_id,
-              fournisseur_name:
-                article.fournisseur_name ?? detail.fournisseur_name,
-              category_name:
-                article.category_name ?? detail.category_name,
-              marque_name:
-                article.marque_name ?? detail.marque_name,
-              images,
-              image_url:
-                primaryImage ||
-                detail.image_url ||
-                detail.imageUrl ||
-                detail.image ||
-                article.image_url ||
-                null,
-            };
-          } catch (detailError) {
-            console.warn(
-              `[STOCK] Impossible de charger les images de l'article ${article.id}`,
-              detailError
-            );
-
-            return article;
-          }
-        })
-      );
-
-      setArticles(hydratedArticles);
-
-      /* DEBUG IMAGES */
-      if (typeof window !== "undefined" && hydratedArticles.length > 0) {
-        const first = hydratedArticles[0];
-        console.log("=== STOCK DEBUG IMAGES ===");
-        console.log("Article :", first.name);
-        console.log("image_url :", first.image_url);
-        console.log("image     :", first.image);
-        console.log("imageUrl  :", first.imageUrl);
-        console.log("main_image:", first.main_image);
-        console.log("images    :", first.images);
-        console.log(
-          "Images résolues :",
-          getArticleImages(first).map((image) => resolveImage(image))
-        );
-      }
-
-      setSuppliers(
-        Array.isArray(supplierData)
-          ? supplierData
-          : supplierData?.rows || supplierData?.data || []
-      );
-
-      try {
-        const movementsResult = await apiFetch<any>(
-          "/stock/movements?limit=100"
-        );
-
-        const movementData = movementsResult?.data ?? movementsResult;
-
-        setMovements(
-          Array.isArray(movementData)
-            ? movementData
-            : movementData?.rows ||
-                movementData?.data ||
-                movementData?.movements ||
-                []
-        );
-      } catch (movementError) {
-        console.error("Erreur chargement mouvements:", movementError);
-        setMovements([]);
-      }
+      setArticles(normalizedArticles);
+      setSuppliers(supplierList);
+      setMovements(movementList);
     } catch (e: any) {
       console.error("Erreur chargement stock:", e);
       setError(e?.message || "Impossible de charger le stock.");
+      setArticles([]);
+      setSuppliers([]);
+      setMovements([]);
     } finally {
       setLoading(false);
     }
