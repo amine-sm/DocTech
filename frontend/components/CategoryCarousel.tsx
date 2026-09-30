@@ -7,7 +7,6 @@ import {
   motion,
   AnimatePresence,
   useMotionValue,
-  useSpring,
   useTransform,
 } from "framer-motion";
 import { ArrowRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
@@ -670,8 +669,10 @@ function MobileScroller({
     const target = children[activeIndex];
     if (!target) return;
 
-    const targetLeft =
-      target.offsetLeft - (el.clientWidth - target.offsetWidth) / 2;
+    const targetLeft = Math.max(
+      0,
+      target.offsetLeft - (el.clientWidth - target.offsetWidth) / 2
+    );
 
     if (Math.abs(el.scrollLeft - targetLeft) > 8) {
       isProgrammatic.current = true;
@@ -695,25 +696,34 @@ function MobileScroller({
       ref={scrollerRef}
       onScroll={handleScroll}
       className="
-        relative w-full
-        flex gap-4
+        relative mx-auto w-full max-w-[430px]
+        flex gap-3
         overflow-x-auto overflow-y-hidden
         snap-x snap-mandatory
         scroll-smooth
-        px-5 pb-2
+        px-4 pb-2
         [-webkit-overflow-scrolling:touch]
         [scrollbar-width:none]
         [&::-webkit-scrollbar]:hidden
         [touch-action:pan-x]
+        overscroll-x-contain
       "
+      style={{
+        scrollPaddingInline: "16px",
+      }}
     >
       {categories.map((category, index) => {
         const isActive = index === activeIndex;
+
         return (
           <div
             key={category.id ?? category.slug ?? index}
             className="shrink-0 snap-center"
-            style={{ width: 260, height: 380 }}
+            style={{
+              width: "calc(100vw - 32px)",
+              maxWidth: "398px",
+              height: "380px",
+            }}
           >
             <Card3D
               category={category}
@@ -746,40 +756,10 @@ function Card3D({
   isMobile: boolean;
 }) {
   const ref = useRef<HTMLAnchorElement>(null);
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  const rotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [8, -8]), {
-    stiffness: 200,
-    damping: 20,
-  });
-  const rotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-8, 8]), {
-    stiffness: 200,
-    damping: 20,
-  });
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (isMobile || !ref.current) return;
-    const rect = ref.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    mouseX.set(x);
-    mouseY.set(y);
-
-    ref.current.style.setProperty("--mx", `${e.clientX - rect.left}px`);
-    ref.current.style.setProperty("--my", `${e.clientY - rect.top}px`);
-  };
-
-  const handleMouseLeave = () => {
-    mouseX.set(0);
-    mouseY.set(0);
-  };
 
   return (
     <motion.div
       style={{
-        rotateX: isActive && !isMobile ? rotateX : 0,
-        rotateY: isActive && !isMobile ? rotateY : 0,
         transformStyle: "preserve-3d",
       }}
       className="h-full w-full"
@@ -787,8 +767,6 @@ function Card3D({
       <Link
         ref={ref}
         href={`/articles?categorie=${encodeURIComponent(category.slug ?? "")}`}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
         className={`
           group relative block h-full w-full
           overflow-hidden rounded-[28px]
@@ -807,7 +785,7 @@ function Card3D({
             src={category.image}
             alt={category.label ?? "Catégorie"}
             fill
-            sizes={isMobile ? "260px" : "(max-width: 1024px) 280px, 305px"}
+            sizes={isMobile ? "(max-width: 639px) calc(100vw - 32px), 398px" : "(max-width: 1024px) 280px, 305px"}
             quality={isMobile ? 70 : 88}
             priority={index === 0}
             loading={index === 0 ? "eager" : "lazy"}
@@ -838,15 +816,7 @@ function Card3D({
         <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/20 via-white/5 to-transparent" />
 
         {/* SPOTLIGHT — desktop uniquement */}
-        {isActive && !isMobile && (
-          <div
-            className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-            style={{
-              background:
-                "radial-gradient(400px circle at var(--mx, 50%) var(--my, 50%), rgba(59,130,246,0.25), transparent 40%)",
-            }}
-          />
-        )}
+        {/* Spotlight souris désactivé pour éviter les conflits avec le carousel 3D. */}
 
         {/* SHIMMER — desktop uniquement */}
         {isActive && !isMobile && (
