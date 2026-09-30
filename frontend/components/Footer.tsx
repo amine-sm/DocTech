@@ -379,7 +379,7 @@ export default function Footer() {
               <ContactCompact
                 icon={<MapPin size={16} />}
                 label={text("Adresse", "العنوان")}
-                value="Es Sénia, Oran"
+                value="Es Sénia, En  Face Université IGMO,Oran"
                 href={GOOGLE_MAP_URL}
                 external
               />
@@ -899,7 +899,7 @@ export default function Footer() {
                   </p>
 
                   <p className="mt-0.5 text-[9px] text-slate-400">
-                    Es Sénia, Oran
+                    Es Sénia,En face Université IGMO , Oran
                   </p>
                 </div>
               </div>
