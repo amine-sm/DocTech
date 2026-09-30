@@ -1180,6 +1180,29 @@ export default function AdminShell({ children }: AdminShellProps) {
               <ChevronDown size={13} />
             </button>
 
+            {/* VOIR LE SITE */}
+            <Link
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Voir le site"
+              className="hidden h-10 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-black text-blue-600 shadow-sm transition hover:bg-blue-100 hover:text-blue-700 lg:flex"
+            >
+              <ExternalLink size={15} />
+              <span>Voir le site</span>
+            </Link>
+
+            {/* VOIR LE SITE - MOBILE */}
+            <Link
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Voir le site"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition hover:bg-blue-100 lg:hidden"
+            >
+              <ExternalLink size={19} />
+            </Link>
+
             {/* LOGOUT */}
             <button
               type="button"
