@@ -214,6 +214,9 @@ export default function OrderPage() {
   const [loadingDelivery, setLoadingDelivery] = useState(true);
   const [loadingCommunes, setLoadingCommunes] = useState(false);
 
+  // ✅ REF pour scroll automatique vers le formulaire
+  const formRef = useRef<HTMLFormElement>(null);
+
   /* -------------------------------------------------------
      PANIER + DONNEES LIVRAISON
   ------------------------------------------------------- */
@@ -271,6 +274,25 @@ export default function OrderPage() {
       cancelled = true;
     };
   }, []);
+
+  /* -------------------------------------------------------
+     ✅ SCROLL AUTOMATIQUE VERS LE FORMULAIRE
+     Dès que la page est prête, on scrolle directement
+     sur la section "Vos coordonnées" (étape 01)
+  ------------------------------------------------------- */
+  useEffect(() => {
+    if (ready && formRef.current) {
+      // Petit délai pour laisser le temps au rendu de se stabiliser
+      const timer = setTimeout(() => {
+        formRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 150);
+
+      return () => clearTimeout(timer);
+    }
+  }, [ready]);
 
   /* -------------------------------------------------------
      COMMUNES
@@ -671,6 +693,7 @@ export default function OrderPage() {
             <EmptyOrder />
           ) : (
             <form
+              ref={formRef}
               id="order-form"
               onSubmit={submitOrder}
               noValidate
