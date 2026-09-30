@@ -40,21 +40,14 @@ export default function CategoryCarousel({
   const total = safeCategories.length;
 
   /* =========================================================
-     DETECTION MOBILE
+     DETECTION MOBILE (matchMedia — pas de flash au premier render)
   ========================================================= */
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640);
+    const mq = window.matchMedia("(max-width: 639px)");
+    const check = () => setIsMobile(mq.matches);
     check();
-    let raf = 0;
-    const onResize = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(check);
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      cancelAnimationFrame(raf);
-    };
+    mq.addEventListener("change", check);
+    return () => mq.removeEventListener("change", check);
   }, []);
 
   /* =========================================================
@@ -171,8 +164,6 @@ export default function CategoryCarousel({
       "
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      onTouchStart={() => setIsPaused(true)}
-      onTouchEnd={() => setIsPaused(false)}
     >
       {/* =====================================================
           BACKGROUND — simplifié sur mobile
@@ -230,7 +221,7 @@ export default function CategoryCarousel({
           </>
         )}
 
-        {/* Sur mobile : un simple radial gradient statique, pas de blur animé */}
+        {/* Sur mobile : un simple radial gradient statique */}
         {isMobile && (
           <div
             className="absolute inset-0"
@@ -241,7 +232,7 @@ export default function CategoryCarousel({
           />
         )}
 
-        {/* Grille — statique, ok partout */}
+        {/* Grille — statique */}
         <div
           className="
             absolute inset-0
@@ -573,7 +564,10 @@ export default function CategoryCarousel({
               <button
                 key={`dot-${index}`}
                 type="button"
-                onClick={() => goTo(index)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  goTo(index);
+                }}
                 aria-label={`Aller à la catégorie ${index + 1}`}
                 className="group relative h-2.5 rounded-full transition-all duration-500"
                 style={{ width: active ? 48 : 10 }}
@@ -624,7 +618,7 @@ export default function CategoryCarousel({
 }
 
 /* =========================================================
-   MOBILE SCROLLER — scroll-snap natif, léger et fluide
+   MOBILE SCROLLER — scroll-snap natif, détection par position DOM
 ========================================================= */
 function MobileScroller({
   categories,
@@ -639,16 +633,32 @@ function MobileScroller({
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const isProgrammatic = useRef(false);
+  const programmaticTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sync scroll → activeIndex
+  // Sync scroll → activeIndex (détection par position DOM réelle)
   const handleScroll = useCallback(() => {
     if (isProgrammatic.current) return;
     const el = scrollerRef.current;
     if (!el) return;
-    const cardWidth = 260 + 16; // largeur + gap
-    const i = Math.round(el.scrollLeft / cardWidth);
-    if (i !== activeIndex && i >= 0 && i < categories.length) {
-      onActiveChange(i);
+
+    const children = Array.from(el.children) as HTMLElement[];
+    if (!children.length) return;
+
+    const center = el.scrollLeft + el.clientWidth / 2;
+
+    let closest = 0;
+    let minDist = Infinity;
+    children.forEach((child, i) => {
+      const childCenter = child.offsetLeft + child.offsetWidth / 2;
+      const dist = Math.abs(childCenter - center);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = i;
+      }
+    });
+
+    if (closest !== activeIndex && closest >= 0 && closest < categories.length) {
+      onActiveChange(closest);
     }
   }, [activeIndex, categories.length, onActiveChange]);
 
@@ -656,17 +666,29 @@ function MobileScroller({
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
-    const cardWidth = 260 + 16;
-    const target = activeIndex * cardWidth;
-    if (Math.abs(el.scrollLeft - target) > 4) {
+    const children = Array.from(el.children) as HTMLElement[];
+    const target = children[activeIndex];
+    if (!target) return;
+
+    const targetLeft =
+      target.offsetLeft - (el.clientWidth - target.offsetWidth) / 2;
+
+    if (Math.abs(el.scrollLeft - targetLeft) > 8) {
       isProgrammatic.current = true;
-      el.scrollTo({ left: target, behavior: "smooth" });
-      const timeout = setTimeout(() => {
+      el.scrollTo({ left: targetLeft, behavior: "smooth" });
+
+      if (programmaticTimeout.current) clearTimeout(programmaticTimeout.current);
+      programmaticTimeout.current = setTimeout(() => {
         isProgrammatic.current = false;
-      }, 500);
-      return () => clearTimeout(timeout);
+      }, 400);
     }
   }, [activeIndex]);
+
+  useEffect(() => {
+    return () => {
+      if (programmaticTimeout.current) clearTimeout(programmaticTimeout.current);
+    };
+  }, []);
 
   return (
     <div
@@ -682,6 +704,7 @@ function MobileScroller({
         [-webkit-overflow-scrolling:touch]
         [scrollbar-width:none]
         [&::-webkit-scrollbar]:hidden
+        [touch-action:pan-x]
       "
     >
       {categories.map((category, index) => {
@@ -784,11 +807,7 @@ function Card3D({
             src={category.image}
             alt={category.label ?? "Catégorie"}
             fill
-            sizes={
-              isMobile
-                ? "260px"
-                : "(max-width: 1024px) 280px, 305px"
-            }
+            sizes={isMobile ? "260px" : "(max-width: 1024px) 280px, 305px"}
             quality={isMobile ? 70 : 88}
             priority={index === 0}
             loading={index === 0 ? "eager" : "lazy"}
@@ -899,11 +918,7 @@ function Card3D({
               className={`
                 mt-2 line-clamp-2 leading-5 text-slate-200
                 transition-all duration-500
-                ${
-                  isActive
-                    ? "text-xs font-medium"
-                    : "text-[10px] font-medium"
-                }
+                ${isActive ? "text-xs font-medium" : "text-[10px] font-medium"}
               `}
             >
               {category.description}
