@@ -947,38 +947,7 @@ export default function ProductModalGrid({ products, limit = 8 }: Props) {
                   {activeProduct.name}
                 </h2>
 
-                {/* RATING */}
-                <div className="mt-3 flex items-center gap-2">
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => {
-                      const rating = Number(activeProduct.rating ?? 0);
-
-                      return (
-                        <Star
-                          key={i}
-                          size={15}
-                          fill={i < Math.floor(rating) ? "currentColor" : "none"}
-                          className={
-                            i < Math.floor(rating)
-                              ? "text-amber-400"
-                              : "text-slate-300"
-                          }
-                        />
-                      );
-                    })}
-                  </div>
-
-                  <span className="text-xs font-bold text-slate-700">
-                    {Number(activeProduct.rating ?? 0).toFixed(1)}
-                  </span>
-
-                  {Number(activeProduct.reviews ?? 0) > 0 && (
-                    <span className="text-xs text-slate-400">
-                      ({Number(activeProduct.reviews ?? 0)}{" "}
-                      {text("avis", "تقييم")})
-                    </span>
-                  )}
-                </div>
+            
 
                 {/* DESCRIPTION */}
                 <p
