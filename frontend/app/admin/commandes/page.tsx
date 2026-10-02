@@ -59,14 +59,31 @@ type Tab = "today" | "history" | "movements";
 type OrderItem = {
   id?: number;
   article_id?: number;
+  product_id?: number;
   product_name?: string;
+  designation?: string;
   product_name_ar?: string;
   sku?: string | null;
-  quantity?: number;
-  unit_price?: number;
-  line_total?: number;
+  quantity?: number | null;
+  unit_price?: number | null;
+  price?: number | null;
+  line_total?: number | null;
+  total?: number | null;
   image?: string | null;
   image_url?: string | null;
+
+  /* =====================================================
+     PROMOTION
+  ===================================================== */
+  is_promotion?: boolean;
+  promotion?: boolean;
+  promotion_id?: number | null;
+  promotion_name?: string | null;
+  promotion_badge?: string | null;
+  promotion_type?: string | null;
+  promotion_value?: number | null;
+  original_price?: number | null;
+  promo_price?: number | null;
 };
 
 type OrderStatusHistoryEntry = {
@@ -438,8 +455,15 @@ export default function Page() {
         if (filterStatus) params.set("status", filterStatus);
       }
 
-      const r = await apiFetch<any>(`/commandes?${params.toString()}`);
-      setRows(Array.isArray(r?.data) ? r.data : []);
+   const r = await apiFetch<any>(`/commandes?${params.toString()}`);
+
+setRows(
+  Array.isArray(r?.orders)
+    ? r.orders
+    : Array.isArray(r?.data)
+      ? r.data
+      : []
+);
     } catch (e: any) {
       setError(e?.message || "Impossible de charger les commandes.");
     } finally {
@@ -586,6 +610,77 @@ export default function Page() {
   }
 
   /* =========================================================
+     IMPRESSION DIRECTE DEPUIS LE TABLEAU
+  ========================================================= */
+
+  async function printOrderById(id: number) {
+    const printWindow = window.open(
+      "",
+      "_blank",
+      "width=900,height=1100"
+    );
+
+    if (!printWindow) {
+      alert(
+        text(
+          "Impossible d'ouvrir la fenêtre d'impression. Autorisez les fenêtres pop-up.",
+          "تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة."
+        )
+      );
+      return;
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="fr">
+        <body style="font-family:Arial,sans-serif;padding:40px;text-align:center">
+          <p style="font-weight:700;color:#64748B">Chargement de la commande...</p>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    try {
+      const r = await apiFetch<any>(`/commandes/${id}`);
+      const fullOrder = r?.data || r?.order;
+
+      if (!fullOrder) {
+        throw new Error(
+          text(
+            "Commande introuvable.",
+            "الطلب غير موجود."
+          )
+        );
+      }
+
+      const normalizedOrder: Order = {
+        ...fullOrder,
+        items: Array.isArray(r?.items)
+          ? r.items
+          : Array.isArray(fullOrder?.items)
+            ? fullOrder.items
+            : [],
+        history: Array.isArray(r?.history)
+          ? r.history
+          : Array.isArray(fullOrder?.history)
+            ? fullOrder.history
+            : [],
+      };
+
+      printOrderA4(normalizedOrder, printWindow);
+    } catch (e: any) {
+      printWindow.close();
+      alert(
+        e?.message ||
+          text(
+            "Impossible de charger la commande pour l'impression.",
+            "تعذر تحميل الطلب للطباعة."
+          )
+      );
+    }
+  }
+
+  /* =========================================================
      EXPORT EXCEL
   ========================================================= */
 
@@ -663,12 +758,14 @@ export default function Page() {
      IMPRESSION A4
   ========================================================= */
 
-  function printOrderA4(order: Order) {
-    const printWindow = window.open(
-      "",
-      "_blank",
-      "width=900,height=1100"
-    );
+  function printOrderA4(order: Order, existingWindow?: Window | null) {
+    const printWindow =
+      existingWindow ||
+      window.open(
+        "",
+        "_blank",
+        "width=900,height=1100"
+      );
 
     if (!printWindow) {
       alert(
@@ -684,17 +781,142 @@ export default function Page() {
       typeof logoDoctech === "string" ? logoDoctech : logoDoctech.src;
 
     const itemsHtml = (order.items || [])
-      .map(
-        (item) => `
+      .map((item) => {
+        const productName =
+          item.product_name ||
+          item.designation ||
+          "Article";
+
+        const imageUrl = backendUrl(
+          item.image || item.image_url || null
+        );
+
+        const quantity = Math.max(
+          1,
+          Number(item.quantity ?? 1)
+        );
+
+        const unitPrice = Number(
+          item.unit_price ??
+          item.price ??
+          0
+        );
+
+        const lineTotal = Number(
+          item.line_total ??
+          item.total ??
+          unitPrice * quantity
+        );
+
+        const originalPrice = Number(
+          item.original_price ?? 0
+        );
+
+        const promotionValue = Number(
+          item.promotion_value ?? 0
+        );
+
+        const promotionType = String(
+          item.promotion_type ?? ""
+        ).toUpperCase();
+
+        const isPromotion =
+          Boolean(item.is_promotion) ||
+          Boolean(item.promotion) ||
+          Boolean(item.promotion_name) ||
+          Boolean(item.promotion_id) ||
+          originalPrice > unitPrice ||
+          promotionValue > 0;
+
+        let promotionLabel = "PROMO";
+
+        if (
+          promotionType === "PERCENTAGE" ||
+          promotionType === "POURCENTAGE" ||
+          promotionType === "%"
+        ) {
+          promotionLabel = `-${promotionValue}%`;
+        } else if (promotionValue > 0) {
+          promotionLabel = `-${formatPrintPrice(promotionValue)}`;
+        }
+
+        const imageHtml = imageUrl
+          ? `
+              <img
+                src="${escapeHtml(imageUrl)}"
+                class="product-image"
+                alt="${escapeHtml(productName)}"
+              />
+            `
+          : `
+              <div class="product-image-placeholder">—</div>
+            `;
+
+        const priceHtml = isPromotion
+    ? `
+      <div class="price-promo-wrapper">
+        ${
+          originalPrice > 0
+            ? `<span class="old-price">${formatPrintPrice(originalPrice)}</span>`
+            : ""
+        }
+        <span class="promo-price">${formatPrintPrice(unitPrice)}</span>
+        <span class="promo-badge">
+          🏷️ ${escapeHtml(promotionLabel)}
+        </span>
+      </div>
+    `
+    : `
+      <div class="normal-price">
+        ${formatPrintPrice(unitPrice)}
+      </div>
+    `;
+
+        return `
           <tr>
-            <td>${escapeHtml(item.product_name || "Article")}</td>
-            <td>${escapeHtml(item.sku || "—")}</td>
-            <td class="center">${Number(item.quantity || 0)}</td>
-            <td class="right">${formatPrintPrice(Number(item.unit_price || 0))}</td>
-            <td class="right">${formatPrintPrice(Number(item.line_total || 0))}</td>
+            <td class="image-cell">
+              ${imageHtml}
+            </td>
+
+            <td class="product-cell">
+              <div class="product-name">
+                <span class="product-name-text">
+                  ${escapeHtml(productName)}
+                </span>
+                ${
+                  isPromotion
+                    ? `<span class="promo-tag">🏷️ PROMO</span>`
+                    : ""
+                }
+              </div>
+
+              ${
+                item.sku
+                  ? `<div class="product-sku">SKU : ${escapeHtml(item.sku)}</div>`
+                  : ""
+              }
+
+              ${
+                isPromotion
+                  ? `<div class="promotion-label">${escapeHtml(item.promotion_name || "Produit en promotion")}</div>`
+                  : ""
+              }
+            </td>
+
+            <td class="center">
+              ${quantity}
+            </td>
+
+            <td class="right">
+              ${priceHtml}
+            </td>
+
+            <td class="right total-cell">
+              ${formatPrintPrice(lineTotal)}
+            </td>
           </tr>
-        `
-      )
+        `;
+      })
       .join("");
 
     printWindow.document.write(`
@@ -759,12 +981,79 @@ export default function Page() {
             td { padding: 9px 7px; border-bottom: 1px solid #E5E7EB; font-size: 9px; vertical-align: middle; }
             .center { text-align: center; }
             .right { text-align: right; }
+            .image-cell { width: 65px; text-align: center; }
+            .product-image { width: 52px; height: 52px; object-fit: contain; border-radius: 8px; border: 1px solid #E5E7EB; background: #F8FAFC; }
+            .product-image-placeholder { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; border-radius: 8px; border: 1px solid #E5E7EB; background: #F8FAFC; color: #94A3B8; font-weight: 900; }
+            .product-cell { min-width: 170px; }
+            .product-name {
+              font-size: 9px;
+              font-weight: 900;
+              color: #111827;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              flex-wrap: wrap;
+            }
+            .product-name-text { line-height: 1.3; }
+            .promo-tag {
+              display: inline-flex;
+              align-items: center;
+              padding: 2px 6px;
+              border-radius: 999px;
+              background: #FEE2E2;
+              color: #DC2626;
+              border: 1px solid #FECACA;
+              font-size: 7px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              white-space: nowrap;
+            }
+            .product-sku { margin-top: 3px; font-size: 7px; color: #94A3B8; }
+            .promotion-label { display: inline-block; margin-top: 4px; padding: 2px 5px; border-radius: 4px; background: #FFF1F2; color: #E11D48; font-size: 7px; font-weight: 900; }
+            .price-block { text-align: right; }
+            .old-price { font-size: 7px; color: #94A3B8; text-decoration: line-through; }
+            .promo-price { margin-top: 2px; font-size: 9px; font-weight: 900; color: #E11D48; }
+            .promo-badge { display: inline-block; margin-top: 3px; padding: 2px 5px; border-radius: 4px; background: #E11D48; color: #fff; font-size: 7px; font-weight: 900; }
+            .normal-price { font-size: 9px; font-weight: 900; color: #111827; }
+            .total-cell { font-weight: 900; }
             .totals { width: 300px; margin-left: auto; margin-top: 18px; }
             .total-row { display: flex; justify-content: space-between; gap: 20px; padding: 7px 0; font-size: 10px; }
             .total-final { margin-top: 7px; padding: 12px; border-radius: 10px; background: #2563EB; color: white; font-size: 15px; font-weight: 900; }
             .note { margin-top: 18px; padding: 12px; border-radius: 10px; background: #F8FAFC; border: 1px solid #E2E8F0; font-size: 10px; }
             .footer { margin-top: 30px; padding-top: 12px; border-top: 1px solid #E5E7EB; text-align: center; color: #94A3B8; font-size: 8px; }
-          </style>
+          
+.price-promo-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.old-price {
+  font-size: 10px;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+.promo-price {
+  font-size: 13px;
+  font-weight: 900;
+  color: #dc2626;
+}
+.promo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-size: 8px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+</style>
         </head>
         <body>
           <div class="page">
@@ -807,15 +1096,15 @@ export default function Page() {
               <table>
                 <thead>
                   <tr>
+                    <th>Image</th>
                     <th>Article</th>
-                    <th>SKU</th>
                     <th style="text-align:center">Qté</th>
                     <th style="text-align:right">Prix unitaire</th>
                     <th style="text-align:right">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${itemsHtml || `<tr><td colspan="5">Aucun article</td></tr>`}
+                  ${itemsHtml || `<tr><td colspan="5" style="text-align:center;color:#94A3B8">Aucun article</td></tr>`}
                 </tbody>
               </table>
             </div>
@@ -1359,7 +1648,7 @@ export default function Page() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => printOrderA4(order)}
+                              onClick={() => printOrderById(order.id)}
                               className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-900 px-3 text-[9px] font-black text-white transition hover:bg-slate-800"
                               title="Imprimer A4"
                             >
@@ -1983,9 +2272,21 @@ function OrderDetailModal({
                         </div>
 
                         <div className="shrink-0 text-right">
-                          <p className="text-xs font-black text-[#2563EB]">
-                            {formatPrice(Number(item.line_total || 0))}
-                          </p>
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            {Number(item.original_price ?? 0) >
+                              Number(item.unit_price ?? item.price ?? 0) && (
+                              <span className="text-[8px] font-bold text-slate-400 line-through">
+                                {formatPrice(Number(item.original_price ?? 0))}
+                              </span>
+                            )}
+
+                            <p className="text-xs font-black text-[#2563EB]">
+                              {formatPrice(Number(item.line_total || 0))}
+                            </p>
+
+                            <PromotionBadge item={item} />
+                          </div>
+
                           {item.unit_price !== undefined && (
                             <p className="mt-1 text-[8px] font-bold text-slate-400">
                               {formatPrice(Number(item.unit_price || 0))}{" "}
@@ -2234,6 +2535,43 @@ function StatusSelect({
         />
       )}
     </div>
+  );
+}
+
+
+function PromotionBadge({ item }: { item: OrderItem }) {
+  const original = Number(item.original_price ?? 0);
+  const current = Number(item.unit_price ?? item.price ?? 0);
+  const value = Number(item.promotion_value ?? 0);
+
+  const isPromotion =
+    Boolean(item.is_promotion) ||
+    Boolean(item.promotion) ||
+    Boolean(item.promotion_name) ||
+    Boolean(item.promotion_id) ||
+    original > current ||
+    value > 0;
+
+  if (!isPromotion) return null;
+
+  const type = String(item.promotion_type ?? "").toUpperCase();
+
+  let label = "PROMO";
+  if (
+    (type === "PERCENTAGE" ||
+      type === "POURCENTAGE" ||
+      type === "%") &&
+    value > 0
+  ) {
+    label = `PROMO -${value}%`;
+  } else if (value > 0) {
+    label = `PROMO -${value.toLocaleString("fr-DZ")} DA`;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-[8px] font-black uppercase tracking-wide text-red-600 ring-1 ring-inset ring-red-100">
+      🏷️ {label}
+    </span>
   );
 }
 
