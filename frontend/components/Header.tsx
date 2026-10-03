@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -18,7 +17,9 @@ import {
   ShoppingBag,
   SlidersHorizontal,
   Sparkles,
-  X,MessageCircle
+  Wrench,
+  X,
+  MessageCircle,
 } from "lucide-react";
 
 import {
@@ -60,12 +61,10 @@ import CartDrawer from "@/components/CartDrawer";
    CONFIGURATION CONTACT
 ========================================================= */
 
-// WhatsApp : numéro international SANS +
-// Exemple Algérie : 0550123456 => 213550123456
 const WHATSAPP_NUMBER = "213563266774";
 
-// Messenger
-const MESSENGER_URL = "https://www.facebook.com/messages/t/1627625560841341";
+const MESSENGER_URL =
+  "https://www.facebook.com/messages/t/1627625560841341";
 
 /* =========================================================
    ICON CATEGORIE
@@ -107,11 +106,7 @@ function getCategoryIcon(slug: string) {
    WHATSAPP ICON
 ========================================================= */
 
-function WhatsAppIcon({
-  size = 30,
-}: {
-  size?: number;
-}) {
+function WhatsAppIcon({ size = 30 }: { size?: number }) {
   return (
     <svg
       viewBox="0 0 32 32"
@@ -147,8 +142,7 @@ function WhatsAppIcon({
           M21.87 18.77
           C21.55 18.61 19.99 17.84 19.7 17.74
           C19.41 17.63 19.2 17.58 18.99 17.9
-          C18.78 18.22 18.18 18.93 18
-          19.14
+          C18.78 18.22 18.18 18.93 18 19.14
           C17.82 19.35 17.63 19.38 17.31 19.22
           C16.99 19.06 15.96 18.72 14.74 17.63
           C13.79 16.78 13.15 15.74 12.97 15.42
@@ -179,11 +173,7 @@ function WhatsAppIcon({
    MESSENGER ICON
 ========================================================= */
 
-function MessengerIcon({
-  size = 30,
-}: {
-  size?: number;
-}) {
+function MessengerIcon({ size = 30 }: { size?: number }) {
   return (
     <svg
       viewBox="0 0 32 32"
@@ -223,10 +213,6 @@ function MessengerIcon({
     </svg>
   );
 }
-
-/* =========================================================
-   FLOATING CONTACT BUTTONS
-========================================================= */
 
 /* =========================================================
    FLOATING CONTACT BUTTONS
@@ -686,7 +672,6 @@ function FloatingContactButtons() {
         </motion.a>
       </div>
 
-
       {/* =====================================================
           MOBILE
           WhatsApp reste toujours visible
@@ -991,10 +976,7 @@ function FloatingContactButtons() {
               duration: 0.2,
             }}
           >
-            <MessageCircle
-              size={21}
-              strokeWidth={2.5}
-            />
+            <MessageCircle size={21} strokeWidth={2.5} />
           </motion.div>
         </motion.button>
 
@@ -1093,89 +1075,56 @@ function HeaderContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const currentCategory =
-    searchParams.get("categorie");
+  const currentCategory = searchParams.get("categorie");
+  const currentBrand = searchParams.get("marque");
 
-  const currentBrand =
-    searchParams.get("marque");
-
-  const {
-    locale,
-    isArabic,
-    text,
-  } = useLocale();
+  const { locale, isArabic, text } = useLocale();
 
   /* =======================================================
      DATA
   ======================================================= */
 
-  const [categories, setCategories] =
-    useState<CatalogCategory[]>([]);
-
-  const [brands, setBrands] =
-    useState<CatalogBrand[]>([]);
-
-  const [products, setProducts] =
-    useState<Product[]>([]);
-
-  const [suggestions, setSuggestions] =
-    useState<Product[]>([]);
+  const [categories, setCategories] = useState<CatalogCategory[]>([]);
+  const [brands, setBrands] = useState<CatalogBrand[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [suggestions, setSuggestions] = useState<Product[]>([]);
 
   /* =======================================================
      UI
   ======================================================= */
 
-  const [mobileMenuOpen, setMobileMenuOpen] =
-    useState(false);
-
-  const [categoriesOpen, setCategoriesOpen] =
-    useState(false);
-
-  const [brandsOpen, setBrandsOpen] =
-    useState(false);
-
-  const [cartDrawerOpen, setCartDrawerOpen] =
-    useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [brandsOpen, setBrandsOpen] = useState(false);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
 
   /* =======================================================
      SEARCH
   ======================================================= */
 
-  const [search, setSearch] =
-    useState("");
-
-  const [searchFocused, setSearchFocused] =
-    useState(false);
+  const [search, setSearch] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
 
   /* =======================================================
      COUNTS
   ======================================================= */
 
-  const [cartCount, setCartCount] =
-    useState(0);
-
-  const [favoritesCount, setFavoritesCount] =
-    useState(0);
+  const [cartCount, setCartCount] = useState(0);
+  const [favoritesCount, setFavoritesCount] = useState(0);
 
   /* =======================================================
      SCROLL
   ======================================================= */
 
-  const lastScrollYRef =
-    useRef(0);
+  const lastScrollYRef = useRef(0);
 
   /* =======================================================
      REFS
   ======================================================= */
 
-  const desktopNavRef =
-    useRef<HTMLDivElement | null>(null);
-
-  const searchDesktopRef =
-    useRef<HTMLDivElement | null>(null);
-
-  const searchMobileRef =
-    useRef<HTMLDivElement | null>(null);
+  const desktopNavRef = useRef<HTMLDivElement | null>(null);
+  const searchDesktopRef = useRef<HTMLDivElement | null>(null);
+  const searchMobileRef = useRef<HTMLDivElement | null>(null);
 
   /* =======================================================
      CHARGEMENT CATALOGUE
@@ -1186,53 +1135,31 @@ function HeaderContent() {
 
     async function loadCatalog() {
       try {
-        const [
-          categoryItems,
-          brandItems,
-          catalogResult,
-        ] = await Promise.all([
-          fetchCategories(locale),
-          fetchBrands(locale),
-          fetchCatalog(
-            {
-              limit: 100,
-            },
-            locale
-          ),
-        ]);
+        const [categoryItems, brandItems, catalogResult] =
+          await Promise.all([
+            fetchCategories(locale),
+            fetchBrands(locale),
+            fetchCatalog({ limit: 100 }, locale),
+          ]);
 
         if (!active) return;
 
-        const safeCategories =
-          Array.isArray(categoryItems)
-            ? categoryItems
-            : [];
+        const safeCategories = Array.isArray(categoryItems)
+          ? categoryItems
+          : [];
 
-        const safeBrands =
-          Array.isArray(brandItems)
-            ? brandItems
-            : [];
+        const safeBrands = Array.isArray(brandItems) ? brandItems : [];
 
         const safeProducts =
-          catalogResult &&
-          Array.isArray(
-            catalogResult.products
-          )
+          catalogResult && Array.isArray(catalogResult.products)
             ? catalogResult.products
             : [];
 
-        const roots =
-          safeCategories.filter(
-            (item) =>
-              item.parentId == null
-          );
-
-        setCategories(
-          roots.length
-            ? roots
-            : safeCategories
+        const roots = safeCategories.filter(
+          (item) => item.parentId == null
         );
 
+        setCategories(roots.length ? roots : safeCategories);
         setBrands(safeBrands);
         setProducts(safeProducts);
       } catch (error) {
@@ -1262,50 +1189,24 @@ function HeaderContent() {
 
   useEffect(() => {
     const syncCart = () => {
-      setCartCount(
-        getCartCount()
-      );
+      setCartCount(getCartCount());
     };
 
     const syncFavorites = () => {
-      setFavoritesCount(
-        getFavoritesCount()
-      );
+      setFavoritesCount(getFavoritesCount());
     };
 
     syncCart();
     syncFavorites();
 
-    window.addEventListener(
-      CART_EVENT,
-      syncCart
-    );
-
-    window.addEventListener(
-      FAVORITES_EVENT,
-      syncFavorites
-    );
-
-    window.addEventListener(
-      "storage",
-      syncCart
-    );
+    window.addEventListener(CART_EVENT, syncCart);
+    window.addEventListener(FAVORITES_EVENT, syncFavorites);
+    window.addEventListener("storage", syncCart);
 
     return () => {
-      window.removeEventListener(
-        CART_EVENT,
-        syncCart
-      );
-
-      window.removeEventListener(
-        FAVORITES_EVENT,
-        syncFavorites
-      );
-
-      window.removeEventListener(
-        "storage",
-        syncCart
-      );
+      window.removeEventListener(CART_EVENT, syncCart);
+      window.removeEventListener(FAVORITES_EVENT, syncFavorites);
+      window.removeEventListener("storage", syncCart);
     };
   }, []);
 
@@ -1316,68 +1217,41 @@ function HeaderContent() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const root =
-      document.documentElement;
+    const root = document.documentElement;
 
-    const applyScrollState = (
-      down: boolean
-    ) => {
-      root.dataset.doctechScroll =
-        down ? "down" : "up";
+    const applyScrollState = (down: boolean) => {
+      root.dataset.doctechScroll = down ? "down" : "up";
     };
 
     const handleScroll = () => {
-      const currentY =
-        window.scrollY;
-
-      const previousY =
-        lastScrollYRef.current;
+      const currentY = window.scrollY;
+      const previousY = lastScrollYRef.current;
 
       if (currentY <= 20) {
         applyScrollState(false);
-        lastScrollYRef.current =
-          currentY;
+        lastScrollYRef.current = currentY;
         return;
       }
 
-      if (
-        currentY >
-        previousY + 8
-      ) {
+      if (currentY > previousY + 8) {
         applyScrollState(true);
-      } else if (
-        currentY <
-        previousY - 8
-      ) {
+      } else if (currentY < previousY - 8) {
         applyScrollState(false);
       }
 
-      lastScrollYRef.current =
-        currentY;
+      lastScrollYRef.current = currentY;
     };
 
-    lastScrollYRef.current =
-      window.scrollY;
+    lastScrollYRef.current = window.scrollY;
+    root.dataset.doctechScroll = "up";
 
-    root.dataset.doctechScroll =
-      "up";
-
-    window.addEventListener(
-      "scroll",
-      handleScroll,
-      {
-        passive: true,
-      }
-    );
+    window.addEventListener("scroll", handleScroll, {
+      passive: true,
+    });
 
     return () => {
-      window.removeEventListener(
-        "scroll",
-        handleScroll
-      );
-
-      delete root.dataset
-        .doctechScroll;
+      window.removeEventListener("scroll", handleScroll);
+      delete root.dataset.doctechScroll;
     };
   }, []);
 
@@ -1398,15 +1272,12 @@ function HeaderContent() {
   useEffect(() => {
     if (!mobileMenuOpen) return;
 
-    const previous =
-      document.body.style.overflow;
+    const previous = document.body.style.overflow;
 
-    document.body.style.overflow =
-      "hidden";
+    document.body.style.overflow = "hidden";
 
     return () => {
-      document.body.style.overflow =
-        previous;
+      document.body.style.overflow = previous;
     };
   }, [mobileMenuOpen]);
 
@@ -1415,45 +1286,30 @@ function HeaderContent() {
   ======================================================= */
 
   useEffect(() => {
-    const onPointerDown = (
-      event: MouseEvent
-    ) => {
-      const target =
-        event.target as Node;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
 
       if (
         desktopNavRef.current &&
-        !desktopNavRef.current.contains(
-          target
-        )
+        !desktopNavRef.current.contains(target)
       ) {
         setCategoriesOpen(false);
         setBrandsOpen(false);
       }
 
       const clickedSearch =
-        searchDesktopRef.current?.contains(
-          target
-        ) ||
-        searchMobileRef.current?.contains(
-          target
-        );
+        searchDesktopRef.current?.contains(target) ||
+        searchMobileRef.current?.contains(target);
 
       if (!clickedSearch) {
         setSearchFocused(false);
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      onPointerDown
-    );
+    document.addEventListener("mousedown", onPointerDown);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        onPointerDown
-      );
+      document.removeEventListener("mousedown", onPointerDown);
     };
   }, []);
 
@@ -1462,141 +1318,91 @@ function HeaderContent() {
   ======================================================= */
 
   useEffect(() => {
-    const value =
-      search
-        .trim()
-        .toLowerCase();
+    const value = search.trim().toLowerCase();
 
-    if (
-      !value ||
-      !searchFocused
-    ) {
+    if (!value || !searchFocused) {
       setSuggestions([]);
       return;
     }
 
-    const result =
-      products
-        .filter((product) => {
-          const name =
-            String(
-              product?.name ?? ""
-            ).toLowerCase();
+    const result = products
+      .filter((product) => {
+        const name = String(product?.name ?? "").toLowerCase();
 
-          const shortName =
-            String(
-              (product as any)
-                ?.shortName ?? ""
-            ).toLowerCase();
+        const shortName = String(
+          (product as any)?.shortName ?? ""
+        ).toLowerCase();
 
-          const slug =
-            String(
-              product?.slug ?? ""
-            ).toLowerCase();
+        const slug = String(product?.slug ?? "").toLowerCase();
 
-          const brand =
-            String(
-              typeof product?.brand ===
-                "string"
-                ? product.brand
-                : (product as any)
-                    ?.brand?.name ??
-                    (product as any)
-                      ?.brandName ??
-                    ""
-            ).toLowerCase();
-
-          const category =
-            String(
-              typeof (product as any)
-                ?.category ===
-                "string"
-                ? (product as any)
-                    .category
-                : (product as any)
-                    ?.category?.name ??
-                    (product as any)
-                      ?.categoryName ??
-                    ""
-            ).toLowerCase();
-
-          const categoryLabel =
-            String(
-              (product as any)
-                ?.categoryLabel ??
+        const brand = String(
+          typeof product?.brand === "string"
+            ? product.brand
+            : (product as any)?.brand?.name ??
+                (product as any)?.brandName ??
                 ""
-            ).toLowerCase();
+        ).toLowerCase();
 
-          return (
-            name.includes(value) ||
-            shortName.includes(value) ||
-            slug.includes(value) ||
-            brand.includes(value) ||
-            category.includes(value) ||
-            categoryLabel.includes(value)
-          );
-        })
-        .slice(0, 6);
+        const category = String(
+          typeof (product as any)?.category === "string"
+            ? (product as any).category
+            : (product as any)?.category?.name ??
+                (product as any)?.categoryName ??
+                ""
+        ).toLowerCase();
+
+        const categoryLabel = String(
+          (product as any)?.categoryLabel ?? ""
+        ).toLowerCase();
+
+        return (
+          name.includes(value) ||
+          shortName.includes(value) ||
+          slug.includes(value) ||
+          brand.includes(value) ||
+          category.includes(value) ||
+          categoryLabel.includes(value)
+        );
+      })
+      .slice(0, 6);
 
     setSuggestions(result);
-  }, [
-    search,
-    searchFocused,
-    products,
-  ]);
+  }, [search, searchFocused, products]);
 
   /* =======================================================
      NAVIGATION STATE
   ======================================================= */
 
   const catalogActive =
-    pathname.startsWith(
-      "/articles"
-    ) ||
-    pathname.startsWith(
-      "/article"
-    );
+    pathname.startsWith("/articles") ||
+    pathname.startsWith("/article");
 
-  const promoActive =
-    pathname.startsWith(
-      "/promotions"
-    );
+  const promoActive = pathname.startsWith("/promotions");
 
-  const favoriteActive =
-    pathname.startsWith(
-      "/favoris"
-    );
+  const favoriteActive = pathname.startsWith("/favoris");
+
+  const repairActive = pathname.startsWith("/reparation");
 
   const cartActive =
     cartDrawerOpen ||
-    pathname.startsWith(
-      "/panier"
-    ) ||
-    pathname.startsWith(
-      "/commande"
-    );
+    pathname.startsWith("/panier") ||
+    pathname.startsWith("/commande");
 
   /* =======================================================
      MARQUES
   ======================================================= */
 
-  const visibleBrands =
-    useMemo(
-      () =>
-        brands.slice(0, 12),
-      [brands]
-    );
+  const visibleBrands = useMemo(
+    () => brands.slice(0, 12),
+    [brands]
+  );
 
   /* =======================================================
      URL PRODUIT
   ======================================================= */
 
-  function getProductHref(
-    product: Product
-  ) {
-    const slug =
-      product.slug ??
-      product.id;
+  function getProductHref(product: Product) {
+    const slug = product.slug ?? product.id;
 
     return `/article/${slug}`;
   }
@@ -1605,76 +1411,55 @@ function HeaderContent() {
      IMAGE
   ======================================================= */
 
-  function getProductImage(
-    product: Product
-  ) {
+  function getProductImage(product: Product) {
     const value =
       product.image ??
       (product as any)?.imageUrl ??
       (product as any)?.image_url ??
       (product as any)?.images?.[0];
 
-    return (
-      value ||
-      "/images/placeholder-product.webp"
-    );
+    return value || "/images/placeholder-product.webp";
   }
 
   /* =======================================================
      NOM
   ======================================================= */
 
-  function getProductName(
-    product: Product
-  ) {
-    return (
-      product.name ||
-      "Article"
-    );
+  function getProductName(product: Product) {
+    return product.name || "Article";
   }
 
   /* =======================================================
      PRIX
   ======================================================= */
 
-  function formatPrice(
-    value: unknown
-  ) {
-    const number =
-      Number(value);
+  function formatPrice(value: unknown) {
+    const number = Number(value);
 
-    if (
-      !Number.isFinite(number)
-    ) {
+    if (!Number.isFinite(number)) {
       return "";
     }
 
-    return `${number.toLocaleString(
-      "fr-DZ"
-    )} DA`;
+    return `${number.toLocaleString("fr-DZ")} DA`;
   }
 
   /* =======================================================
      RECHERCHE
   ======================================================= */
 
-  function handleSearch(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const value =
-      search.trim();
+    const value = search.trim();
 
     if (!value) return;
 
     setSearchFocused(false);
     setSuggestions([]);
 
-    window.location.href =
-      `/articles?recherche=${encodeURIComponent(
-        value
-      )}`;
+    window.location.href = `/articles?recherche=${encodeURIComponent(
+      value
+    )}`;
   }
 
   /* =======================================================
@@ -1857,9 +1642,7 @@ function HeaderContent() {
               md:block
             `}
           >
-            <form
-              onSubmit={handleSearch}
-            >
+            <form onSubmit={handleSearch}>
               <div
                 className={`
                   flex
@@ -1885,13 +1668,9 @@ function HeaderContent() {
                 <input
                   type="search"
                   value={search}
-                  onFocus={() =>
-                    setSearchFocused(true)
-                  }
+                  onFocus={() => setSearchFocused(true)}
                   onChange={(event) =>
-                    setSearch(
-                      event.target.value
-                    )
+                    setSearch(event.target.value)
                   }
                   placeholder={text(
                     "Rechercher PC, souris, clavier, casque...",
@@ -1918,10 +1697,7 @@ function HeaderContent() {
                       setSearch("");
                       setSuggestions([]);
                     }}
-                    aria-label={text(
-                      "Effacer",
-                      "مسح"
-                    )}
+                    aria-label={text("Effacer", "مسح")}
                     className={`
                       flex
                       h-8
@@ -1973,155 +1749,120 @@ function HeaderContent() {
                         text-slate-400
                       `}
                     >
-                      {text(
-                        "Suggestions",
-                        "اقتراحات"
-                      )}
+                      {text("Suggestions", "اقتراحات")}
                     </span>
                   </div>
 
                   <div className="space-y-1">
-                    {suggestions.map(
-                      (product) => (
-                        <Link
-                          key={
-                            product.id ??
-                            product.slug
-                          }
-                          href={getProductHref(
-                            product
-                          )}
-                          onClick={
-                            handleSuggestionClick
-                          }
+                    {suggestions.map((product) => (
+                      <Link
+                        key={product.id ?? product.slug}
+                        href={getProductHref(product)}
+                        onClick={handleSuggestionClick}
+                        className={`
+                          group
+                          flex
+                          items-center
+                          gap-3
+                          rounded-2xl
+                          p-2.5
+                          transition
+                          hover:bg-blue-50
+                        `}
+                      >
+                        <div
                           className={`
-                            group
-                            flex
-                            items-center
-                            gap-3
-                            rounded-2xl
-                            p-2.5
-                            transition
-                            hover:bg-blue-50
+                            relative
+                            h-14
+                            w-14
+                            shrink-0
+                            overflow-hidden
+                            rounded-xl
+                            border
+                            border-slate-100
+                            bg-white
                           `}
                         >
-                          <div
+                          <Image
+                            src={getProductImage(product)}
+                            alt={getProductName(product)}
+                            fill
+                            sizes="56px"
+                            unoptimized
+                            className="object-contain p-1.5"
+                          />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p
                             className={`
-                              relative
-                              h-14
-                              w-14
-                              shrink-0
-                              overflow-hidden
-                              rounded-xl
-                              border
-                              border-slate-100
-                              bg-white
+                              truncate
+                              text-[12px]
+                              font-black
+                              text-slate-800
+                              group-hover:text-blue-700
                             `}
                           >
-                            <Image
-                              src={getProductImage(
-                                product
-                              )}
-                              alt={getProductName(
-                                product
-                              )}
-                              fill
-                              sizes="56px"
-                              unoptimized
-                              className="object-contain p-1.5"
-                            />
-                          </div>
+                            {getProductName(product)}
+                          </p>
 
-                          <div className="min-w-0 flex-1">
+                          {(product as any).brand && (
                             <p
                               className={`
+                                mt-0.5
                                 truncate
-                                text-[12px]
-                                font-black
-                                text-slate-800
-                                group-hover:text-blue-700
+                                text-[10px]
+                                font-semibold
+                                text-slate-400
                               `}
                             >
-                              {getProductName(
-                                product
-                              )}
+                              {typeof (product as any).brand === "string"
+                                ? (product as any).brand
+                                : (product as any).brand?.name ??
+                                  (product as any).brandName}
                             </p>
+                          )}
 
-                            {(product as any)
-                              .brand && (
-                              <p
-                                className={`
-                                  mt-0.5
-                                  truncate
-                                  text-[10px]
-                                  font-semibold
-                                  text-slate-400
-                                `}
-                              >
-                                {typeof (
-                                  product as any
-                                ).brand ===
-                                "string"
-                                  ? (
-                                      product as any
-                                    ).brand
-                                  : (
-                                      product as any
-                                    ).brand?.name ??
-                                    (
-                                      product as any
-                                    ).brandName}
-                              </p>
-                            )}
+                          {product.price != null && (
+                            <p
+                              className={`
+                                mt-1
+                                text-[11px]
+                                font-black
+                                text-blue-600
+                              `}
+                            >
+                              {formatPrice(product.price)}
+                            </p>
+                          )}
+                        </div>
 
-                            {product.price !=
-                              null && (
-                              <p
-                                className={`
-                                  mt-1
-                                  text-[11px]
-                                  font-black
-                                  text-blue-600
-                                `}
-                              >
-                                {formatPrice(
-                                  product.price
-                                )}
-                              </p>
-                            )}
-                          </div>
-
-                          <span
-                            className={`
-                              shrink-0
-                              text-slate-300
-                              transition
-                              group-hover:text-blue-500
-                            `}
-                          >
-                            →
-                          </span>
-                        </Link>
-                      )
-                    )}
+                        <span
+                          className={`
+                            shrink-0
+                            text-slate-300
+                            transition
+                            group-hover:text-blue-500
+                          `}
+                        >
+                          →
+                        </span>
+                      </Link>
+                    ))}
                   </div>
 
                   <button
                     type="button"
                     onClick={() => {
-                      const value =
-                        search.trim();
+                      const value = search.trim();
 
                       if (!value) return;
 
-                      setSearchFocused(
-                        false
-                      );
+                      setSearchFocused(false);
 
-                      window.location.href =
-                        `/articles?recherche=${encodeURIComponent(
-                          value
-                        )}`;
+                      window.location.href = `/articles?recherche=${encodeURIComponent(
+                        value
+                      )}`;
                     }}
                     className={`
                       mt-2
@@ -2195,10 +1936,7 @@ function HeaderContent() {
 
             <Link
               href="/favoris"
-              aria-label={text(
-                "Favoris",
-                "المفضلة"
-              )}
+              aria-label={text("Favoris", "المفضلة")}
               className={`relative hidden h-11 w-11 items-center justify-center rounded-2xl border transition md:flex ${
                 favoriteActive
                   ? "border-rose-200 bg-rose-50 text-rose-500"
@@ -2207,11 +1945,7 @@ function HeaderContent() {
             >
               <Heart
                 size={18}
-                className={
-                  favoriteActive
-                    ? "fill-rose-500"
-                    : ""
-                }
+                className={favoriteActive ? "fill-rose-500" : ""}
               />
 
               {favoritesCount > 0 && (
@@ -2235,9 +1969,7 @@ function HeaderContent() {
                     text-white
                   `}
                 >
-                  {favoritesCount > 99
-                    ? "99+"
-                    : favoritesCount}
+                  {favoritesCount > 99 ? "99+" : favoritesCount}
                 </span>
               )}
             </Link>
@@ -2246,9 +1978,7 @@ function HeaderContent() {
 
             <button
               type="button"
-              onClick={() =>
-                setCartDrawerOpen(true)
-              }
+              onClick={() => setCartDrawerOpen(true)}
               aria-label={text(
                 "Ouvrir le panier",
                 "فتح السلة"
@@ -2282,9 +2012,7 @@ function HeaderContent() {
                     text-white
                   `}
                 >
-                  {cartCount > 99
-                    ? "99+"
-                    : cartCount}
+                  {cartCount > 99 ? "99+" : cartCount}
                 </span>
               )}
             </button>
@@ -2294,23 +2022,13 @@ function HeaderContent() {
             <motion.button
               type="button"
               onClick={() =>
-                setMobileMenuOpen(
-                  (value) => !value
-                )
+                setMobileMenuOpen((value) => !value)
               }
-              aria-expanded={
-                mobileMenuOpen
-              }
+              aria-expanded={mobileMenuOpen}
               aria-label={
                 mobileMenuOpen
-                  ? text(
-                      "Fermer le menu",
-                      "إغلاق القائمة"
-                    )
-                  : text(
-                      "Ouvrir le menu",
-                      "فتح القائمة"
-                    )
+                  ? text("Fermer le menu", "إغلاق القائمة")
+                  : text("Ouvrir le menu", "فتح القائمة")
               }
               whileTap={{
                 scale: 0.9,
@@ -2321,10 +2039,7 @@ function HeaderContent() {
                   : "border-slate-200 bg-white text-slate-700"
               }`}
             >
-              <AnimatePresence
-                mode="wait"
-                initial={false}
-              >
+              <AnimatePresence mode="wait" initial={false}>
                 {mobileMenuOpen ? (
                   <motion.span
                     key="close"
@@ -2422,13 +2137,9 @@ function HeaderContent() {
             <input
               type="search"
               value={search}
-              onFocus={() =>
-                setSearchFocused(true)
-              }
+              onFocus={() => setSearchFocused(true)}
               onChange={(event) =>
-                setSearch(
-                  event.target.value
-                )
+                setSearch(event.target.value)
               }
               placeholder={text(
                 "Rechercher un produit...",
@@ -2453,10 +2164,7 @@ function HeaderContent() {
                   setSearch("");
                   setSuggestions([]);
                 }}
-                aria-label={text(
-                  "Effacer",
-                  "مسح"
-                )}
+                aria-label={text("Effacer", "مسح")}
                 className={`
                   flex
                   h-8
@@ -2507,99 +2215,74 @@ function HeaderContent() {
                       text-slate-400
                     `}
                   >
-                    {text(
-                      "Suggestions",
-                      "اقتراحات"
-                    )}
+                    {text("Suggestions", "اقتراحات")}
                   </span>
                 </div>
 
                 <div className="space-y-1">
-                  {suggestions.map(
-                    (product) => (
-                      <Link
-                        key={
-                          product.id ??
-                          product.slug
-                        }
-                        href={getProductHref(
-                          product
-                        )}
-                        onClick={
-                          handleSuggestionClick
-                        }
+                  {suggestions.map((product) => (
+                    <Link
+                      key={product.id ?? product.slug}
+                      href={getProductHref(product)}
+                      onClick={handleSuggestionClick}
+                      className={`
+                        flex
+                        items-center
+                        gap-3
+                        rounded-xl
+                        p-2
+                        transition
+                        active:bg-blue-50
+                      `}
+                    >
+                      <div
                         className={`
-                          flex
-                          items-center
-                          gap-3
+                          relative
+                          h-12
+                          w-12
+                          shrink-0
+                          overflow-hidden
                           rounded-xl
-                          p-2
-                          transition
-                          active:bg-blue-50
+                          bg-white
                         `}
                       >
-                        <div
-                          className={`
-                            relative
-                            h-12
-                            w-12
-                            shrink-0
-                            overflow-hidden
-                            rounded-xl
-                            bg-white
-                          `}
-                        >
-                          <Image
-                            src={getProductImage(
-                              product
-                            )}
-                            alt={getProductName(
-                              product
-                            )}
-                            fill
-                            sizes="48px"
-                            unoptimized
-                            className="object-contain p-1"
-                          />
-                        </div>
+                        <Image
+                          src={getProductImage(product)}
+                          alt={getProductName(product)}
+                          fill
+                          sizes="48px"
+                          unoptimized
+                          className="object-contain p-1"
+                        />
+                      </div>
 
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[11px] font-black text-slate-800">
-                            {getProductName(
-                              product
-                            )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[11px] font-black text-slate-800">
+                          {getProductName(product)}
+                        </p>
+
+                        {product.price != null && (
+                          <p className="mt-1 text-[10px] font-black text-blue-600">
+                            {formatPrice(product.price)}
                           </p>
-
-                          {product.price !=
-                            null && (
-                            <p className="mt-1 text-[10px] font-black text-blue-600">
-                              {formatPrice(
-                                product.price
-                              )}
-                            </p>
-                          )}
-                        </div>
-                      </Link>
-                    )
-                  )}
+                        )}
+                      </div>
+                    </Link>
+                  ))}
                 </div>
 
                 <button
                   type="button"
                   onClick={() => {
-                    const value =
-                      search.trim();
+                    const value = search.trim();
 
                     if (!value) return;
 
-                    setSearchFocused(
-                      false
-                    );
+                    setSearchFocused(false);
 
-                    window.location.href =
-                      `/articles?recherche=${encodeURIComponent(
-                        value
-                      )}`;
+                    window.location.href = `/articles?recherche=${encodeURIComponent(
+                      value
+                    )}`;
                   }}
                   className={`
                     mt-2
@@ -2656,16 +2339,9 @@ function HeaderContent() {
           >
             <NavLink
               href="/"
-              active={
-                pathname === "/"
-              }
-              icon={
-                <Home size={14} />
-              }
-              label={text(
-                "Accueil",
-                "الرئيسية"
-              )}
+              active={pathname === "/"}
+              icon={<Home size={14} />}
+              label={text("Accueil", "الرئيسية")}
             />
 
             <NavLink
@@ -2675,13 +2351,8 @@ function HeaderContent() {
                 !currentCategory &&
                 !currentBrand
               }
-              icon={
-                <Laptop size={14} />
-              }
-              label={text(
-                "Catalogue",
-                "الكتالوج"
-              )}
+              icon={<Laptop size={14} />}
+              label={text("Catalogue", "الكتالوج")}
             />
 
             {/* CATEGORIES */}
@@ -2701,9 +2372,7 @@ function HeaderContent() {
               <button
                 type="button"
                 onClick={() => {
-                  setCategoriesOpen(
-                    (v) => !v
-                  );
+                  setCategoriesOpen((v) => !v);
                   setBrandsOpen(false);
                 }}
                 className={`flex h-9 items-center gap-2 rounded-xl px-3 transition ${
@@ -2714,26 +2383,19 @@ function HeaderContent() {
               >
                 <Cpu size={14} />
 
-                {text(
-                  "Catégories",
-                  "الفئات"
-                )}
+                {text("Catégories", "الفئات")}
 
                 <ChevronDown
                   size={13}
                   className={`transition ${
-                    categoriesOpen
-                      ? "rotate-180"
-                      : ""
+                    categoriesOpen ? "rotate-180" : ""
                   }`}
                 />
               </button>
 
               {categoriesOpen && (
                 <div
-                  onMouseEnter={() =>
-                    setCategoriesOpen(true)
-                  }
+                  onMouseEnter={() => setCategoriesOpen(true)}
                   className={`
                     absolute
                     start-1/2
@@ -2774,45 +2436,30 @@ function HeaderContent() {
                   </Link>
 
                   <div className="grid grid-cols-2 gap-2">
-                    {categories.map(
-                      (category) => {
-                        const Icon =
-                          getCategoryIcon(
+                    {categories.map((category) => {
+                      const Icon = getCategoryIcon(category.slug);
+
+                      return (
+                        <Link
+                          key={category.id ?? category.slug}
+                          href={`/articles?categorie=${encodeURIComponent(
                             category.slug
-                          );
+                          )}`}
+                          onClick={() => setCategoriesOpen(false)}
+                          className={`flex min-h-[48px] items-center gap-3 rounded-2xl px-4 py-3 text-[11px] font-semibold transition-colors ${
+                            currentCategory === category.slug
+                              ? "bg-blue-50 text-blue-700"
+                              : "hover:bg-slate-50"
+                          }`}
+                        >
+                          <Icon size={14} />
 
-                        return (
-                          <Link
-                            key={
-                              category.id ??
-                              category.slug
-                            }
-                            href={`/articles?categorie=${encodeURIComponent(
-                              category.slug
-                            )}`}
-                            onClick={() =>
-                              setCategoriesOpen(
-                                false
-                              )
-                            }
-                            className={`flex min-h-[48px] items-center gap-3 rounded-2xl px-4 py-3 text-[11px] font-semibold transition-colors ${
-                              currentCategory ===
-                              category.slug
-                                ? "bg-blue-50 text-blue-700"
-                                : "hover:bg-slate-50"
-                            }`}
-                          >
-                            <Icon size={14} />
-
-                            <span className="whitespace-nowrap text-slate-700">
-                              {
-                                category.label
-                              }
-                            </span>
-                          </Link>
-                        );
-                      }
-                    )}
+                          <span className="whitespace-nowrap text-slate-700">
+                            {category.label}
+                          </span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -2835,12 +2482,8 @@ function HeaderContent() {
               <button
                 type="button"
                 onClick={() => {
-                  setBrandsOpen(
-                    (v) => !v
-                  );
-                  setCategoriesOpen(
-                    false
-                  );
+                  setBrandsOpen((v) => !v);
+                  setCategoriesOpen(false);
                 }}
                 className={`flex h-9 items-center gap-2 rounded-xl px-3 transition ${
                   currentBrand
@@ -2850,26 +2493,19 @@ function HeaderContent() {
               >
                 <Cable size={14} />
 
-                {text(
-                  "Marques",
-                  "العلامات"
-                )}
+                {text("Marques", "العلامات")}
 
                 <ChevronDown
                   size={13}
                   className={`transition ${
-                    brandsOpen
-                      ? "rotate-180"
-                      : ""
+                    brandsOpen ? "rotate-180" : ""
                   }`}
                 />
               </button>
 
               {brandsOpen && (
                 <div
-                  onMouseEnter={() =>
-                    setBrandsOpen(true)
-                  }
+                  onMouseEnter={() => setBrandsOpen(true)}
                   className={`
                     absolute
                     start-1/2
@@ -2909,56 +2545,40 @@ function HeaderContent() {
                   </Link>
 
                   <div className="grid grid-cols-3 gap-3">
-                    {visibleBrands.map(
-                      (brand) => (
-                        <Link
-                          key={
-                            brand.id ??
-                            brand.slug
-                          }
-                          href={`/articles?marque=${encodeURIComponent(
-                            brand.slug
-                          )}`}
-                          onClick={() =>
-                            setBrandsOpen(
-                              false
-                            )
-                          }
-                          className={`group flex min-h-[92px] flex-col items-center justify-center rounded-2xl border px-3 py-3 text-center transition-all ${
-                            currentBrand ===
-                            brand.slug
-                              ? "border-blue-200 bg-blue-50 text-blue-700 shadow-sm"
-                              : "border-slate-100 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:shadow-sm"
-                          }`}
-                        >
-                          {brand.logo ? (
-                            <div className="relative mb-2 h-9 w-20 shrink-0">
-                              <Image
-                                src={brand.logo}
-                                alt={
-                                  brand.name ||
-                                  ""
-                                }
-                                fill
-                                sizes="80px"
-                                className="object-contain transition-transform duration-200 group-hover:scale-105"
-                              />
-                            </div>
-                          ) : (
-                            <div className="mb-2 flex h-9 w-20 items-center justify-center rounded-xl bg-slate-50 text-[10px] font-black text-slate-400">
-                              {brand.name?.slice(
-                                0,
-                                10
-                              )}
-                            </div>
-                          )}
+                    {visibleBrands.map((brand) => (
+                      <Link
+                        key={brand.id ?? brand.slug}
+                        href={`/articles?marque=${encodeURIComponent(
+                          brand.slug
+                        )}`}
+                        onClick={() => setBrandsOpen(false)}
+                        className={`group flex min-h-[92px] flex-col items-center justify-center rounded-2xl border px-3 py-3 text-center transition-all ${
+                          currentBrand === brand.slug
+                            ? "border-blue-200 bg-blue-50 text-blue-700 shadow-sm"
+                            : "border-slate-100 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50/60 hover:shadow-sm"
+                        }`}
+                      >
+                        {brand.logo ? (
+                          <div className="relative mb-2 h-9 w-20 shrink-0">
+                            <Image
+                              src={brand.logo}
+                              alt={brand.name || ""}
+                              fill
+                              sizes="80px"
+                              className="object-contain transition-transform duration-200 group-hover:scale-105"
+                            />
+                          </div>
+                        ) : (
+                          <div className="mb-2 flex h-9 w-20 items-center justify-center rounded-xl bg-slate-50 text-[10px] font-black text-slate-400">
+                            {brand.name?.slice(0, 10)}
+                          </div>
+                        )}
 
-                          <span className="whitespace-nowrap text-[10px] font-black">
-                            {brand.name}
-                          </span>
-                        </Link>
-                      )
-                    )}
+                        <span className="whitespace-nowrap text-[10px] font-black">
+                          {brand.name}
+                        </span>
+                      </Link>
+                    ))}
                   </div>
                 </div>
               )}
@@ -2967,14 +2587,18 @@ function HeaderContent() {
             <NavLink
               href="/promotions"
               active={promoActive}
-              icon={
-                <Sparkles size={14} />
-              }
-              label={text(
-                "Promotions",
-                "العروض"
-              )}
+              icon={<Sparkles size={14} />}
+              label={text("Promotions", "العروض")}
               danger
+            />
+
+            {/* NOUVEAU : RÉPARATION */}
+
+            <NavLink
+              href="/reparation"
+              active={repairActive}
+              icon={<Wrench size={14} />}
+              label={text("Réparation", "الإصلاح")}
             />
           </nav>
         </div>
@@ -3002,18 +2626,10 @@ function HeaderContent() {
                 bg-slate-950/55
                 backdrop-blur-md
               `}
-              initial={{
-                opacity: 0,
-              }}
-              animate={{
-                opacity: 1,
-              }}
-              exit={{
-                opacity: 0,
-              }}
-              transition={{
-                duration: 0.22,
-              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
             />
 
             {/* DRAWER */}
@@ -3021,9 +2637,7 @@ function HeaderContent() {
             <motion.aside
               data-mobile-menu="open"
               initial={{
-                x: isArabic
-                  ? "-105%"
-                  : "105%",
+                x: isArabic ? "-105%" : "105%",
                 opacity: 0,
               }}
               animate={{
@@ -3031,9 +2645,7 @@ function HeaderContent() {
                 opacity: 1,
               }}
               exit={{
-                x: isArabic
-                  ? "-105%"
-                  : "105%",
+                x: isArabic ? "-105%" : "105%",
                 opacity: 0,
               }}
               transition={{
@@ -3045,9 +2657,7 @@ function HeaderContent() {
               className={`
                 absolute
                 inset-y-0
-                ${isArabic
-                  ? "start-0"
-                  : "end-0"}
+                ${isArabic ? "start-0" : "end-0"}
                 flex
                 w-[min(92vw,410px)]
                 flex-col
@@ -3166,10 +2776,7 @@ function HeaderContent() {
                       "إغلاق القائمة"
                     )}
                   >
-                    <X
-                      size={20}
-                      strokeWidth={2.2}
-                    />
+                    <X size={20} strokeWidth={2.2} />
                   </motion.button>
                 </div>
 
@@ -3228,9 +2835,7 @@ function HeaderContent() {
                     opacity: 1,
                     y: 0,
                   }}
-                  transition={{
-                    delay: 0.1,
-                  }}
+                  transition={{ delay: 0.1 }}
                   className={`
                     mb-4
                     rounded-2xl
@@ -3250,19 +2855,9 @@ function HeaderContent() {
                   <DrawerItem delay={0.12}>
                     <MobileLink
                       href="/"
-                      active={
-                        pathname === "/"
-                      }
-                      icon={
-                        <Home
-                          size={19}
-                          strokeWidth={2.4}
-                        />
-                      }
-                      label={text(
-                        "Accueil",
-                        "الرئيسية"
-                      )}
+                      active={pathname === "/"}
+                      icon={<Home size={19} strokeWidth={2.4} />}
+                      label={text("Accueil", "الرئيسية")}
                     />
                   </DrawerItem>
 
@@ -3274,12 +2869,7 @@ function HeaderContent() {
                         !currentCategory &&
                         !currentBrand
                       }
-                      icon={
-                        <Laptop
-                          size={19}
-                          strokeWidth={2.4}
-                        />
-                      }
+                      icon={<Laptop size={19} strokeWidth={2.4} />}
                       label={text(
                         "Tout le catalogue",
                         "كل الكتالوج"
@@ -3291,36 +2881,32 @@ function HeaderContent() {
                     <MobileLink
                       href="/promotions"
                       active={promoActive}
-                      icon={
-                        <Sparkles
-                          size={19}
-                          strokeWidth={2.4}
-                        />
-                      }
-                      label={text(
-                        "Promotions",
-                        "العروض"
-                      )}
+                      icon={<Sparkles size={19} strokeWidth={2.4} />}
+                      label={text("Promotions", "العروض")}
                       accent
                     />
                   </DrawerItem>
 
+                  {/* NOUVEAU : RÉPARATION */}
+
                   <DrawerItem delay={0.21}>
                     <MobileLink
+                      href="/reparation"
+                      active={repairActive}
+                      icon={<Wrench size={19} strokeWidth={2.4} />}
+                      label={text(
+                        "Service Réparation",
+                        "خدمة الإصلاح"
+                      )}
+                    />
+                  </DrawerItem>
+
+                  <DrawerItem delay={0.24}>
+                    <MobileLink
                       href="/favoris"
-                      active={
-                        favoriteActive
-                      }
-                      icon={
-                        <Heart
-                          size={19}
-                          strokeWidth={2.4}
-                        />
-                      }
-                      label={`${text(
-                        "Favoris",
-                        "المفضلة"
-                      )}${
+                      active={favoriteActive}
+                      icon={<Heart size={19} strokeWidth={2.4} />}
+                      label={`${text("Favoris", "المفضلة")}${
                         favoritesCount
                           ? ` · ${favoritesCount}`
                           : ""
@@ -3328,17 +2914,13 @@ function HeaderContent() {
                     />
                   </DrawerItem>
 
-                  <DrawerItem delay={0.24}>
+                  <DrawerItem delay={0.27}>
                     <motion.button
                       type="button"
-                      whileTap={{
-                        scale: 0.985,
-                      }}
+                      whileTap={{ scale: 0.985 }}
                       onClick={() => {
                         closeMobileMenu();
-                        setCartDrawerOpen(
-                          true
-                        );
+                        setCartDrawerOpen(true);
                       }}
                       className={`relative flex w-full items-center gap-3 overflow-hidden rounded-[20px] px-4 py-4 text-sm font-black transition ${
                         cartActive
@@ -3353,18 +2935,12 @@ function HeaderContent() {
                             : "bg-blue-50 text-blue-600"
                         }`}
                       >
-                        <ShoppingBag
-                          size={19}
-                          strokeWidth={2.4}
-                        />
+                        <ShoppingBag size={19} strokeWidth={2.4} />
                       </span>
 
                       <span className="flex min-w-0 flex-1 flex-col text-start">
                         <span>
-                          {text(
-                            "Mon panier",
-                            "سلتي"
-                          )}
+                          {text("Mon panier", "سلتي")}
                         </span>
 
                         <span
@@ -3394,9 +2970,7 @@ function HeaderContent() {
                               : "bg-slate-950 text-white"
                           }`}
                         >
-                          {cartCount > 99
-                            ? "99+"
-                            : cartCount}
+                          {cartCount > 99 ? "99+" : cartCount}
                         </span>
                       )}
                     </motion.button>
@@ -3415,33 +2989,23 @@ function HeaderContent() {
                       opacity: 1,
                       y: 0,
                     }}
-                    transition={{
-                      delay: 0.28,
-                    }}
+                    transition={{ delay: 0.28 }}
                     className="mt-7"
                   >
                     <div className="mb-3 flex items-center justify-between px-1">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                          {text(
-                            "Explorer",
-                            "استكشف"
-                          )}
+                          {text("Explorer", "استكشف")}
                         </p>
 
                         <h3 className="mt-0.5 text-sm font-black text-slate-900">
-                          {text(
-                            "Catégories",
-                            "الفئات"
-                          )}
+                          {text("Catégories", "الفئات")}
                         </h3>
                       </div>
 
                       <Link
                         href="/articles"
-                        onClick={
-                          closeMobileMenu
-                        }
+                        onClick={closeMobileMenu}
                         className={`
                           rounded-full
                           bg-blue-50
@@ -3452,93 +3016,64 @@ function HeaderContent() {
                           text-blue-600
                         `}
                       >
-                        {text(
-                          "Voir tout",
-                          "عرض الكل"
-                        )}
+                        {text("Voir tout", "عرض الكل")}
                       </Link>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
-                      {categories.map(
-                        (
-                          category,
-                          index
-                        ) => {
-                          const Icon =
-                            getCategoryIcon(
-                              category.slug
-                            );
+                      {categories.map((category, index) => {
+                        const Icon = getCategoryIcon(category.slug);
 
-                          return (
-                            <motion.div
-                              key={
-                                category.id ??
+                        return (
+                          <motion.div
+                            key={category.id ?? category.slug}
+                            initial={{
+                              opacity: 0,
+                              y: 8,
+                            }}
+                            animate={{
+                              opacity: 1,
+                              y: 0,
+                            }}
+                            transition={{
+                              delay: 0.3 + index * 0.025,
+                            }}
+                          >
+                            <Link
+                              href={`/articles?categorie=${encodeURIComponent(
                                 category.slug
-                              }
-                              initial={{
-                                opacity: 0,
-                                y: 8,
-                              }}
-                              animate={{
-                                opacity: 1,
-                                y: 0,
-                              }}
-                              transition={{
-                                delay:
-                                  0.3 +
-                                  index *
-                                    0.025,
-                              }}
+                              )}`}
+                              onClick={closeMobileMenu}
+                              className={`group flex min-h-[72px] items-center gap-3 rounded-[20px] p-3 transition active:scale-[0.98] ${
+                                currentCategory === category.slug
+                                  ? "bg-blue-600 text-white shadow-[0_12px_25px_rgba(37,99,235,0.22)]"
+                                  : "bg-white text-slate-700 shadow-[0_7px_24px_rgba(15,23,42,0.05)] ring-1 ring-slate-100"
+                              }`}
                             >
-                              <Link
-                                href={`/articles?categorie=${encodeURIComponent(
-                                  category.slug
-                                )}`}
-                                onClick={
-                                  closeMobileMenu
-                                }
-                                className={`group flex min-h-[72px] items-center gap-3 rounded-[20px] p-3 transition active:scale-[0.98] ${
-                                  currentCategory ===
-                                  category.slug
-                                    ? "bg-blue-600 text-white shadow-[0_12px_25px_rgba(37,99,235,0.22)]"
-                                    : "bg-white text-slate-700 shadow-[0_7px_24px_rgba(15,23,42,0.05)] ring-1 ring-slate-100"
+                              <span
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                                  currentCategory === category.slug
+                                    ? "bg-white/15 text-white"
+                                    : "bg-slate-50 text-blue-600"
                                 }`}
                               >
-                                <span
-                                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
-                                    currentCategory ===
-                                    category.slug
-                                      ? "bg-white/15 text-white"
-                                      : "bg-slate-50 text-blue-600"
-                                  }`}
-                                >
-                                  <Icon
-                                    size={17}
-                                    strokeWidth={
-                                      2.3
-                                    }
-                                  />
-                                </span>
+                                <Icon size={17} strokeWidth={2.3} />
+                              </span>
 
-                                <span className="min-w-0 truncate text-[10px] font-black leading-tight">
-                                  {
-                                    category.label
-                                  }
-                                </span>
-                              </Link>
-                            </motion.div>
-                          );
-                        }
-                      )}
+                              <span className="min-w-0 truncate text-[10px] font-black leading-tight">
+                                {category.label}
+                              </span>
+                            </Link>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </motion.section>
                 )}
 
                 {/* BRANDS */}
 
-                {visibleBrands.length >
-                  0 && (
+                {visibleBrands.length > 0 && (
                   <motion.section
                     initial={{
                       opacity: 0,
@@ -3548,17 +3083,12 @@ function HeaderContent() {
                       opacity: 1,
                       y: 0,
                     }}
-                    transition={{
-                      delay: 0.4,
-                    }}
+                    transition={{ delay: 0.4 }}
                     className="mt-7"
                   >
                     <div className="mb-3 px-1">
                       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                        {text(
-                          "Les marques",
-                          "العلامات"
-                        )}
+                        {text("Les marques", "العلامات")}
                       </p>
 
                       <h3 className="mt-0.5 text-sm font-black text-slate-900">
@@ -3570,71 +3100,50 @@ function HeaderContent() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {visibleBrands.map(
-                        (
-                          brand,
-                          index
-                        ) => (
-                          <motion.div
-                            key={
-                              brand.id ??
+                      {visibleBrands.map((brand, index) => (
+                        <motion.div
+                          key={brand.id ?? brand.slug}
+                          initial={{
+                            opacity: 0,
+                            scale: 0.92,
+                          }}
+                          animate={{
+                            opacity: 1,
+                            scale: 1,
+                          }}
+                          transition={{
+                            delay: 0.42 + index * 0.025,
+                          }}
+                        >
+                          <Link
+                            href={`/articles?marque=${encodeURIComponent(
                               brand.slug
-                            }
-                            initial={{
-                              opacity: 0,
-                              scale: 0.92,
-                            }}
-                            animate={{
-                              opacity: 1,
-                              scale: 1,
-                            }}
-                            transition={{
-                              delay:
-                                0.42 +
-                                index *
-                                  0.025,
-                            }}
+                            )}`}
+                            onClick={closeMobileMenu}
+                            className={`inline-flex items-center gap-2 rounded-full px-3 py-2.5 text-[10px] font-black transition active:scale-95 ${
+                              currentBrand === brand.slug
+                                ? "bg-slate-950 text-white shadow-lg"
+                                : "bg-white text-slate-700 ring-1 ring-slate-200"
+                            }`}
                           >
-                            <Link
-                              href={`/articles?marque=${encodeURIComponent(
-                                brand.slug
-                              )}`}
-                              onClick={
-                                closeMobileMenu
-                              }
-                              className={`inline-flex items-center gap-2 rounded-full px-3 py-2.5 text-[10px] font-black transition active:scale-95 ${
-                                currentBrand ===
-                                brand.slug
-                                  ? "bg-slate-950 text-white shadow-lg"
-                                  : "bg-white text-slate-700 ring-1 ring-slate-200"
-                              }`}
-                            >
-                              {brand.logo && (
-                                <span className="relative h-5 w-8 shrink-0">
-                                  <Image
-                                    src={
-                                      brand.logo
-                                    }
-                                    alt={
-                                      brand.name ||
-                                      ""
-                                    }
-                                    fill
-                                    sizes="32px"
-                                    className="object-contain"
-                                  />
-                                </span>
-                              )}
-
-                              <span className="max-w-[100px] truncate">
-                                {
-                                  brand.name
-                                }
+                            {brand.logo && (
+                              <span className="relative h-5 w-8 shrink-0">
+                                <Image
+                                  src={brand.logo}
+                                  alt={brand.name || ""}
+                                  fill
+                                  sizes="32px"
+                                  className="object-contain"
+                                />
                               </span>
-                            </Link>
-                          </motion.div>
-                        )
-                      )}
+                            )}
+
+                            <span className="max-w-[100px] truncate">
+                              {brand.name}
+                            </span>
+                          </Link>
+                        </motion.div>
+                      ))}
                     </div>
                   </motion.section>
                 )}
@@ -3650,9 +3159,7 @@ function HeaderContent() {
                     opacity: 1,
                     y: 0,
                   }}
-                  transition={{
-                    delay: 0.55,
-                  }}
+                  transition={{ delay: 0.55 }}
                   className={`
                     mt-8
                     rounded-[24px]
@@ -3713,50 +3220,24 @@ function HeaderContent() {
           <div className="grid grid-cols-5 items-center gap-1">
             <BottomLink
               href="/"
-              active={
-                pathname === "/"
-              }
-              icon={
-                <Home
-                  size={19}
-                  strokeWidth={2.2}
-                />
-              }
-              label={text(
-                "Accueil",
-                "الرئيسية"
-              )}
+              active={pathname === "/"}
+              icon={<Home size={19} strokeWidth={2.2} />}
+              label={text("Accueil", "الرئيسية")}
             />
 
             <BottomLink
               href="/articles"
-              active={
-                catalogActive
-              }
-              icon={
-                <Laptop
-                  size={19}
-                  strokeWidth={2.2}
-                />
-              }
-              label={text(
-                "Catalogue",
-                "الكتالوج"
-              )}
+              active={catalogActive}
+              icon={<Laptop size={19} strokeWidth={2.2} />}
+              label={text("Catalogue", "الكتالوج")}
             />
 
             {/* CART */}
 
             <motion.button
               type="button"
-              whileTap={{
-                scale: 0.88,
-              }}
-              onClick={() =>
-                setCartDrawerOpen(
-                  true
-                )
-              }
+              whileTap={{ scale: 0.88 }}
+              onClick={() => setCartDrawerOpen(true)}
               aria-label={text(
                 "Ouvrir le panier",
                 "فتح السلة"
@@ -3777,10 +3258,7 @@ function HeaderContent() {
                     : "bg-blue-600 text-white"
                 }`}
               >
-                <ShoppingBag
-                  size={21}
-                  strokeWidth={2.3}
-                />
+                <ShoppingBag size={21} strokeWidth={2.3} />
               </span>
 
               {cartCount > 0 && (
@@ -3804,89 +3282,31 @@ function HeaderContent() {
                     text-white
                   `}
                 >
-                  {cartCount > 99
-                    ? "99+"
-                    : cartCount}
+                  {cartCount > 99 ? "99+" : cartCount}
                 </span>
               )}
 
               <span className="mt-1 text-[10px] font-extrabold leading-none tracking-[-0.01em] text-slate-600">
-                {text(
-                  "Panier",
-                  "السلة"
-                )}
+                {text("Panier", "السلة")}
               </span>
             </motion.button>
 
             <BottomLink
               href="/favoris"
-              active={
-                favoriteActive
-              }
-              icon={
-                <Heart
-                  size={19}
-                  strokeWidth={2.2}
-                />
-              }
-              label={text(
-                "Favoris",
-                "المفضلة"
-              )}
-              badge={
-                favoritesCount
-              }
+              active={favoriteActive}
+              icon={<Heart size={19} strokeWidth={2.2} />}
+              label={text("Favoris", "المفضلة")}
+              badge={favoritesCount}
             />
 
-            {/* FILTRE */}
+            {/* RÉPARATION */}
 
-            <motion.button
-              type="button"
-              whileTap={{
-                scale: 0.92,
-              }}
-              onClick={() => {
-                if (pathname.startsWith("/articles")) {
-                  window.dispatchEvent(
-                    new CustomEvent("doctech:open-filters")
-                  );
-                } else {
-                  window.location.href = "/articles";
-                }
-              }}
-              aria-label={text(
-                "Ouvrir les filtres",
-                "فتح الفلاتر"
-              )}
-              className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl py-2 text-[10px] font-extrabold leading-none tracking-[-0.01em] transition ${
-                pathname.startsWith("/articles")
-                  ? "text-blue-600 active:bg-blue-50"
-                  : "text-slate-500 active:bg-slate-100"
-              }`}
-            >
-              <motion.span
-                whileTap={{
-                  rotate: 20,
-                }}
-                className={`flex h-7 w-7 items-center justify-center rounded-xl ${
-                  pathname.startsWith("/articles")
-                    ? "bg-blue-50 text-blue-600"
-                    : "text-slate-500"
-                }`}
-              >
-                <SlidersHorizontal
-                  size={19}
-                  strokeWidth={2.3}
-                />
-              </motion.span>
-
-              <span className="text-[10px] font-extrabold leading-none">
-                {text(
-                  "Filtre",
-                  "تصفية"
-                )}
-              </span>
-            </motion.button>
+            <BottomLink
+              href="/reparation"
+              active={repairActive}
+              icon={<Wrench size={19} strokeWidth={2.2} />}
+              label={text("Répar.", "إصلاح")}
+            />
           </div>
         </div>
       </nav>
@@ -3904,11 +3324,7 @@ function HeaderContent() {
 
       <CartDrawer
         open={cartDrawerOpen}
-        onClose={() =>
-          setCartDrawerOpen(
-            false
-          )
-        }
+        onClose={() => setCartDrawerOpen(false)}
       />
     </>
   );
@@ -4035,16 +3451,12 @@ function MobileLink({
         {icon}
       </span>
 
-      <span className="flex-1 text-start">
-        {label}
-      </span>
+      <span className="flex-1 text-start">{label}</span>
 
       <ChevronDown
         size={15}
         className={`-rotate-90 transition ${
-          active
-            ? "text-white/70"
-            : "text-slate-300"
+          active ? "text-white/70" : "text-slate-300"
         }`}
       />
     </Link>
@@ -4072,9 +3484,7 @@ function BottomLink({
     <Link
       href={href}
       className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl py-1.5 text-[10px] font-extrabold leading-none tracking-[-0.01em] transition ${
-        active
-          ? "bg-blue-50 text-blue-600"
-          : "text-slate-500"
+        active ? "bg-blue-50 text-blue-600" : "text-slate-500"
       }`}
     >
       <span className="relative">
@@ -4098,9 +3508,7 @@ function BottomLink({
               text-white
             `}
           >
-            {badge > 99
-              ? "99+"
-              : badge}
+            {badge > 99 ? "99+" : badge}
           </b>
         )}
       </span>
