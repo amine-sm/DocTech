@@ -231,7 +231,7 @@ function HomePageContent() {
           aria-labelledby="hero-title"
           className="relative isolate flex min-h-[720px] items-center overflow-hidden bg-slate-950"
         >
-          {/* IMAGE DE FOND — Flou léger */}
+          {/* IMAGE DE FOND — Flou réduit */}
           <div className="absolute inset-0 -z-20">
             <Image
               src="/images/hero5.png"
@@ -239,7 +239,7 @@ function HomePageContent() {
               fill
               priority
               sizes="100vw"
-              className="h-full w-full scale-105 object-cover blur-[1px]"
+              className="h-full w-full scale-105 object-cover blur-[0.4px]"
             />
           </div>
 
