@@ -1,7 +1,5 @@
 "use client";
 
-
-
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 
 import { AnimatePresence, motion } from "framer-motion";
@@ -44,7 +42,8 @@ import {
 
   Wrench,
 
-  X,Send
+  X,
+  Send,
 
 } from "lucide-react";
 
@@ -55,8 +54,6 @@ import Footer from "@/components/Footer";
 import { useLocale } from "@/components/LocaleProvider";
 
 import { createRepair, getRepairTracking } from "@/lib/repair";
-
-
 
 type RepairForm = {
 
@@ -76,31 +73,19 @@ type RepairForm = {
 
 };
 
-
-
 type TrackingEvent = {
-
   status?: string;
-
   title?: string;
-
   label?: string;
-
   description?: string;
-
   message?: string;
-
   date?: string;
-
   created_at?: string;
-
   createdAt?: string;
-
   updated_at?: string;
-
+  new_status?: string;
+  comment?: string | null;
 };
-
-
 
 type TrackingResult = {
 
@@ -126,8 +111,6 @@ type TrackingResult = {
 
 };
 
-
-
 const INITIAL_FORM: RepairForm = {
 
   firstName: "",
@@ -145,8 +128,6 @@ const INITIAL_FORM: RepairForm = {
   description: "",
 
 };
-
-
 
 const REPAIR_STEPS = [
 
@@ -232,8 +213,6 @@ const REPAIR_STEPS = [
 
 ] as const;
 
-
-
 function normalizeStatus(value: string): string {
 
   const normalized = String(value || "")
@@ -247,8 +226,6 @@ function normalizeStatus(value: string): string {
     .replace(/[\u0300-\u036f]/g, "")
 
     .replace(/[\s-]+/g, "_");
-
-
 
   const aliases: Record<string, string> = {
 
@@ -312,13 +289,9 @@ function normalizeStatus(value: string): string {
 
   };
 
-
-
   return aliases[normalized] || normalized || "en_attente";
 
 }
-
-
 
 function getStepIndex(status: string): number {
 
@@ -341,8 +314,6 @@ function getStepIndex(status: string): number {
   return 0;
 
 }
-
-
 
 function formatDate(value?: string): string {
 
@@ -368,8 +339,6 @@ function formatDate(value?: string): string {
 
 }
 
-
-
 function asText(value: unknown): string {
 
   if (value === null || value === undefined) return "";
@@ -379,8 +348,6 @@ function asText(value: unknown): string {
   return "";
 
 }
-
-
 
 export default function ReparationPage() {
 
@@ -402,8 +369,6 @@ export default function ReparationPage() {
 
   const [trackingResult, setTrackingResult] = useState<TrackingResult | null>(null);
 
-
-
   const generatedCode = useMemo(() => {
 
     if (typeof window === "undefined") return "";
@@ -411,8 +376,6 @@ export default function ReparationPage() {
     return window.sessionStorage.getItem("doctech_repair_code") || "";
 
   }, [submitted]);
-
-
 
   const handleChange = (field: keyof RepairForm, value: string) => {
 
@@ -422,15 +385,11 @@ export default function ReparationPage() {
 
   };
 
-
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
 
     event.preventDefault();
 
     setError("");
-
-
 
     if (!form.firstName.trim()) {
 
@@ -472,8 +431,6 @@ export default function ReparationPage() {
 
     }
 
-
-
     setLoading(true);
 
     try {
@@ -494,8 +451,6 @@ export default function ReparationPage() {
 
       });
 
-
-
       const code = String(
 
         response?.data?.ticket_number ??
@@ -514,15 +469,11 @@ export default function ReparationPage() {
 
       ).trim();
 
-
-
       if (!code) {
 
         throw new Error("NO_CODE");
 
       }
-
-
 
       window.sessionStorage.setItem("doctech_repair_code", code);
 
@@ -568,183 +519,63 @@ export default function ReparationPage() {
 
   };
 
-
-
   const handleTracking = async (event: FormEvent<HTMLFormElement>) => {
-
     event.preventDefault();
-
     const code = trackingCode.trim();
 
     if (!code) {
-
       setTrackingError(text("Veuillez saisir votre référence.", "يرجى إدخال رقم التتبع."));
-
       return;
-
     }
-
-
 
     setTrackingLoading(true);
-
     setTrackingError("");
-
     setTrackingResult(null);
 
-
-
     try {
-
       const payload = await getRepairTracking(code);
+      const repair = payload.repair;
 
-      if (payload?.success === false) {
+      if (!repair) throw new Error("NOT_FOUND");
 
-        throw new Error(payload?.message || "TRACKING_ERROR");
-
-      }
-
-
-
-      const repair =
-
-        payload?.repair ??
-
-        payload?.data?.repair ??
-
-        payload?.data?.data?.repair ??
-
-        payload?.data ??
-
-        payload;
-
-
-
-      const rawStatus = asText(repair?.status ?? repair?.statut ?? repair?.repair_status ?? "TICKET_CREE");
-
-      const rawHistory =
-
-        payload?.history ??
-
-        payload?.data?.history ??
-
-        payload?.data?.data?.history ??
-
-        repair?.history ??
-
-        repair?.events ??
-
-        [];
-
-
-
-      const history: TrackingEvent[] = Array.isArray(rawHistory)
-        ? rawHistory.map((event: any) => {
-            // L'API renvoie new_status (pas seulement status/statut).
-            // Sans ce champ, tous les événements étaient normalisés en "en_attente".
-            const eventStatus = asText(
-              event?.new_status ??
-              event?.newStatus ??
-              event?.status ??
-              event?.statut
-            );
-
-            return {
-              status: eventStatus,
-              // Le titre est traduit à l'affichage à partir du statut réel.
-              title: asText(event?.title ?? event?.label ?? event?.name),
-              description: asText(
-                event?.description ??
-                event?.message ??
-                event?.comment
-              ),
-              date: asText(
-                event?.created_at ??
-                event?.createdAt ??
-                event?.date ??
-                event?.updated_at
-              ),
-            };
-          })
+      const history: TrackingEvent[] = Array.isArray(payload.history)
+        ? payload.history.map((event) => ({
+            status: asText(event.new_status),
+            title: asText(event.comment) || asText(event.new_status),
+            description: asText(event.comment),
+            date: asText(event.created_at),
+          }))
         : [];
 
-
-
-      const cost =
-
-        repair?.estimated_price ??
-
-        repair?.estimated_cost ??
-
-        repair?.estimatedCost ??
-
-        repair?.prix ??
-
-        repair?.cout ??
-
-        "";
-
-
-
       setTrackingResult({
-
-        code: asText(repair?.ticket_number ?? repair?.code ?? repair?.trackingCode ?? code),
-
-        status: normalizeStatus(rawStatus),
-
-        device: asText(repair?.device ?? repair?.article ?? repair?.appareil),
-
-        problem: asText(repair?.problem ?? repair?.panne ?? repair?.type_panne),
-
-        diagnosis: asText(repair?.diagnosis ?? repair?.diagnostic),
-
-        estimatedCost: typeof cost === "number" ? cost : asText(cost),
-
-        updatedAt: asText(repair?.updated_at ?? repair?.updatedAt ?? repair?.modified_at),
-
-        createdAt: asText(repair?.created_at ?? repair?.createdAt ?? repair?.date_creation),
-
-        serialNumber: asText(repair?.serial_number ?? repair?.serialNumber ?? repair?.numero_serie),
-
+        code: asText(repair.ticket_number || code),
+        status: normalizeStatus(repair.status),
+        device: asText(repair.device),
+        problem: asText(repair.problem),
+        diagnosis: asText(repair.diagnosis),
+        estimatedCost: repair.estimated_price ?? "",
+        updatedAt: asText(repair.updated_at),
+        createdAt: asText(repair.created_at),
+        serialNumber: asText(repair.serial_number),
         history,
-
       });
-
     } catch (caught) {
-
       const message = caught instanceof Error ? caught.message : "";
-
       setTrackingError(
-
         message === "NOT_FOUND"
-
           ? text(
-
               "Aucune réparation trouvée avec cette référence.",
-
               "لم يتم العثور على طلب إصلاح بهذه المرجعية."
-
             )
-
           : text(
-
               "Impossible de récupérer le suivi. Vérifiez votre référence.",
-
               "تعذر الحصول على حالة الإصلاح. تحقق من رقم التتبع."
-
             )
-
       );
-
     } finally {
-
       setTrackingLoading(false);
-
     }
-
   };
-
-
 
   const handleReset = () => {
 
@@ -755,8 +586,6 @@ export default function ReparationPage() {
     setError("");
 
   };
-
-
 
   return (
 
@@ -775,8 +604,6 @@ export default function ReparationPage() {
           <div className="absolute left-1/2 top-[48rem] h-80 w-80 -translate-x-1/2 rounded-full bg-indigo-100/50 blur-3xl" />
 
         </div>
-
-
 
         <section className="mx-auto max-w-7xl px-4 pb-16 pt-7 sm:px-6 sm:pt-10 lg:px-8 lg:pb-24">
 
@@ -856,8 +683,6 @@ export default function ReparationPage() {
 
           </motion.div>
 
-
-
           <motion.section
 
             initial={{ opacity: 0, y: 14 }}
@@ -905,8 +730,6 @@ export default function ReparationPage() {
                 </p>
 
               </div>
-
-
 
               <form onSubmit={handleTracking} className="flex flex-col gap-3 sm:flex-row">
 
@@ -958,8 +781,6 @@ export default function ReparationPage() {
 
             </div>
 
-
-
             <AnimatePresence>
 
               {trackingError && (
@@ -990,13 +811,9 @@ export default function ReparationPage() {
 
             </AnimatePresence>
 
-
-
             {trackingResult && <TrackingCard result={trackingResult} text={text} />}
 
           </motion.section>
-
-
 
           <div className="grid items-start gap-7 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
 
@@ -1038,8 +855,6 @@ export default function ReparationPage() {
 
               </div>
 
-
-
               <div className="rounded-[28px] bg-gradient-to-br from-sky-50 via-white to-blue-50 p-6 ring-1 ring-sky-100 sm:p-7">
 
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-sky-600 shadow-sm">
@@ -1068,7 +883,7 @@ export default function ReparationPage() {
 
                 <a
 
-                  href="https://wa.me/"
+                  href="https\://wa.me/"
 
                   target="_blank"
 
@@ -1089,8 +904,6 @@ export default function ReparationPage() {
               </div>
 
             </motion.aside>
-
-
 
             <motion.div
 
@@ -1250,8 +1063,6 @@ export default function ReparationPage() {
 
                     </div>
 
-
-
                     <div className="space-y-5">
 
                       <div className="grid gap-5 sm:grid-cols-2">
@@ -1270,15 +1081,11 @@ export default function ReparationPage() {
 
                       </div>
 
-
-
                       <Field icon={<Phone size={16} />} label={text("Numéro de téléphone", "رقم الهاتف")} required>
 
                         <input type="tel" autoComplete="tel" value={form.phone} onChange={(e) => handleChange("phone", e.target.value)} placeholder="Ex. 0550 12 34 56" className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400" />
 
                       </Field>
-
-
 
                       <div className="grid gap-5 sm:grid-cols-2">
 
@@ -1296,15 +1103,11 @@ export default function ReparationPage() {
 
                       </div>
 
-
-
                       <Field icon={<AlertTriangle size={16} />} label={text("Type de panne", "نوع العطل")} required>
 
                         <input type="text" value={form.problem} onChange={(e) => handleChange("problem", e.target.value)} placeholder={text("Ex. Ne démarre pas, écran cassé...", "مثال: لا يشتغل، الشاشة مكسورة...")} className="w-full bg-transparent text-sm font-semibold text-slate-800 outline-none placeholder:text-slate-400" />
 
                       </Field>
-
-
 
                       <div>
 
@@ -1334,8 +1137,6 @@ export default function ReparationPage() {
 
                       </div>
 
-
-
                       <div className="flex gap-3 rounded-2xl bg-slate-50 p-4">
 
                         <ShieldCheck size={20} className="mt-0.5 shrink-0 text-sky-600" />
@@ -1354,8 +1155,6 @@ export default function ReparationPage() {
 
                       </div>
 
-
-
                       {error && (
 
                         <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-bold text-red-600">
@@ -1365,8 +1164,6 @@ export default function ReparationPage() {
                         </motion.div>
 
                       )}
-
-
 
                       <motion.button
 
@@ -1442,8 +1239,6 @@ export default function ReparationPage() {
 
 }
 
-
-
 function TrackingCard({
 
   result,
@@ -1498,8 +1293,6 @@ function TrackingCard({
 
   }));
 
-
-
   const history = result.history.length
 
     ? [...result.history].sort((a, b) => {
@@ -1515,8 +1308,6 @@ function TrackingCard({
       })
 
     : [];
-
-
 
   return (
 
@@ -1559,8 +1350,6 @@ function TrackingCard({
         </div>
 
       </div>
-
-
 
       {isCancelled ? (
 
@@ -1640,8 +1429,6 @@ function TrackingCard({
 
           </div>
 
-
-
           <div className="mt-6 space-y-3 md:hidden">
 
             {displaySteps.map((step, index) => {
@@ -1683,8 +1470,6 @@ function TrackingCard({
             })}
 
           </div>
-
-
 
           <div className="mt-7 grid gap-4 rounded-2xl bg-gradient-to-r from-sky-50 to-blue-50 p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:p-5">
 
@@ -1736,8 +1521,6 @@ function TrackingCard({
 
           </div>
 
-
-
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
 
             <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -1763,8 +1546,6 @@ function TrackingCard({
               </div>
 
             </section>
-
-
 
             <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
 
@@ -1840,8 +1621,6 @@ function TrackingCard({
 
 }
 
-
-
 function statusTitle(status: string, text: (fr: string, ar: string) => string) {
 
   const key = normalizeStatus(status);
@@ -1872,8 +1651,6 @@ function statusTitle(status: string, text: (fr: string, ar: string) => string) {
 
 }
 
-
-
 function MiniInfo({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
 
   return (
@@ -1896,8 +1673,6 @@ function MiniInfo({ label, value, icon }: { label: string; value: string; icon: 
 
 }
 
-
-
 function DetailRow({ label, value }: { label: string; value: string }) {
 
   return (
@@ -1914,8 +1689,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 }
 
-
-
 function HeroBadge({ icon, text }: { icon: ReactNode; text: string }) {
 
   return (
@@ -1931,8 +1704,6 @@ function HeroBadge({ icon, text }: { icon: ReactNode; text: string }) {
   );
 
 }
-
-
 
 function Step({ number, title, description }: { number: string; title: string; description: string }) {
 
@@ -1955,8 +1726,6 @@ function Step({ number, title, description }: { number: string; title: string; d
   );
 
 }
-
-
 
 function Field({
 
