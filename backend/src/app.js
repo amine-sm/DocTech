@@ -10,7 +10,7 @@ const rateLimit = require("express-rate-limit");
 // ============================================================
 // ROUTES
 // ============================================================
-
+const reparationsRoutes = require("./routes/reparations.routes");
 const authRoutes = require("./routes/auth.routes");
 const userRoutes = require("./routes/users.routes");
 const roleRoutes = require("./routes/roles.routes");
@@ -269,6 +269,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/stock", stockRoutes);
 app.use("/api/elogistia", elogistiaRoutes);
+app.use("/api/reparations", reparationsRoutes);
 
 // ============================================================
 // 404

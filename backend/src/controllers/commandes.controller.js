@@ -4,7 +4,7 @@ const elogistia = require("../services/elogistia.service");
 const ExcelJS = require("exceljs");
 
 /* =========================================================
-   HELPERS
+HELPERS
 ========================================================= */
 
 function tracking() {
@@ -25,10 +25,7 @@ function toAbsoluteUrl(path) {
 
   if (!value) return null;
 
-  if (
-    value.startsWith("http://") ||
-    value.startsWith("https://")
-  ) {
+  if (value.startsWith("http://") || value.startsWith("https://")) {
     return value;
   }
 
@@ -41,7 +38,7 @@ function toAbsoluteUrl(path) {
 }
 
 /* =========================================================
-   ELOGISTIA — EXTRACTION FRAIS
+ELOGISTIA — EXTRACTION FRAIS
 ========================================================= */
 
 function extractShippingRows(raw) {
@@ -64,7 +61,7 @@ function extractShippingRows(raw) {
 }
 
 /* =========================================================
-   ELOGISTIA — TROUVER WILAYA
+ELOGISTIA — TROUVER WILAYA
 ========================================================= */
 
 function findShippingRow(rows, wilayaId, wilayaName) {
@@ -78,19 +75,13 @@ function findShippingRow(rows, wilayaId, wilayaName) {
 
   return rows.find((item) => {
     const itemId = String(
-      item?.wilayaID ??
-        item?.wilayaId ??
-        item?.wilaya_id ??
-        ""
+      item?.wilayaID ?? item?.wilayaId ?? item?.wilaya_id ?? ""
     )
       .trim()
       .toLowerCase();
 
     const itemName = String(
-      item?.wilayaLabel ??
-        item?.wilaya ??
-        item?.name ??
-        ""
+      item?.wilayaLabel ?? item?.wilaya ?? item?.name ?? ""
     )
       .trim()
       .toLowerCase();
@@ -103,73 +94,58 @@ function findShippingRow(rows, wilayaId, wilayaName) {
 }
 
 /* =========================================================
-   NORMALISER TYPE LIVRAISON
+NORMALISER TYPE LIVRAISON
 ========================================================= */
 
 /*
-  HOME
-  DESK
-  STORE
+HOME
+DESK
+STORE
 
-  Important :
-  Le frontend peut envoyer shippingMode=DESK même si
-  deliveryType est absent ou incorrect.
+Important :
+Le frontend peut envoyer shippingMode=DESK même si
+deliveryType est absent ou incorrect.
 
-  On donne donc priorité à shippingMode.
+On donne donc priorité à shippingMode.
 */
 
 function normalizeDeliveryType(body) {
-  const requestedDeliveryType = String(
-    body?.deliveryType || ""
-  )
+  const requestedDeliveryType = String(body?.deliveryType || "")
     .trim()
     .toUpperCase();
 
-  const requestedShippingMode = String(
-    body?.shippingMode || ""
-  )
+  const requestedShippingMode = String(body?.shippingMode || "")
     .trim()
     .toUpperCase();
 
   /*
-   * STORE est prioritaire.
-   */
+  STORE est prioritaire.
+  */
   if (requestedDeliveryType === "STORE") {
     return "STORE";
   }
 
   /*
-   * DESK envoyé depuis le frontend.
-   */
-  if (
-    requestedShippingMode === "DESK" ||
-    requestedDeliveryType === "DESK"
-  ) {
+  DESK envoyé depuis le frontend.
+  */
+  if (requestedShippingMode === "DESK" || requestedDeliveryType === "DESK") {
     return "DESK";
   }
 
   /*
-   * Par défaut :
-   * livraison à domicile.
-   */
+  Par défaut :
+  livraison à domicile.
+  */
   return "HOME";
 }
 
 /* =========================================================
-   STOCK — CONSOMMER
+STOCK — CONSOMMER
 ========================================================= */
 
-async function consumeStockForOrder(
-  conn,
-  orderId,
-  userId = null
-) {
+async function consumeStockForOrder(conn, orderId, userId = null) {
   const [items] = await conn.query(
-    `SELECT
-       article_id,
-       product_name,
-       sku,
-       quantity
+    `SELECT article_id, product_name, sku, quantity
      FROM commande_items
      WHERE commande_id=?
      ORDER BY id`,
@@ -217,21 +193,15 @@ async function consumeStockForOrder(
     for (const lot of lots) {
       if (remaining <= 0) break;
 
-      const available = Number(
-        lot.quantity_remaining || 0
-      );
+      const available = Number(lot.quantity_remaining || 0);
 
-      const take = Math.min(
-        remaining,
-        available
-      );
+      const take = Math.min(remaining, available);
 
       if (take <= 0) continue;
 
       await conn.query(
         `UPDATE product_stock_lots
-         SET quantity_remaining =
-           quantity_remaining - ?
+         SET quantity_remaining = quantity_remaining - ?
          WHERE id=?`,
         [take, lot.id]
       );
@@ -348,21 +318,12 @@ async function consumeStockForOrder(
 }
 
 /* =========================================================
-   STOCK — RESTITUER
+STOCK — RESTITUER
 ========================================================= */
 
-async function restoreStockForOrder(
-  conn,
-  orderId,
-  userId = null
-) {
+async function restoreStockForOrder(conn, orderId, userId = null) {
   const [items] = await conn.query(
-    `SELECT
-       article_id,
-       product_name,
-       sku,
-       quantity,
-       unit_price
+    `SELECT article_id, product_name, sku, quantity, unit_price
      FROM commande_items
      WHERE commande_id=?
      ORDER BY id`,
@@ -403,10 +364,7 @@ async function restoreStockForOrder(
          AND type='EXIT'
        ORDER BY id DESC
        LIMIT 1`,
-      [
-        item.article_id,
-        `COMMANDE:${orderId}`,
-      ]
+      [item.article_id, `COMMANDE:${orderId}`]
     );
 
     let lotId = lastExit?.lot_id || null;
@@ -423,8 +381,7 @@ async function restoreStockForOrder(
       if (existingLot) {
         await conn.query(
           `UPDATE product_stock_lots
-           SET quantity_remaining =
-             quantity_remaining + ?
+           SET quantity_remaining = quantity_remaining + ?
            WHERE id=?`,
           [qty, lotId]
         );
@@ -490,9 +447,7 @@ async function restoreStockForOrder(
       [item.article_id]
     );
 
-    const stockBefore = Number(
-      stockRow?.stock || 0
-    );
+    const stockBefore = Number(stockRow?.stock || 0);
 
     const stockAfter = stockBefore + qty;
 
@@ -538,7 +493,7 @@ async function restoreStockForOrder(
 }
 
 /* =========================================================
-   SPLIT NOM CLIENT
+SPLIT NOM CLIENT
 ========================================================= */
 
 function splitCustomerName(customerName) {
@@ -551,9 +506,7 @@ function splitCustomerName(customerName) {
     };
   }
 
-  const parts = value
-    .split(/\s+/)
-    .filter(Boolean);
+  const parts = value.split(/\s+/).filter(Boolean);
 
   if (parts.length === 1) {
     return {
@@ -569,14 +522,12 @@ function splitCustomerName(customerName) {
 }
 
 /* =========================================================
-   SYNC ELOGISTIA
+SYNC ELOGISTIA
 ========================================================= */
 
 async function syncWithElogistia(orderId) {
   const [[order]] = await pool.query(
-    `SELECT *
-     FROM commandes
-     WHERE id=?`,
+    `SELECT * FROM commandes WHERE id=?`,
     [orderId]
   );
 
@@ -595,10 +546,7 @@ async function syncWithElogistia(orderId) {
   }
 
   const [items] = await pool.query(
-    `SELECT
-       product_name,
-       unit_price,
-       quantity
+    `SELECT product_name, unit_price, quantity
      FROM commande_items
      WHERE commande_id=?
      ORDER BY id`,
@@ -609,172 +557,95 @@ async function syncWithElogistia(orderId) {
   const prices = [];
 
   for (const item of items) {
-    const quantity = Number(
-      item.quantity || 1
-    );
+    const quantity = Number(item.quantity || 1);
 
-    for (
-      let i = 0;
-      i < quantity;
-      i += 1
-    ) {
+    for (let i = 0; i < quantity; i += 1) {
       products.push(item.product_name);
-      prices.push(
-        Number(item.unit_price).toFixed(2)
-      );
+      prices.push(Number(item.unit_price).toFixed(2));
     }
   }
 
-  const customer = splitCustomerName(
-    order.customer_name
-  );
+  const customer = splitCustomerName(order.customer_name);
 
+  console.log("==============================================");
+  console.log(`🚚 SYNCHRONISATION ELOGISTIA COMMANDE #${orderId}`);
+  console.log("👤 CLIENT ELOGISTIA");
+  console.log(" customer_name :", order.customer_name);
+  console.log(" firstname :", customer.firstname);
+  console.log(" name :", customer.name);
+  console.log(" phone :", order.phone);
+  console.log(" delivery_type :", order.delivery_type);
   console.log(
-    "=============================================="
+    " wilaya :",
+    order.delivery_wilaya_id || order.wilaya
   );
-
+  console.log(" commune :", order.commune);
   console.log(
-    `🚚 SYNCHRONISATION ELOGISTIA COMMANDE #${orderId}`
-  );
-
-  console.log(
-    "👤 CLIENT ELOGISTIA"
-  );
-
-  console.log(
-    "   customer_name :",
-    order.customer_name
-  );
-
-  console.log(
-    "   firstname     :",
-    customer.firstname
-  );
-
-  console.log(
-    "   name          :",
-    customer.name
-  );
-
-  console.log(
-    "   phone         :",
-    order.phone
-  );
-
-  console.log(
-    "   delivery_type :",
-    order.delivery_type
-  );
-
-  console.log(
-    "   wilaya        :",
-    order.delivery_wilaya_id ||
-      order.wilaya
-  );
-
-  console.log(
-    "   commune       :",
-    order.commune
-  );
-
-  console.log(
-    "   address       :",
+    " address :",
     order.address || "(Stop Desk)"
   );
-
-  console.log(
-    "=============================================="
-  );
+  console.log("==============================================");
 
   try {
-    const result =
-      await elogistia.createOrder({
-        name: customer.name,
+    const result = await elogistia.createOrder({
+      name: customer.name,
 
-        firstname:
-          customer.firstname,
+      firstname: customer.firstname,
 
-        mail:
-          order.email ||
-          order.mail ||
-          "",
+      mail: order.email || order.mail || "",
 
-        phone: order.phone,
+      phone: order.phone,
 
-        /*
-         * Adresse uniquement pour HOME.
-         * Pour DESK on envoie une chaîne vide.
-         */
-        address:
-          order.delivery_type === "HOME"
-            ? order.address || ""
-            : "",
+      /*
+       * Adresse uniquement pour HOME.
+       * Pour DESK on envoie une chaîne vide.
+       */
+      address:
+        order.delivery_type === "HOME" ? order.address || "" : "",
 
-        commune:
-          order.commune || "",
+      commune: order.commune || "",
 
-        fraisDeLivraison:
-          Number(
-            order.delivery_fee || 0
-          ),
+      fraisDeLivraison: Number(order.delivery_fee || 0),
 
-        remarque: [
-          order.note,
+      remarque: [
+        order.note,
 
-          order.delivery_agency_name
-            ? `Bureau: ${order.delivery_agency_name}`
-            : "",
+        order.delivery_agency_name
+          ? `Bureau: ${order.delivery_agency_name}`
+          : "",
 
-          order.delivery_type === "DESK"
-            ? "Livraison Stop Desk"
-            : "Livraison à domicile",
-        ]
-          .filter(Boolean)
-          .join(" | "),
+        order.delivery_type === "DESK"
+          ? "Livraison Stop Desk"
+          : "Livraison à domicile",
+      ]
+        .filter(Boolean)
+        .join(" | "),
 
-        stop_desk:
-          order.delivery_stop_desk ||
-          (
-            order.delivery_type === "DESK"
-              ? process.env
-                  .ELOGISTIA_DESK_STOP_DESK ||
-                "1"
-              : process.env
-                  .ELOGISTIA_HOME_STOP_DESK ||
-                "0"
-          ),
+      stop_desk:
+        order.delivery_stop_desk ||
+        (order.delivery_type === "DESK"
+          ? process.env.ELOGISTIA_DESK_STOP_DESK || "1"
+          : process.env.ELOGISTIA_HOME_STOP_DESK || "0"),
 
-        wilaya:
-          order.delivery_wilaya_id ||
-          order.wilaya,
+      wilaya: order.delivery_wilaya_id || order.wilaya,
 
-        product:
-          products.join("|"),
+      product: products.join("|"),
 
-        price:
-          prices.join("|"),
+      price: prices.join("|"),
 
-        modeDeLivraison:
-          order.delivery_mode ||
-          process.env
-            .ELOGISTIA_DELIVERY_MODE ||
-          "4",
+      modeDeLivraison:
+        order.delivery_mode ||
+        process.env.ELOGISTIA_DELIVERY_MODE ||
+        "4",
 
-        exchangeName: "",
+      exchangeName: "",
 
-        idCommande:
-          String(order.id),
+      idCommande: String(order.id),
 
-        poids:
-          process.env
-            .ELOGISTIA_DEFAULT_WEIGHT ||
-          "1",
-      });
+      poids: process.env.ELOGISTIA_DEFAULT_WEIGHT || "1",
+    });
 
-    console.log(
-      "🎯 TRACKING ELOGISTIA:",
-      result.tracking
-    );
+    console.log("🎯 TRACKING ELOGISTIA:", result.tracking);
 
     await pool.query(
       `UPDATE commandes
@@ -784,32 +655,18 @@ async function syncWithElogistia(orderId) {
            delivery_sync_error=NULL,
            delivery_synced_at=NOW()
        WHERE id=?`,
-      [
-        result.tracking || null,
-        orderId,
-      ]
+      [result.tracking || null, orderId]
     );
 
     return {
       synced: true,
-      tracking:
-        result.tracking || null,
+      tracking: result.tracking || null,
       providerResponse: result,
     };
   } catch (error) {
-    console.error(
-      `❌ ELOGISTIA COMMANDE #${orderId}`
-    );
-
-    console.error(
-      "MESSAGE:",
-      error.message
-    );
-
-    console.error(
-      "RESPONSE:",
-      error.response?.data
-    );
+    console.error(`❌ ELOGISTIA COMMANDE #${orderId}`);
+    console.error("MESSAGE:", error.message);
+    console.error("RESPONSE:", error.response?.data);
 
     await pool.query(
       `UPDATE commandes
@@ -819,18 +676,14 @@ async function syncWithElogistia(orderId) {
        WHERE id=?`,
       [
         String(
-          error.response?.data?.error ||
-            error.message ||
-            error
+          error.response?.data?.error || error.message || error
         ).slice(0, 1000),
-
         orderId,
       ]
     );
 
     return {
       synced: false,
-
       error:
         error.response?.data?.error ||
         error.message ||
@@ -840,7 +693,11 @@ async function syncWithElogistia(orderId) {
 }
 
 /* =========================================================
-   CREATE PUBLIC
+CREATE PUBLIC
+========================================================= */
+
+/* =========================================================
+CREATE PUBLIC
 ========================================================= */
 
 async function createPublic(req, res) {
@@ -859,8 +716,7 @@ async function createPublic(req, res) {
     ) {
       return res.status(400).json({
         ok: false,
-        message:
-          "Client, téléphone et articles obligatoires.",
+        message: "Client, téléphone et articles obligatoires.",
       });
     }
 
@@ -871,19 +727,13 @@ async function createPublic(req, res) {
        shippingMode=DESK => deliveryType=DESK
     ===================================================== */
 
-    const deliveryType =
-      normalizeDeliveryType(b);
+    const deliveryType = normalizeDeliveryType(b);
 
-    console.log(
-      "🚚 CREATE PUBLIC DELIVERY:",
-      {
-        deliveryType,
-        shippingMode:
-          b.shippingMode || null,
-        receivedDeliveryType:
-          b.deliveryType || null,
-      }
-    );
+    console.log("🚚 CREATE PUBLIC DELIVERY:", {
+      deliveryType,
+      shippingMode: b.shippingMode || null,
+      receivedDeliveryType: b.deliveryType || null,
+    });
 
     /* =====================================================
        VALIDATION WILAYA / COMMUNE
@@ -893,16 +743,14 @@ async function createPublic(req, res) {
       if (!b.wilayaId) {
         return res.status(400).json({
           ok: false,
-          message:
-            "La wilaya est obligatoire.",
+          message: "La wilaya est obligatoire.",
         });
       }
 
       if (!b.commune) {
         return res.status(400).json({
           ok: false,
-          message:
-            "La commune est obligatoire.",
+          message: "La commune est obligatoire.",
         });
       }
     }
@@ -932,75 +780,44 @@ async function createPublic(req, res) {
 
     let deliveryFee = 0;
 
-    if (
-      deliveryType === "HOME" ||
-      deliveryType === "DESK"
-    ) {
+    if (deliveryType === "HOME" || deliveryType === "DESK") {
       try {
-        const shippingRaw =
-          await elogistia.getShippingCost();
+        const shippingRaw = await elogistia.getShippingCost();
 
-        const shippingRows =
-          extractShippingRows(
-            shippingRaw
-          );
+        const shippingRows = extractShippingRows(shippingRaw);
 
-        const row =
-          findShippingRow(
-            shippingRows,
-            b.wilayaId,
-            b.wilaya
-          );
-
-        console.log(
-          "🚚 SHIPPING ROW:",
-          row
+        const row = findShippingRow(
+          shippingRows,
+          b.wilayaId,
+          b.wilaya
         );
+
+        console.log("🚚 SHIPPING ROW:", row);
 
         let selectedFee;
 
         if (deliveryType === "DESK") {
           selectedFee = Number(
-            row?.stopdesk ??
-              row?.stopDesk ??
-              row?.desk
+            row?.stopdesk ?? row?.stopDesk ?? row?.desk
           );
         } else {
-          selectedFee = Number(
-            row?.home
-          );
+          selectedFee = Number(row?.home);
         }
 
-        if (
-          Number.isFinite(selectedFee) &&
-          selectedFee >= 0
-        ) {
+        if (Number.isFinite(selectedFee) && selectedFee >= 0) {
           deliveryFee = selectedFee;
         } else {
           deliveryFee =
             deliveryType === "DESK"
-              ? Number(
-                  process.env
-                    .DESK_DELIVERY_FEE ||
-                    600
-                )
-              : Number(
-                  process.env
-                    .HOME_DELIVERY_FEE ||
-                    800
-                );
+              ? Number(process.env.DESK_DELIVERY_FEE || 600)
+              : Number(process.env.HOME_DELIVERY_FEE || 800);
         }
       } catch (error) {
-        console.error(
-          "ELOGISTIA SHIPPING ERROR:",
-          error.message
-        );
+        console.error("ELOGISTIA SHIPPING ERROR:", error.message);
 
         const required =
           String(
-            process.env
-              .ELOGISTIA_REQUIRED_FOR_HOME ||
-              "true"
+            process.env.ELOGISTIA_REQUIRED_FOR_HOME || "true"
           ).toLowerCase() === "true";
 
         if (required) {
@@ -1012,16 +829,8 @@ async function createPublic(req, res) {
 
         deliveryFee =
           deliveryType === "DESK"
-            ? Number(
-                process.env
-                  .DESK_DELIVERY_FEE ||
-                  600
-              )
-            : Number(
-                process.env
-                  .HOME_DELIVERY_FEE ||
-                  800
-              );
+            ? Number(process.env.DESK_DELIVERY_FEE || 600)
+            : Number(process.env.HOME_DELIVERY_FEE || 800);
       }
     }
 
@@ -1029,8 +838,7 @@ async function createPublic(req, res) {
        CONNEXION
     ===================================================== */
 
-    const conn =
-      await pool.getConnection();
+    const conn = await pool.getConnection();
 
     let orderId = null;
 
@@ -1046,53 +854,35 @@ async function createPublic(req, res) {
       const prepared = [];
 
       for (const item of b.items) {
-        const articleId =
-          Number(item.articleId);
+        const articleId = Number(item.articleId);
 
-        if (
-          !Number.isInteger(articleId) ||
-          articleId <= 0
-        ) {
-          throw errorWithStatus(
-            "Article invalide."
-          );
+        if (!Number.isInteger(articleId) || articleId <= 0) {
+          throw errorWithStatus("Article invalide.");
         }
 
-        const [[a]] =
-          await conn.query(
-            `SELECT
-               id,
-               name,
-               sku,
-               price,
-               stock,
-               stock_enabled,
-               status,
-               purchase_price
-             FROM articles
-             WHERE id=?
-             FOR UPDATE`,
-            [articleId]
-          );
-
-        if (
-          !a ||
-          a.status !== "ACTIF"
-        ) {
-          throw errorWithStatus(
-            "Un article est indisponible."
-          );
-        }
-
-        const qty = Math.max(
-          1,
-          Number(item.quantity || 1)
+        const [[a]] = await conn.query(
+          `SELECT
+             id,
+             name,
+             sku,
+             price,
+             stock,
+             stock_enabled,
+             status,
+             purchase_price
+           FROM articles
+           WHERE id=?
+           FOR UPDATE`,
+          [articleId]
         );
 
-        if (
-          !Number.isFinite(qty) ||
-          qty <= 0
-        ) {
+        if (!a || a.status !== "ACTIF") {
+          throw errorWithStatus("Un article est indisponible.");
+        }
+
+        const qty = Math.max(1, Number(item.quantity || 1));
+
+        if (!Number.isFinite(qty) || qty <= 0) {
           throw errorWithStatus(
             `Quantité invalide pour ${a.name}.`
           );
@@ -1102,52 +892,38 @@ async function createPublic(req, res) {
            STOCK
         =============================================== */
 
-        if (
-          a.stock_enabled &&
-          Number(a.stock || 0) < qty
-        ) {
+        if (a.stock_enabled && Number(a.stock || 0) < qty) {
           throw errorWithStatus(
             `Stock insuffisant pour ${a.name}.`
           );
         }
 
         /* ===============================================
-           PRIX
+           PRIX DE BASE (avant promotion)
         =============================================== */
 
-        let price =
-          Number(a.price || 0);
+        let basePrice = Number(a.price || 0);
 
         /* ===============================================
            VARIANTE
         =============================================== */
 
         if (item.variantId) {
-          const [[v]] =
-            await conn.query(
-              `SELECT *
-               FROM article_variants
-               WHERE id=?
-                 AND article_id=?
-                 AND active=1`,
-              [
-                item.variantId,
-                a.id,
-              ]
-            );
+          const [[v]] = await conn.query(
+            `SELECT *
+             FROM article_variants
+             WHERE id=?
+               AND article_id=?
+               AND active=1`,
+            [item.variantId, a.id]
+          );
 
           if (!v) {
-            throw errorWithStatus(
-              "Variante invalide."
-            );
+            throw errorWithStatus("Variante invalide.");
           }
 
-          if (
-            v.price_override != null
-          ) {
-            price = Number(
-              v.price_override
-            );
+          if (v.price_override != null) {
+            basePrice = Number(v.price_override);
           }
         }
 
@@ -1155,214 +931,174 @@ async function createPublic(req, res) {
            PROMOTIONS
         =============================================== */
 
-        const [promos] =
-          await conn.query(
-            `SELECT
-               pr.type,
-               pr.value
-             FROM promotions pr
-             JOIN promotion_articles pa
-               ON pa.promotion_id = pr.id
-             WHERE pa.article_id=?
-               AND pr.active=1
-               AND NOW()
-                   BETWEEN pr.start_at
-                   AND pr.end_at`,
-            [a.id]
-          );
+        const [promos] = await conn.query(
+          `SELECT
+             pr.id,
+             pr.name,
+             pr.badge,
+             pr.type,
+             pr.value
+           FROM promotions pr
+           JOIN promotion_articles pa
+             ON pa.promotion_id = pr.id
+           WHERE pa.article_id=?
+             AND pr.active=1
+             AND NOW() BETWEEN pr.start_at AND pr.end_at
+           ORDER BY pr.id DESC`,
+          [a.id]
+        );
+
+        let finalPrice = basePrice;
+        let appliedPromo = null;
 
         if (promos.length) {
-          const basePrice =
-            Number(price);
-
-          let bestPrice =
-            basePrice;
+          let bestPrice = basePrice;
+          let bestPromo = null;
 
           for (const promo of promos) {
             const candidate =
-              promo.type ===
-              "POURCENTAGE"
+              promo.type === "POURCENTAGE"
                 ? Math.max(
                     0,
                     basePrice -
-                      (
-                        basePrice *
-                        Number(
-                          promo.value
-                        )
-                      ) /
-                        100
+                      (basePrice * Number(promo.value)) / 100
                   )
                 : Math.max(
                     0,
-                    basePrice -
-                      Number(
-                        promo.value
-                      )
+                    basePrice - Number(promo.value)
                   );
 
-            if (
-              candidate < bestPrice
-            ) {
-              bestPrice =
-                candidate;
+            if (candidate < bestPrice) {
+              bestPrice = candidate;
+              bestPromo = promo;
             }
           }
 
-          price = bestPrice;
+          finalPrice = Number(bestPrice.toFixed(2));
+          appliedPromo = bestPromo;
         }
 
-        price = Number(
-          Number(price).toFixed(2)
-        );
-
-        const lineTotal =
-          Number(
-            (
-              price * qty
-            ).toFixed(2)
-          );
+        const lineTotal = Number((finalPrice * qty).toFixed(2));
 
         subtotal += lineTotal;
 
         prepared.push({
           a,
           qty,
-          price,
+          price: finalPrice,
+          basePrice: Number(basePrice.toFixed(2)),
           lineTotal,
-          variantId:
-            item.variantId || null,
+          variantId: item.variantId || null,
+
+          /* 👇 Infos promo à stocker */
+          isPromotion: appliedPromo ? 1 : 0,
+          promotionId: appliedPromo?.id || null,
+          promotionName: appliedPromo?.name || null,
+          promotionType: appliedPromo?.type || null,
+          promotionValue: appliedPromo?.value || null,
         });
       }
 
-      subtotal = Number(
-        subtotal.toFixed(2)
-      );
+      subtotal = Number(subtotal.toFixed(2));
 
-      const total = Number(
-        (
-          subtotal +
-          deliveryFee
-        ).toFixed(2)
-      );
+      const total = Number((subtotal + deliveryFee).toFixed(2));
 
       /* ===================================================
          TRACKING LOCAL
       =================================================== */
 
-      const localTracking =
-        tracking();
+      const localTracking = tracking();
 
       /* ===================================================
          INSERT COMMANDE
       =================================================== */
 
-      const [r] =
-        await conn.query(
-          `INSERT INTO commandes(
-            tracking_number,
-            customer_name,
-            phone,
-            wilaya,
-            commune,
-            address,
-            note,
-            delivery_type,
-            delivery_wilaya_id,
-            delivery_commune_id,
-            delivery_mode,
-            delivery_stop_desk,
-            delivery_agency_id,
-            delivery_agency_name,
-            delivery_provider,
-            delivery_sync_status,
-            subtotal,
-            delivery_fee,
-            total
-          )
-          VALUES(
-            ?,?,?,?,?,?,?,?,?,?,
-            ?,?,?,?,?,?,?,?,?
-          )`,
-          [
-            localTracking,
+      const [r] = await conn.query(
+        `INSERT INTO commandes(
+          tracking_number,
+          customer_name,
+          phone,
+          wilaya,
+          commune,
+          address,
+          note,
+          delivery_type,
+          delivery_wilaya_id,
+          delivery_commune_id,
+          delivery_mode,
+          delivery_stop_desk,
+          delivery_agency_id,
+          delivery_agency_name,
+          delivery_provider,
+          delivery_sync_status,
+          subtotal,
+          delivery_fee,
+          total
+        )
+        VALUES(
+          ?,?,?,?,?,?,?,?,?,?,
+          ?,?,?,?,?,?,?,?,?
+        )`,
+        [
+          localTracking,
 
-            b.customerName,
+          b.customerName,
 
-            b.phone,
+          b.phone,
 
-            b.wilaya || null,
+          b.wilaya || null,
 
-            b.commune || null,
+          b.commune || null,
 
-            /*
-             * IMPORTANT :
-             * DESK => adresse NULL
-             * HOME => adresse
-             * STORE => NULL
-             */
-            deliveryType === "HOME"
-              ? String(
-                  b.address || ""
-                ).trim() || null
-              : null,
+          /*
+           * IMPORTANT :
+           * DESK => adresse NULL
+           * HOME => adresse
+           * STORE => NULL
+           */
+          deliveryType === "HOME"
+            ? String(b.address || "").trim() || null
+            : null,
 
-            b.note || null,
+          b.note || null,
 
-            deliveryType,
+          deliveryType,
 
-            b.wilayaId || null,
+          b.wilayaId || null,
 
-            b.communeId || null,
+          b.communeId || null,
 
-            deliveryType !==
-            "STORE"
-              ? process.env
-                  .ELOGISTIA_DELIVERY_MODE ||
-                "4"
-              : null,
+          deliveryType !== "STORE"
+            ? process.env.ELOGISTIA_DELIVERY_MODE || "4"
+            : null,
 
-            deliveryType ===
-            "DESK"
-              ? process.env
-                  .ELOGISTIA_DESK_STOP_DESK ||
-                "1"
-              : deliveryType ===
-                "HOME"
-              ? process.env
-                  .ELOGISTIA_HOME_STOP_DESK ||
-                "0"
-              : null,
+          deliveryType === "DESK"
+            ? process.env.ELOGISTIA_DESK_STOP_DESK || "1"
+            : deliveryType === "HOME"
+            ? process.env.ELOGISTIA_HOME_STOP_DESK || "0"
+            : null,
 
-            b.deliveryAgencyId ||
-              null,
+          b.deliveryAgencyId || null,
 
-            b.deliveryAgencyName ||
-              null,
+          b.deliveryAgencyName || null,
 
-            deliveryType !==
-            "STORE"
-              ? "ELOGISTIA"
-              : null,
+          deliveryType !== "STORE" ? "ELOGISTIA" : null,
 
-            deliveryType !==
-            "STORE"
-              ? "PENDING"
-              : "SYNCED",
+          deliveryType !== "STORE" ? "PENDING" : "SYNCED",
 
-            subtotal,
+          subtotal,
 
-            deliveryFee,
+          deliveryFee,
 
-            total,
-          ]
-        );
+          total,
+        ]
+      );
 
-      orderId =
-        r.insertId;
+      orderId = r.insertId;
 
       /* ===================================================
          INSERT ARTICLES
+         (avec colonnes de promotion)
       =================================================== */
 
       for (const x of prepared) {
@@ -1374,10 +1110,16 @@ async function createPublic(req, res) {
             product_name,
             sku,
             unit_price,
+            original_price,
+            is_promotion,
+            promotion_id,
+            promotion_name,
+            promotion_type,
+            promotion_value,
             quantity,
             line_total
           )
-          VALUES(?,?,?,?,?,?,?,?)`,
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
           [
             orderId,
             x.a.id,
@@ -1385,6 +1127,12 @@ async function createPublic(req, res) {
             x.a.name,
             x.a.sku,
             x.price,
+            x.isPromotion ? x.basePrice : null,
+            x.isPromotion,
+            x.promotionId,
+            x.promotionName,
+            x.promotionType,
+            x.promotionValue,
             x.qty,
             x.lineTotal,
           ]
@@ -1411,104 +1159,73 @@ async function createPublic(req, res) {
       reason: "STORE",
     };
 
-    if (
-      deliveryType === "HOME" ||
-      deliveryType === "DESK"
-    ) {
-      provider =
-        await syncWithElogistia(
-          orderId
-        );
+    if (deliveryType === "HOME" || deliveryType === "DESK") {
+      provider = await syncWithElogistia(orderId);
     }
 
     /* =====================================================
        RELECTURE COMMANDE
     ===================================================== */
 
-    const [[created]] =
-      await pool.query(
-        `SELECT
-           id,
-           tracking_number,
-           delivery_tracking,
-           customer_name,
-           phone,
-           wilaya,
-           commune,
-           address,
-           status,
-           delivery_type,
-           subtotal,
-           delivery_fee,
-           total,
-           delivery_sync_status,
-           delivery_sync_error,
-           created_at
-         FROM commandes
-         WHERE id=?`,
-        [orderId]
-      );
+    const [[created]] = await pool.query(
+      `SELECT
+         id,
+         tracking_number,
+         delivery_tracking,
+         customer_name,
+         phone,
+         wilaya,
+         commune,
+         address,
+         status,
+         delivery_type,
+         subtotal,
+         delivery_fee,
+         total,
+         delivery_sync_status,
+         delivery_sync_error,
+         created_at
+       FROM commandes
+       WHERE id=?`,
+      [orderId]
+    );
 
     /* =====================================================
        SOCKET.IO
     ===================================================== */
 
-    const io =
-      req.app.get("io");
+    const io = req.app.get("io");
 
     if (io) {
-      io.emit(
-        "order:new",
-        {
-          id: created.id,
+      io.emit("order:new", {
+        id: created.id,
 
-          tracking_number:
-            created.tracking_number,
+        tracking_number: created.tracking_number,
 
-          delivery_tracking:
-            created.delivery_tracking,
+        delivery_tracking: created.delivery_tracking,
 
-          customer_name:
-            created.customer_name,
+        customer_name: created.customer_name,
 
-          phone:
-            created.phone,
+        phone: created.phone,
 
-          wilaya:
-            created.wilaya,
+        wilaya: created.wilaya,
 
-          commune:
-            created.commune,
+        commune: created.commune,
 
-          address:
-            created.address,
+        address: created.address,
 
-          delivery_type:
-            created.delivery_type,
+        delivery_type: created.delivery_type,
 
-          delivery_fee:
-            Number(
-              created.delivery_fee || 0
-            ),
+        delivery_fee: Number(created.delivery_fee || 0),
 
-          subtotal:
-            Number(
-              created.subtotal || 0
-            ),
+        subtotal: Number(created.subtotal || 0),
 
-          total:
-            Number(
-              created.total || 0
-            ),
+        total: Number(created.total || 0),
 
-          status:
-            created.status ||
-            "NOUVELLE",
+        status: created.status || "NOUVELLE",
 
-          created_at:
-            created.created_at,
-        }
-      );
+        created_at: created.created_at,
+      });
 
       console.log(
         `🔔 NOTIFICATION ADMIN → nouvelle commande #${created.id}`
@@ -1525,205 +1242,159 @@ async function createPublic(req, res) {
       id: orderId,
 
       trackingNumber:
-        created.delivery_tracking ||
-        created.tracking_number,
+        created.delivery_tracking || created.tracking_number,
 
-      localTrackingNumber:
-        created.tracking_number,
+      localTrackingNumber: created.tracking_number,
 
-      deliveryTracking:
-        created.delivery_tracking,
+      deliveryTracking: created.delivery_tracking,
 
-      deliveryType:
-        created.delivery_type,
+      deliveryType: created.delivery_type,
 
-      subtotal:
-        Number(
-          created.subtotal || 0
-        ),
+      subtotal: Number(created.subtotal || 0),
 
-      deliveryFee:
-        Number(
-          created.delivery_fee || 0
-        ),
+      deliveryFee: Number(created.delivery_fee || 0),
 
-      total:
-        Number(
-          created.total || 0
-        ),
+      total: Number(created.total || 0),
 
-      status:
-        created.status,
+      status: created.status,
 
-      deliverySyncStatus:
-        created.delivery_sync_status,
+      deliverySyncStatus: created.delivery_sync_status,
 
-      deliverySyncError:
-        created.delivery_sync_error,
+      deliverySyncError: created.delivery_sync_error,
 
-      delivery:
-        provider,
+      delivery: provider,
     });
   } catch (error) {
-    console.error(
-      "CREATE PUBLIC ORDER ERROR:",
-      error
-    );
+    console.error("CREATE PUBLIC ORDER ERROR:", error);
 
     const status =
-      Number(error.status) >= 400
-        ? Number(error.status)
-        : 500;
+      Number(error.status) >= 400 ? Number(error.status) : 500;
 
     return res.status(status).json({
       ok: false,
 
       message:
-        error.message ||
-        "Impossible de créer la commande.",
+        error.message || "Impossible de créer la commande.",
     });
   }
 }
 
 /* =========================================================
-   LIST COMMANDES
+LIST COMMANDES
 ========================================================= */
 
 async function list(req, res) {
   try {
-    const {
-      page,
-      limit,
-      offset,
-    } = getPagination(
-      req.query
-    );
+    const { page, limit, offset } = getPagination(req.query);
 
-    const status =
-      req.query.status;
+    const status = req.query.status;
 
     const today =
-      String(
-        req.query.today || ""
-      ).toLowerCase() ===
-      "true";
+      String(req.query.today || "").toLowerCase() === "true";
 
-    const dateFrom =
-      req.query.date_from;
+    const dateFrom = req.query.date_from;
 
-    const dateTo =
-      req.query.date_to;
+    const dateTo = req.query.date_to;
 
     const conditions = [];
     const p = [];
 
     if (status) {
-      conditions.push(
-        "cmd.status=?"
-      );
+      conditions.push("cmd.status=?");
 
       p.push(status);
     }
 
     if (today) {
-      conditions.push(
-        "DATE(cmd.created_at)=CURDATE()"
-      );
+      conditions.push("DATE(cmd.created_at)=CURDATE()");
     } else {
       if (dateFrom) {
-        conditions.push(
-          "DATE(cmd.created_at)>=?"
-        );
+        conditions.push("DATE(cmd.created_at)>=?");
 
         p.push(dateFrom);
       }
 
       if (dateTo) {
-        conditions.push(
-          "DATE(cmd.created_at)<=?"
-        );
+        conditions.push("DATE(cmd.created_at)<=?");
 
         p.push(dateTo);
       }
     }
 
-    const where =
-      conditions.length
-        ? `WHERE ${conditions.join(
-            " AND "
-          )}`
-        : "";
+    const where = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
 
-    const [[c]] =
-      await pool.query(
-        `SELECT COUNT(*) total
-         FROM commandes cmd
-         ${where}`,
-        p
-      );
+    const [[c]] = await pool.query(
+      `SELECT COUNT(*) total
+       FROM commandes cmd
+       ${where}`,
+      p
+    );
 
-    const [rows] =
-      await pool.query(
-        `SELECT
-           cmd.*,
+    /* ==========================================================
+       ⚠️ IMPORTANT :
+       MariaDB 10.11 refuse `LIMIT ? OFFSET ?` (placeholders)
+       avec mysql2 sur certains serveurs cPanel.
 
-           (
-             SELECT ai.url
-             FROM commande_items ci
-             LEFT JOIN article_images ai
-               ON ai.article_id=ci.article_id
-             WHERE ci.commande_id=cmd.id
-               AND ai.url IS NOT NULL
-             ORDER BY
-               ai.is_primary DESC,
-               ai.sort_order ASC,
-               ai.id ASC
-             LIMIT 1
-           ) AS first_item_image,
+       Solution : injecter directement les valeurs APRÈS un
+       cast Number() strict → aucune injection possible.
+    ========================================================== */
 
-           (
-             SELECT ci.product_name
-             FROM commande_items ci
-             WHERE ci.commande_id=cmd.id
-             ORDER BY ci.id ASC
-             LIMIT 1
-           ) AS first_item_name
+    const safeLimit = Number(limit) || 20;
+    const safeOffset = Number(offset) || 0;
 
-         FROM commandes cmd
+    const [rows] = await pool.query(
+      `SELECT
+         cmd.*,
 
-         ${where}
+         (
+           SELECT ai.url
+           FROM commande_items ci
+           LEFT JOIN article_images ai
+             ON ai.article_id=ci.article_id
+           WHERE ci.commande_id=cmd.id
+             AND ai.url IS NOT NULL
+           ORDER BY
+             ai.is_primary DESC,
+             ai.sort_order ASC,
+             ai.id ASC
+           LIMIT 1
+         ) AS first_item_image,
 
-         ORDER BY cmd.id DESC
+         (
+           SELECT ci.product_name
+           FROM commande_items ci
+           WHERE ci.commande_id=cmd.id
+           ORDER BY ci.id ASC
+           LIMIT 1
+         ) AS first_item_name
 
-         LIMIT ? OFFSET ?`,
-        [
-          ...p,
-          limit,
-          offset,
-        ]
-      );
+       FROM commandes cmd
 
-    const enriched =
-      rows.map((row) => ({
-        ...row,
+       ${where}
 
-        items:
-          row.first_item_image ||
-          row.first_item_name
-            ? [
-                {
-                  image:
-                    toAbsoluteUrl(
-                      row.first_item_image
-                    ),
+       ORDER BY cmd.id DESC
 
-                  product_name:
-                    row.first_item_name ||
-                    "Article",
-                },
-              ]
-            : [],
-      }));
+       LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+      p
+    );
+
+    const enriched = rows.map((row) => ({
+      ...row,
+
+      items:
+        row.first_item_image || row.first_item_name
+          ? [
+              {
+                image: toAbsoluteUrl(row.first_item_image),
+
+                product_name:
+                  row.first_item_name || "Article",
+              },
+            ]
+          : [],
+    }));
 
     return res.json({
       ok: true,
@@ -1734,101 +1405,69 @@ async function list(req, res) {
         page,
         limit,
         total: c.total,
-        pages:
-          Math.ceil(
-            c.total / limit
-          ),
+        pages: Math.ceil(c.total / limit),
       },
     });
   } catch (error) {
-    console.error(
-      "LIST ORDERS ERROR:",
-      error
-    );
+    console.error("LIST ORDERS ERROR:", error);
+    console.error("SQL MESSAGE:", error.sqlMessage);
+    console.error("SQL:", error.sql);
 
     return res.status(500).json({
       ok: false,
-      message:
-        "Impossible de récupérer les commandes.",
+      message: "Impossible de récupérer les commandes.",
     });
   }
 }
 
 /* =========================================================
-   LIST MOVEMENTS
+LIST MOVEMENTS
 ========================================================= */
 
-async function listMovements(
-  req,
-  res
-) {
+async function listMovements(req, res) {
   try {
-    const {
-      page,
-      limit,
-      offset,
-    } = getPagination(
-      req.query
-    );
+    const { page, limit, offset } = getPagination(req.query);
 
     const today =
-      String(
-        req.query.today || ""
-      ).toLowerCase() ===
-      "true";
+      String(req.query.today || "").toLowerCase() === "true";
 
-    const dateFrom =
-      req.query.date_from;
+    const dateFrom = req.query.date_from;
 
-    const dateTo =
-      req.query.date_to;
+    const dateTo = req.query.date_to;
 
-    const orderId =
-      req.query.order_id;
+    const orderId = req.query.order_id;
 
-    const status =
-      req.query.status;
+    const status = req.query.status;
 
-    const search =
-      req.query.search;
+    const search = req.query.search;
 
     const conditions = [];
     const p = [];
 
     if (today) {
-      conditions.push(
-        "DATE(h.created_at)=CURDATE()"
-      );
+      conditions.push("DATE(h.created_at)=CURDATE()");
     } else {
       if (dateFrom) {
-        conditions.push(
-          "DATE(h.created_at)>=?"
-        );
+        conditions.push("DATE(h.created_at)>=?");
 
         p.push(dateFrom);
       }
 
       if (dateTo) {
-        conditions.push(
-          "DATE(h.created_at)<=?"
-        );
+        conditions.push("DATE(h.created_at)<=?");
 
         p.push(dateTo);
       }
     }
 
     if (orderId) {
-      conditions.push(
-        "h.commande_id=?"
-      );
+      conditions.push("h.commande_id=?");
 
       p.push(orderId);
     }
 
     if (status) {
-      conditions.push(
-        "h.new_status=?"
-      );
+      conditions.push("h.new_status=?");
 
       p.push(status);
     }
@@ -1840,67 +1479,61 @@ async function listMovements(
           OR cmd.phone LIKE ?)`
       );
 
-      const like =
-        `%${search}%`;
+      const like = `%${search}%`;
 
-      p.push(
-        like,
-        like,
-        like
-      );
+      p.push(like, like, like);
     }
 
-    const where =
-      conditions.length
-        ? `WHERE ${conditions.join(
-            " AND "
-          )}`
-        : "";
+    const where = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
 
-    const [[c]] =
-      await pool.query(
-        `SELECT COUNT(*) total
-         FROM commande_status_history h
-         LEFT JOIN commandes cmd
-           ON cmd.id=h.commande_id
-         ${where}`,
-        p
-      );
+    const [[c]] = await pool.query(
+      `SELECT COUNT(*) total
+       FROM commande_status_history h
+       LEFT JOIN commandes cmd
+         ON cmd.id=h.commande_id
+       ${where}`,
+      p
+    );
 
-    const [rows] =
-      await pool.query(
-        `SELECT
-           h.id,
-           h.commande_id,
-           h.old_status,
-           h.new_status,
-           h.user_id,
-           h.user_name,
-           h.created_at,
+    /* ==========================================================
+       ⚠️ Même correction que list() :
+       LIMIT/OFFSET inline avec Number() strict.
+    ========================================================== */
 
-           cmd.tracking_number,
-           cmd.customer_name,
-           cmd.phone,
-           cmd.total,
-           cmd.delivery_tracking,
-           cmd.delivery_type
+    const safeLimit = Number(limit) || 20;
+    const safeOffset = Number(offset) || 0;
 
-         FROM commande_status_history h
+    const [rows] = await pool.query(
+      `SELECT
+         h.id,
+         h.commande_id,
+         h.old_status,
+         h.new_status,
+         h.user_id,
+         h.user_name,
+         h.created_at,
 
-         LEFT JOIN commandes cmd
-           ON cmd.id=h.commande_id
+         cmd.tracking_number,
+         cmd.customer_name,
+         cmd.phone,
+         cmd.total,
+         cmd.delivery_tracking,
+         cmd.delivery_type
 
-         ${where}
+       FROM commande_status_history h
 
-         ORDER BY h.id DESC
+       LEFT JOIN commandes cmd
+         ON cmd.id=h.commande_id
 
-         LIMIT ? OFFSET ?`,
-        [
-          ...p,
-          limit,
-          offset,
-        ]
-      );
+       ${where}
+
+       ORDER BY h.id DESC
+
+       LIMIT ${safeLimit} OFFSET ${safeOffset}`,
+      p
+    );
 
     return res.json({
       ok: true,
@@ -1911,124 +1544,288 @@ async function listMovements(
         page,
         limit,
         total: c.total,
-        pages:
-          Math.ceil(
-            c.total / limit
-          ),
+        pages: Math.ceil(c.total / limit),
       },
     });
   } catch (error) {
-    console.error(
-      "LIST MOVEMENTS ERROR:",
-      error
-    );
+    console.error("LIST MOVEMENTS ERROR:", error);
+    console.error("SQL MESSAGE:", error.sqlMessage);
 
     return res.status(500).json({
       ok: false,
-      message:
-        "Impossible de récupérer l'historique.",
+      message: "Impossible de récupérer l'historique.",
     });
   }
 }
 
 /* =========================================================
-   GET ONE
+GET ONE
+========================================================= */
+/* =========================================================
+GET ONE
 ========================================================= */
 
 async function getOne(req, res) {
   try {
-    const [[c]] =
-      await pool.query(
-        `SELECT *
-         FROM commandes
-         WHERE id=?`,
-        [req.params.id]
-      );
+    const [[c]] = await pool.query(
+      `SELECT *
+       FROM commandes
+       WHERE id=?`,
+      [req.params.id]
+    );
 
     if (!c) {
       return res.status(404).json({
         ok: false,
-        message:
-          "Commande introuvable.",
+        message: "Commande introuvable.",
       });
     }
 
-    const [items] =
-      await pool.query(
-        `SELECT
-           ci.id,
-           ci.commande_id,
-           ci.article_id,
-           ci.variant_id,
-           ci.product_name,
-           ci.sku,
-           ci.unit_price,
-           ci.quantity,
-           ci.line_total,
+    const [items] = await pool.query(
+      `SELECT
+         ci.id,
+         ci.commande_id,
+         ci.article_id,
+         ci.variant_id,
+         ci.product_name,
+         ci.sku,
+         ci.unit_price,
+         ci.quantity,
+         ci.line_total,
 
-           (
-             SELECT ai.url
-             FROM article_images ai
-             WHERE ai.article_id=
-               ci.article_id
-               AND ai.url IS NOT NULL
-               AND TRIM(ai.url)<>''
-             ORDER BY
-               ai.is_primary DESC,
-               ai.sort_order ASC,
-               ai.id ASC
-             LIMIT 1
-           ) AS image_url,
+         /* =================================================
+            IMAGE PRODUIT
+         ================================================= */
+         (
+           SELECT ai.url
+           FROM article_images ai
+           WHERE ai.article_id = ci.article_id
+             AND ai.url IS NOT NULL
+             AND TRIM(ai.url) <> ''
+           ORDER BY
+             ai.is_primary DESC,
+             ai.sort_order ASC,
+             ai.id ASC
+           LIMIT 1
+         ) AS image_url,
 
-           a.slug AS article_slug,
-           a.name AS article_name,
-           a.name_ar AS product_name_ar,
-           a.short_name AS product_short_name,
-           a.short_name_ar AS product_short_name_ar
+         /* =================================================
+            ARTICLE
+         ================================================= */
+         a.slug AS article_slug,
+         a.name AS article_name,
+         a.name_ar AS product_name_ar,
+         a.short_name AS product_short_name,
+         a.short_name_ar AS product_short_name_ar,
+         a.price AS article_current_price,
 
-         FROM commande_items ci
+         /* =================================================
+            PROMOTION LIÉE À L'ARTICLE
+            (au moment de la commande)
+         ================================================= */
 
-         LEFT JOIN articles a
-           ON a.id=ci.article_id
+         (
+           SELECT pr.id
+           FROM promotions pr
+           INNER JOIN promotion_articles pa
+             ON pa.promotion_id = pr.id
+           WHERE pa.article_id = ci.article_id
+             AND c.created_at >= pr.start_at
+             AND c.created_at <= pr.end_at
+           ORDER BY pr.id DESC
+           LIMIT 1
+         ) AS promotion_id,
 
-         WHERE ci.commande_id=?
+         (
+           SELECT pr.name
+           FROM promotions pr
+           INNER JOIN promotion_articles pa
+             ON pa.promotion_id = pr.id
+           WHERE pa.article_id = ci.article_id
+             AND c.created_at >= pr.start_at
+             AND c.created_at <= pr.end_at
+           ORDER BY pr.id DESC
+           LIMIT 1
+         ) AS promotion_name,
 
-         ORDER BY ci.id ASC`,
-        [c.id]
-      );
+         (
+           SELECT pr.badge
+           FROM promotions pr
+           INNER JOIN promotion_articles pa
+             ON pa.promotion_id = pr.id
+           WHERE pa.article_id = ci.article_id
+             AND c.created_at >= pr.start_at
+             AND c.created_at <= pr.end_at
+           ORDER BY pr.id DESC
+           LIMIT 1
+         ) AS promotion_badge,
 
-    const itemsWithImages =
-      items.map((item) => {
-        let image = null;
+         (
+           SELECT pr.type
+           FROM promotions pr
+           INNER JOIN promotion_articles pa
+             ON pa.promotion_id = pr.id
+           WHERE pa.article_id = ci.article_id
+             AND c.created_at >= pr.start_at
+             AND c.created_at <= pr.end_at
+           ORDER BY pr.id DESC
+           LIMIT 1
+         ) AS promotion_type,
 
-        if (item.image_url) {
-          image =
-            toAbsoluteUrl(
-              item.image_url
-            );
+         (
+           SELECT pr.value
+           FROM promotions pr
+           INNER JOIN promotion_articles pa
+             ON pa.promotion_id = pr.id
+           WHERE pa.article_id = ci.article_id
+             AND c.created_at >= pr.start_at
+             AND c.created_at <= pr.end_at
+           ORDER BY pr.id DESC
+           LIMIT 1
+         ) AS promotion_value
+
+       FROM commande_items ci
+
+       LEFT JOIN articles a
+         ON a.id = ci.article_id
+
+       WHERE ci.commande_id=?
+
+       ORDER BY ci.id ASC`,
+      [c.id]
+    );
+
+    /* =====================================================
+       ENRICHISSEMENT PROMOTION + IMAGE
+    ===================================================== */
+
+    const itemsWithPromotion = items.map((item) => {
+      let image = null;
+
+      if (item.image_url) {
+        image = toAbsoluteUrl(item.image_url);
+      }
+
+      const unitPrice = Number(item.unit_price || 0);
+
+      const currentPrice = Number(item.article_current_price || 0);
+
+      const promotionValue = Number(item.promotion_value || 0);
+
+      const promotionType = String(item.promotion_type || "").toUpperCase();
+
+      /* ===================================================
+         DÉTECTION DE LA PROMOTION (3 méthodes)
+         1. Promotion explicite liée à la commande
+         2. Prix payé < prix actuel de l'article
+         3. promotion_value > 0
+      =================================================== */
+
+      const hasPromotionFromOrder =
+        Boolean(item.promotion_id) && promotionValue > 0;
+
+      const hasPromotionFromPriceDiff =
+        currentPrice > 0 &&
+        unitPrice > 0 &&
+        unitPrice < currentPrice;
+
+      const hasPromotion =
+        hasPromotionFromOrder ||
+        hasPromotionFromPriceDiff ||
+        promotionValue > 0;
+
+      /* ===================================================
+         CALCUL DU PRIX ORIGINAL
+      =================================================== */
+
+      let originalPrice = null;
+
+      let detectedPromotionType = item.promotion_type;
+
+      let detectedPromotionValue = item.promotion_value;
+
+      if (hasPromotion) {
+        /* --- CAS 1 : promo explicite en BDD --- */
+        if (hasPromotionFromOrder) {
+          if (
+            promotionType === "POURCENTAGE" ||
+            promotionType === "PERCENTAGE" ||
+            promotionType === "%"
+          ) {
+            if (promotionValue > 0 && promotionValue < 100) {
+              originalPrice = unitPrice / (1 - promotionValue / 100);
+            }
+          } else {
+            originalPrice = unitPrice + promotionValue;
+          }
+        }
+        /* --- CAS 2 : comparaison avec prix actuel --- */
+        else if (hasPromotionFromPriceDiff) {
+          originalPrice = currentPrice;
+
+          const diff = currentPrice - unitPrice;
+
+          const percent = (diff / currentPrice) * 100;
+
+          detectedPromotionType = "POURCENTAGE";
+
+          detectedPromotionValue = Number(percent.toFixed(2));
         }
 
-        return {
-          ...item,
-          image_url: image,
-          image,
-        };
-      });
+        if (originalPrice != null) {
+          originalPrice = Number(originalPrice.toFixed(2));
+        }
+      }
 
-    const [history] =
-      await pool.query(
-        `SELECT
-           id,
-           old_status,
-           new_status,
-           user_id,
-           user_name,
-           created_at
-         FROM commande_status_history
-         WHERE commande_id=?
-         ORDER BY id DESC`,
-        [c.id]
-      );
+      return {
+        ...item,
+
+        /* IMAGE */
+        image_url: image,
+        image,
+
+        /* PROMOTION */
+        is_promotion: hasPromotion,
+
+        promotion: hasPromotion,
+
+        promotion_id: item.promotion_id || null,
+
+        promotion_name: item.promotion_name || null,
+
+        promotion_badge: item.promotion_badge || null,
+
+        promotion_type: detectedPromotionType || null,
+
+        promotion_value: hasPromotion ? detectedPromotionValue : null,
+
+        original_price: hasPromotion ? originalPrice : null,
+
+        promo_price: hasPromotion ? unitPrice : null,
+      };
+    });
+
+    /* =====================================================
+       HISTORIQUE
+    ===================================================== */
+
+    const [history] = await pool.query(
+      `SELECT
+         id,
+         old_status,
+         new_status,
+         user_id,
+         user_name,
+         created_at
+       FROM commande_status_history
+       WHERE commande_id=?
+       ORDER BY id DESC`,
+      [c.id]
+    );
+
+    /* =====================================================
+       RESPONSE
+    ===================================================== */
 
     return res.json({
       ok: true,
@@ -2036,34 +1833,26 @@ async function getOne(req, res) {
       data: {
         ...c,
 
-        items:
-          itemsWithImages,
+        items: itemsWithPromotion,
 
         history,
       },
     });
   } catch (error) {
-    console.error(
-      "GET ORDER ERROR:",
-      error
-    );
+    console.error("GET ORDER ERROR:", error);
 
     return res.status(500).json({
       ok: false,
-      message:
-        "Impossible de récupérer la commande.",
+
+      message: "Impossible de récupérer la commande.",
     });
   }
 }
-
 /* =========================================================
-   UPDATE STATUS
+UPDATE STATUS
 ========================================================= */
 
-async function updateStatus(
-  req,
-  res
-) {
+async function updateStatus(req, res) {
   const allowed = [
     "NOUVELLE",
     "CONFIRMEE",
@@ -2073,97 +1862,69 @@ async function updateStatus(
     "ANNULEE",
   ];
 
-  const newStatus =
-    String(
-      req.body.status || ""
-    ).toUpperCase();
+  const newStatus = String(req.body.status || "").toUpperCase();
 
-  if (
-    !allowed.includes(
-      newStatus
-    )
-  ) {
+  if (!allowed.includes(newStatus)) {
     return res.status(400).json({
       ok: false,
-      message:
-        "Statut invalide.",
+      message: "Statut invalide.",
     });
   }
 
-  const orderId =
-    Number(req.params.id);
+  const orderId = Number(req.params.id);
 
-  if (
-    !Number.isInteger(orderId) ||
-    orderId <= 0
-  ) {
+  if (!Number.isInteger(orderId) || orderId <= 0) {
     return res.status(400).json({
       ok: false,
-      message:
-        "ID commande invalide.",
+      message: "ID commande invalide.",
     });
   }
 
-  const userId =
-    req.user?.id || null;
+  const userId = req.user?.id || null;
 
   const userName =
     req.user?.name ||
-    [
-      req.user?.first_name,
-      req.user?.last_name,
-    ]
+    [req.user?.first_name, req.user?.last_name]
       .filter(Boolean)
       .join(" ") ||
     req.user?.email ||
     null;
 
-  const conn =
-    await pool.getConnection();
+  const conn = await pool.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    const [[order]] =
-      await conn.query(
-        `SELECT
-           id,
-           status
-         FROM commandes
-         WHERE id=?
-         FOR UPDATE`,
-        [orderId]
-      );
+    const [[order]] = await conn.query(
+      `SELECT id, status
+       FROM commandes
+       WHERE id=?
+       FOR UPDATE`,
+      [orderId]
+    );
 
     if (!order) {
       await conn.rollback();
 
       return res.status(404).json({
         ok: false,
-        message:
-          "Commande introuvable.",
+        message: "Commande introuvable.",
       });
     }
 
-    const oldStatus =
-      String(
-        order.status || "NOUVELLE"
-      ).toUpperCase();
+    const oldStatus = String(order.status || "NOUVELLE").toUpperCase();
 
     /* =====================================================
        PAS DE CHANGEMENT
     ===================================================== */
 
-    if (
-      oldStatus === newStatus
-    ) {
+    if (oldStatus === newStatus) {
       await conn.commit();
 
       return res.json({
         ok: true,
 
-        message:
-          "Statut inchangé.",
+        message: "Statut inchangé.",
 
         data: {
           id: orderId,
@@ -2185,56 +1946,36 @@ async function updateStatus(
       "LIVREE",
     ];
 
-    const wasConsumed =
-      stockStatuses.includes(
-        oldStatus
-      );
+    const wasConsumed = stockStatuses.includes(oldStatus);
 
-    const willConsume =
-      stockStatuses.includes(
-        newStatus
-      );
+    const willConsume = stockStatuses.includes(newStatus);
 
     /* =====================================================
        CONSOMMATION
     ===================================================== */
 
-    if (
-      !wasConsumed &&
-      willConsume
-    ) {
+    if (!wasConsumed && willConsume) {
       console.log(
         `📦 Commande #${orderId} : ` +
           `${oldStatus} → ${newStatus} : ` +
           `consommation du stock`
       );
 
-      await consumeStockForOrder(
-        conn,
-        orderId,
-        userId
-      );
+      await consumeStockForOrder(conn, orderId, userId);
     }
 
     /* =====================================================
        RESTITUTION
     ===================================================== */
 
-    if (
-      wasConsumed &&
-      !willConsume
-    ) {
+    if (wasConsumed && !willConsume) {
       console.log(
         `↩️ Commande #${orderId} : ` +
           `${oldStatus} → ${newStatus} : ` +
           `restitution du stock`
       );
 
-      await restoreStockForOrder(
-        conn,
-        orderId,
-        userId
-      );
+      await restoreStockForOrder(conn, orderId, userId);
     }
 
     /* =====================================================
@@ -2245,10 +1986,7 @@ async function updateStatus(
       `UPDATE commandes
        SET status=?
        WHERE id=?`,
-      [
-        newStatus,
-        orderId,
-      ]
+      [newStatus, orderId]
     );
 
     /* =====================================================
@@ -2264,13 +2002,7 @@ async function updateStatus(
         user_name
       )
       VALUES(?,?,?,?,?)`,
-      [
-        orderId,
-        oldStatus,
-        newStatus,
-        userId,
-        userName,
-      ]
+      [orderId, oldStatus, newStatus, userId, userName]
     );
 
     await conn.commit();
@@ -2279,26 +2011,20 @@ async function updateStatus(
        SOCKET.IO
     ===================================================== */
 
-    const io =
-      req.app.get("io");
+    const io = req.app.get("io");
 
     if (io) {
-      io.emit(
-        "order:status",
-        {
-          id: orderId,
-          oldStatus,
-          newStatus,
-        }
-      );
+      io.emit("order:status", {
+        id: orderId,
+        oldStatus,
+        newStatus,
+      });
     }
 
     return res.json({
       ok: true,
 
-      message:
-        `Statut mis à jour : ` +
-        `${oldStatus} → ${newStatus}`,
+      message: `Statut mis à jour : ${oldStatus} → ${newStatus}`,
 
       data: {
         id: orderId,
@@ -2308,11 +2034,9 @@ async function updateStatus(
         newStatus,
 
         stockAction:
-          !wasConsumed &&
-          willConsume
+          !wasConsumed && willConsume
             ? "CONSUMED"
-            : wasConsumed &&
-              !willConsume
+            : wasConsumed && !willConsume
             ? "RESTORED"
             : "NONE",
       },
@@ -2322,45 +2046,30 @@ async function updateStatus(
       await conn.rollback();
     } catch (_) {}
 
-    console.error(
-      "UPDATE STATUS ERROR:",
-      e
-    );
+    console.error("UPDATE STATUS ERROR:", e);
 
-    return res.status(
-      Number(e.status) >= 400
-        ? Number(e.status)
-        : 500
-    ).json({
-      ok: false,
+    return res
+      .status(Number(e.status) >= 400 ? Number(e.status) : 500)
+      .json({
+        ok: false,
 
-      message:
-        e.message ||
-        "Impossible de modifier le statut.",
-    });
+        message:
+          e.message || "Impossible de modifier le statut.",
+      });
   } finally {
     conn.release();
   }
 }
 
 /* =========================================================
-   TRACK
+TRACK
 ========================================================= */
 
-async function track(
-  req,
-  res
-) {
+async function track(req, res) {
   try {
-    const {
-      trackingNumber,
-      phone,
-    } = req.query;
+    const { trackingNumber, phone } = req.query;
 
-    if (
-      !trackingNumber ||
-      !phone
-    ) {
+    if (!trackingNumber || !phone) {
       return res.status(400).json({
         ok: false,
         message:
@@ -2368,69 +2077,54 @@ async function track(
       });
     }
 
-    const [[c]] =
-      await pool.query(
-        `SELECT
-           tracking_number,
-           delivery_tracking,
-           delivery_provider,
-           status,
-           customer_name,
-           wilaya,
-           commune,
-           delivery_type,
-           total,
-           created_at,
-           updated_at
-         FROM commandes
-         WHERE
-           (
-             tracking_number=?
-             OR delivery_tracking=?
-           )
-           AND phone=?`,
-        [
-          trackingNumber,
-          trackingNumber,
-          phone,
-        ]
-      );
+    const [[c]] = await pool.query(
+      `SELECT
+         tracking_number,
+         delivery_tracking,
+         delivery_provider,
+         status,
+         customer_name,
+         wilaya,
+         commune,
+         delivery_type,
+         total,
+         created_at,
+         updated_at
+       FROM commandes
+       WHERE
+         (
+           tracking_number=?
+           OR delivery_tracking=?
+         )
+         AND phone=?`,
+      [trackingNumber, trackingNumber, phone]
+    );
 
     if (!c) {
       return res.status(404).json({
         ok: false,
-        message:
-          "Commande introuvable.",
+        message: "Commande introuvable.",
       });
     }
 
-    let providerTracking =
-      null;
+    let providerTracking = null;
 
-    if (
-      c.delivery_tracking
-    ) {
+    if (c.delivery_tracking) {
       try {
-        const remote =
-          await elogistia.getTracking(
-            c.delivery_tracking
-          );
+        const remote = await elogistia.getTracking(
+          c.delivery_tracking
+        );
 
-        providerTracking =
-          remote?.data ??
-          remote?.body ??
-          remote;
+        providerTracking = remote?.data ?? remote?.body ?? remote;
       } catch (error) {
         console.error(
           "ELOGISTIA TRACKING ERROR:",
-          error.response?.data ||
-            error.message
+          error.response?.data || error.message
         );
 
         providerTracking = {
           error:
-            error.message ||
-            "Suivi Elogistia indisponible",
+            error.message || "Suivi Elogistia indisponible",
         };
       }
     }
@@ -2445,42 +2139,28 @@ async function track(
       },
     });
   } catch (error) {
-    console.error(
-      "TRACK ERROR:",
-      error
-    );
+    console.error("TRACK ERROR:", error);
 
     return res.status(500).json({
       ok: false,
-      message:
-        "Impossible de suivre la commande.",
+      message: "Impossible de suivre la commande.",
     });
   }
 }
 
 /* =========================================================
-   SYNC MANUEL ELOGISTIA
+SYNC MANUEL ELOGISTIA
 ========================================================= */
 
-async function sync(
-  req,
-  res
-) {
+async function sync(req, res) {
   try {
-    const result =
-      await syncWithElogistia(
-        req.params.id
-      );
+    const result = await syncWithElogistia(req.params.id);
 
-    if (
-      !result.synced &&
-      result.error
-    ) {
+    if (!result.synced && result.error) {
       return res.status(502).json({
         ok: false,
 
-        message:
-          result.error,
+        message: result.error,
 
         data: result,
       });
@@ -2491,139 +2171,106 @@ async function sync(
       data: result,
     });
   } catch (error) {
-    console.error(
-      "SYNC ERROR:",
-      error
-    );
+    console.error("SYNC ERROR:", error);
 
     return res.status(500).json({
       ok: false,
-      message:
-        "Impossible de synchroniser la commande.",
+      message: "Impossible de synchroniser la commande.",
     });
   }
 }
 
 /* =========================================================
-   EXPORT EXCEL
+EXPORT EXCEL
 ========================================================= */
 
-async function exportExcel(
-  req,
-  res
-) {
+async function exportExcel(req, res) {
   try {
-    const status =
-      req.query.status;
+    const status = req.query.status;
 
     const today =
-      String(
-        req.query.today || ""
-      ).toLowerCase() ===
-      "true";
+      String(req.query.today || "").toLowerCase() === "true";
 
-    const dateFrom =
-      req.query.date_from;
+    const dateFrom = req.query.date_from;
 
-    const dateTo =
-      req.query.date_to;
+    const dateTo = req.query.date_to;
 
     const conditions = [];
     const params = [];
 
     if (status) {
-      conditions.push(
-        "cmd.status=?"
-      );
+      conditions.push("cmd.status=?");
 
       params.push(status);
     }
 
     if (today) {
-      conditions.push(
-        "DATE(cmd.created_at)=CURDATE()"
-      );
+      conditions.push("DATE(cmd.created_at)=CURDATE()");
     } else {
       if (dateFrom) {
-        conditions.push(
-          "DATE(cmd.created_at)>=?"
-        );
+        conditions.push("DATE(cmd.created_at)>=?");
 
         params.push(dateFrom);
       }
 
       if (dateTo) {
-        conditions.push(
-          "DATE(cmd.created_at)<=?"
-        );
+        conditions.push("DATE(cmd.created_at)<=?");
 
         params.push(dateTo);
       }
     }
 
-    const where =
-      conditions.length
-        ? `WHERE ${conditions.join(
-            " AND "
-          )}`
-        : "";
+    const where = conditions.length
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
 
-    const [orders] =
-      await pool.query(
-        `
-        SELECT
-          cmd.id,
-          cmd.tracking_number,
-          cmd.delivery_tracking,
-          cmd.delivery_provider,
-          cmd.customer_name,
-          cmd.phone,
-          cmd.wilaya,
-          cmd.commune,
-          cmd.address,
-          cmd.delivery_type,
-          cmd.delivery_agency_name,
-          cmd.delivery_sync_status,
-          cmd.status,
-          cmd.subtotal,
-          cmd.delivery_fee,
-          cmd.total,
-          cmd.note,
-          cmd.created_at,
-          cmd.updated_at
+    const [orders] = await pool.query(
+      `
+      SELECT
+        cmd.id,
+        cmd.tracking_number,
+        cmd.delivery_tracking,
+        cmd.delivery_provider,
+        cmd.customer_name,
+        cmd.phone,
+        cmd.wilaya,
+        cmd.commune,
+        cmd.address,
+        cmd.delivery_type,
+        cmd.delivery_agency_name,
+        cmd.delivery_sync_status,
+        cmd.status,
+        cmd.subtotal,
+        cmd.delivery_fee,
+        cmd.total,
+        cmd.note,
+        cmd.created_at,
+        cmd.updated_at
 
-        FROM commandes cmd
+      FROM commandes cmd
 
-        ${where}
+      ${where}
 
-        ORDER BY cmd.id DESC
-        `,
-        params
-      );
+      ORDER BY cmd.id DESC
+      `,
+      params
+    );
 
-    const workbook =
-      new ExcelJS.Workbook();
+    const workbook = new ExcelJS.Workbook();
 
-    workbook.creator =
-      "DOC TECH";
+    workbook.creator = "DOC TECH";
 
-    workbook.lastModifiedBy =
-      "DOC TECH";
+    workbook.lastModifiedBy = "DOC TECH";
 
-    workbook.created =
-      new Date();
+    workbook.created = new Date();
 
-    workbook.modified =
-      new Date();
+    workbook.modified = new Date();
 
     /* =====================================================
        FEUILLE COMMANDES
     ===================================================== */
 
-    const sheet =
-      workbook.addWorksheet(
-        "Commandes"
-      );
+    const sheet = workbook.addWorksheet("Commandes");
 
     sheet.views = [
       {
@@ -2720,231 +2367,162 @@ async function exportExcel(
       },
     ];
 
-    orders.forEach(
-      (order) => {
-        sheet.addRow({
-          id: order.id,
+    orders.forEach((order) => {
+      sheet.addRow({
+        id: order.id,
 
-          tracking_number:
-            order.tracking_number ||
-            "",
+        tracking_number: order.tracking_number || "",
 
-          delivery_tracking:
-            order.delivery_tracking ||
-            "",
+        delivery_tracking: order.delivery_tracking || "",
 
-          customer_name:
-            order.customer_name ||
-            "",
+        customer_name: order.customer_name || "",
 
-          phone:
-            order.phone || "",
+        phone: order.phone || "",
 
-          wilaya:
-            order.wilaya || "",
+        wilaya: order.wilaya || "",
 
-          commune:
-            order.commune || "",
+        commune: order.commune || "",
 
-          address:
-            order.address || "",
+        address: order.address || "",
 
-          delivery_type:
-            order.delivery_type ||
-            "",
+        delivery_type: order.delivery_type || "",
 
-          delivery_agency_name:
-            order.delivery_agency_name ||
-            "",
+        delivery_agency_name:
+          order.delivery_agency_name || "",
 
-          status:
-            order.status || "",
+        status: order.status || "",
 
-          subtotal:
-            Number(
-              order.subtotal || 0
-            ),
+        subtotal: Number(order.subtotal || 0),
 
-          delivery_fee:
-            Number(
-              order.delivery_fee || 0
-            ),
+        delivery_fee: Number(order.delivery_fee || 0),
 
-          total:
-            Number(
-              order.total || 0
-            ),
+        total: Number(order.total || 0),
 
-          delivery_sync_status:
-            order.delivery_sync_status ||
-            "",
+        delivery_sync_status:
+          order.delivery_sync_status || "",
 
-          note:
-            order.note || "",
+        note: order.note || "",
 
-          created_at:
-            order.created_at
-              ? new Date(
-                  order.created_at
-                )
-              : "",
-        });
-      }
-    );
+        created_at: order.created_at
+          ? new Date(order.created_at)
+          : "",
+      });
+    });
 
     /* =====================================================
        HEADER
     ===================================================== */
 
-    const header =
-      sheet.getRow(1);
+    const header = sheet.getRow(1);
 
     header.height = 30;
 
-    header.eachCell(
-      (cell) => {
-        cell.font = {
-          bold: true,
+    header.eachCell((cell) => {
+      cell.font = {
+        bold: true,
+
+        color: {
+          argb: "FFFFFFFF",
+        },
+      };
+
+      cell.fill = {
+        type: "pattern",
+
+        pattern: "solid",
+
+        fgColor: {
+          argb: "2563EB",
+        },
+      };
+
+      cell.alignment = {
+        vertical: "middle",
+        horizontal: "center",
+        wrapText: true,
+      };
+
+      cell.border = {
+        top: {
+          style: "thin",
 
           color: {
-            argb:
-              "FFFFFFFF",
+            argb: "D1D5DB",
           },
-        };
+        },
 
-        cell.fill = {
-          type: "pattern",
+        bottom: {
+          style: "thin",
 
-          pattern: "solid",
-
-          fgColor: {
-            argb:
-              "2563EB",
+          color: {
+            argb: "D1D5DB",
           },
-        };
-
-        cell.alignment = {
-          vertical: "middle",
-          horizontal: "center",
-          wrapText: true,
-        };
-
-        cell.border = {
-          top: {
-            style: "thin",
-
-            color: {
-              argb:
-                "D1D5DB",
-            },
-          },
-
-          bottom: {
-            style: "thin",
-
-            color: {
-              argb:
-                "D1D5DB",
-            },
-          },
-        };
-      }
-    );
+        },
+      };
+    });
 
     /* =====================================================
        LIGNES
     ===================================================== */
 
-    sheet.eachRow(
-      (row, rowNumber) => {
-        if (
-          rowNumber === 1
-        ) {
-          return;
-        }
-
-        row.alignment = {
-          vertical: "middle",
-          wrapText: true,
-        };
-
-        row.height = 24;
-
-        const statusCell =
-          row.getCell(11);
-
-        if (
-          statusCell.value ===
-          "LIVREE"
-        ) {
-          statusCell.font = {
-            bold: true,
-
-            color: {
-              argb:
-                "059669",
-            },
-          };
-        }
-
-        if (
-          statusCell.value ===
-          "ANNULEE"
-        ) {
-          statusCell.font = {
-            bold: true,
-
-            color: {
-              argb:
-                "DC2626",
-            },
-          };
-        }
-
-        if (
-          statusCell.value ===
-          "NOUVELLE"
-        ) {
-          statusCell.font = {
-            bold: true,
-
-            color: {
-              argb:
-                "EA580C",
-            },
-          };
-        }
-
-        row.getCell(
-          12
-        ).numFmt =
-          '#,##0.00 "DA"';
-
-        row.getCell(
-          13
-        ).numFmt =
-          '#,##0.00 "DA"';
-
-        row.getCell(
-          14
-        ).numFmt =
-          '#,##0.00 "DA"';
-
-        row.getCell(
-          17
-        ).numFmt =
-          "dd/mm/yyyy hh:mm";
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) {
+        return;
       }
-    );
+
+      row.alignment = {
+        vertical: "middle",
+        wrapText: true,
+      };
+
+      row.height = 24;
+
+      const statusCell = row.getCell(11);
+
+      if (statusCell.value === "LIVREE") {
+        statusCell.font = {
+          bold: true,
+
+          color: {
+            argb: "059669",
+          },
+        };
+      }
+
+      if (statusCell.value === "ANNULEE") {
+        statusCell.font = {
+          bold: true,
+
+          color: {
+            argb: "DC2626",
+          },
+        };
+      }
+
+      if (statusCell.value === "NOUVELLE") {
+        statusCell.font = {
+          bold: true,
+
+          color: {
+            argb: "EA580C",
+          },
+        };
+      }
+
+      row.getCell(12).numFmt = '#,##0.00 "DA"';
+
+      row.getCell(13).numFmt = '#,##0.00 "DA"';
+
+      row.getCell(14).numFmt = '#,##0.00 "DA"';
+
+      row.getCell(17).numFmt = "dd/mm/yyyy hh:mm";
+    });
 
     /* =====================================================
        FEUILLE ARTICLES
     ===================================================== */
 
-    const itemsSheet =
-      workbook.addWorksheet(
-        "Articles"
-      );
+    const itemsSheet = workbook.addWorksheet("Articles");
 
     itemsSheet.columns = [
       {
@@ -2989,157 +2567,109 @@ async function exportExcel(
       },
     ];
 
-    const orderIds =
-      orders.map(
-        (o) => o.id
-      );
+    const orderIds = orders.map((o) => o.id);
 
-    if (
-      orderIds.length
-    ) {
-      const placeholders =
+    if (orderIds.length) {
+      const placeholders = orderIds.map(() => "?").join(",");
+
+      const [items] = await pool.query(
+        `
+        SELECT
+          ci.commande_id,
+          ci.product_name,
+          ci.sku,
+          ci.quantity,
+          ci.unit_price,
+          ci.line_total,
+          cmd.tracking_number,
+          cmd.customer_name
+
+        FROM commande_items ci
+
+        INNER JOIN commandes cmd
+          ON cmd.id=ci.commande_id
+
+        WHERE ci.commande_id IN(
+          ${placeholders}
+        )
+
+        ORDER BY
+          ci.commande_id DESC,
+          ci.id ASC
+        `,
         orderIds
-          .map(
-            () => "?"
-          )
-          .join(",");
-
-      const [items] =
-        await pool.query(
-          `
-          SELECT
-            ci.commande_id,
-            ci.product_name,
-            ci.sku,
-            ci.quantity,
-            ci.unit_price,
-            ci.line_total,
-            cmd.tracking_number,
-            cmd.customer_name
-
-          FROM commande_items ci
-
-          INNER JOIN commandes cmd
-            ON cmd.id=ci.commande_id
-
-          WHERE ci.commande_id IN(
-            ${placeholders}
-          )
-
-          ORDER BY
-            ci.commande_id DESC,
-            ci.id ASC
-          `,
-          orderIds
-        );
-
-      items.forEach(
-        (item) => {
-          itemsSheet.addRow({
-            commande_id:
-              item.commande_id,
-
-            tracking_number:
-              item.tracking_number ||
-              "",
-
-            customer_name:
-              item.customer_name ||
-              "",
-
-            product_name:
-              item.product_name ||
-              "",
-
-            sku:
-              item.sku || "",
-
-            quantity:
-              Number(
-                item.quantity || 0
-              ),
-
-            unit_price:
-              Number(
-                item.unit_price || 0
-              ),
-
-            line_total:
-              Number(
-                item.line_total || 0
-              ),
-          });
-        }
       );
+
+      items.forEach((item) => {
+        itemsSheet.addRow({
+          commande_id: item.commande_id,
+
+          tracking_number: item.tracking_number || "",
+
+          customer_name: item.customer_name || "",
+
+          product_name: item.product_name || "",
+
+          sku: item.sku || "",
+
+          quantity: Number(item.quantity || 0),
+
+          unit_price: Number(item.unit_price || 0),
+
+          line_total: Number(item.line_total || 0),
+        });
+      });
     }
 
-    const itemsHeader =
-      itemsSheet.getRow(1);
+    const itemsHeader = itemsSheet.getRow(1);
 
     itemsHeader.height = 30;
 
-    itemsHeader.eachCell(
-      (cell) => {
-        cell.font = {
-          bold: true,
+    itemsHeader.eachCell((cell) => {
+      cell.font = {
+        bold: true,
 
-          color: {
-            argb:
-              "FFFFFFFF",
-          },
-        };
+        color: {
+          argb: "FFFFFFFF",
+        },
+      };
 
-        cell.fill = {
-          type: "pattern",
+      cell.fill = {
+        type: "pattern",
 
-          pattern: "solid",
+        pattern: "solid",
 
-          fgColor: {
-            argb:
-              "1B4F59",
-          },
-        };
+        fgColor: {
+          argb: "1B4F59",
+        },
+      };
 
-        cell.alignment = {
-          vertical: "middle",
-          horizontal: "center",
-        };
+      cell.alignment = {
+        vertical: "middle",
+        horizontal: "center",
+      };
+    });
+
+    itemsSheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) {
+        return;
       }
-    );
 
-    itemsSheet.eachRow(
-      (row, rowNumber) => {
-        if (
-          rowNumber === 1
-        ) {
-          return;
-        }
+      row.getCell(7).numFmt = '#,##0.00 "DA"';
 
-        row.getCell(
-          7
-        ).numFmt =
-          '#,##0.00 "DA"';
+      row.getCell(8).numFmt = '#,##0.00 "DA"';
 
-        row.getCell(
-          8
-        ).numFmt =
-          '#,##0.00 "DA"';
-
-        row.alignment = {
-          vertical: "middle",
-          wrapText: true,
-        };
-      }
-    );
+      row.alignment = {
+        vertical: "middle",
+        wrapText: true,
+      };
+    });
 
     /* =====================================================
        FEUILLE RÉSUMÉ
     ===================================================== */
 
-    const summary =
-      workbook.addWorksheet(
-        "Résumé"
-      );
+    const summary = workbook.addWorksheet("Résumé");
 
     summary.columns = [
       {
@@ -3154,145 +2684,98 @@ async function exportExcel(
       },
     ];
 
-    const totalOrders =
-      orders.length;
+    const totalOrders = orders.length;
 
-    const revenue =
-      orders
-        .filter(
-          (o) =>
-            o.status !==
-            "ANNULEE"
-        )
-        .reduce(
-          (sum, o) =>
-            sum +
-            Number(
-              o.total || 0
-            ),
-          0
-        );
+    const revenue = orders
+      .filter((o) => o.status !== "ANNULEE")
+      .reduce((sum, o) => sum + Number(o.total || 0), 0);
 
-    const delivered =
-      orders.filter(
-        (o) =>
-          o.status ===
-          "LIVREE"
-      ).length;
+    const delivered = orders.filter(
+      (o) => o.status === "LIVREE"
+    ).length;
 
-    const cancelled =
-      orders.filter(
-        (o) =>
-          o.status ===
-          "ANNULEE"
-      ).length;
+    const cancelled = orders.filter(
+      (o) => o.status === "ANNULEE"
+    ).length;
 
-    const newOrders =
-      orders.filter(
-        (o) =>
-          o.status ===
-          "NOUVELLE"
-      ).length;
+    const newOrders = orders.filter(
+      (o) => o.status === "NOUVELLE"
+    ).length;
 
-    const preparation =
-      orders.filter(
-        (o) =>
-          o.status ===
-          "PREPARATION"
-      ).length;
+    const preparation = orders.filter(
+      (o) => o.status === "PREPARATION"
+    ).length;
 
-    const shipped =
-      orders.filter(
-        (o) =>
-          o.status ===
-          "EXPEDIEE"
-      ).length;
+    const shipped = orders.filter(
+      (o) => o.status === "EXPEDIEE"
+    ).length;
 
     summary.addRows([
       {
-        label:
-          "Nombre total de commandes",
-        value:
-          totalOrders,
+        label: "Nombre total de commandes",
+        value: totalOrders,
       },
 
       {
         label: "Nouvelles",
-        value:
-          newOrders,
+        value: newOrders,
       },
 
       {
         label: "Préparation",
-        value:
-          preparation,
+        value: preparation,
       },
 
       {
         label: "Expédiées",
-        value:
-          shipped,
+        value: shipped,
       },
 
       {
         label: "Livrées",
-        value:
-          delivered,
+        value: delivered,
       },
 
       {
         label: "Annulées",
-        value:
-          cancelled,
+        value: cancelled,
       },
 
       {
-        label:
-          "Chiffre d'affaires hors annulées",
-        value:
-          revenue,
+        label: "Chiffre d'affaires hors annulées",
+        value: revenue,
       },
     ]);
 
-    summary
-      .getRow(1)
-      .eachCell(
-        (cell) => {
-          cell.font = {
-            bold: true,
+    summary.getRow(1).eachCell((cell) => {
+      cell.font = {
+        bold: true,
 
-            color: {
-              argb:
-                "FFFFFFFF",
-            },
-          };
+        color: {
+          argb: "FFFFFFFF",
+        },
+      };
 
-          cell.fill = {
-            type: "pattern",
+      cell.fill = {
+        type: "pattern",
 
-            pattern: "solid",
+        pattern: "solid",
 
-            fgColor: {
-              argb:
-                "2563EB",
-            },
-          };
-        }
-      );
+        fgColor: {
+          argb: "2563EB",
+        },
+      };
+    });
 
-    summary
-      .getCell("B8")
-      .numFmt =
-      '#,##0.00 "DA"';
+    summary.getCell("B8").numFmt = '#,##0.00 "DA"';
 
     /* =====================================================
        RESPONSE EXCEL
     ===================================================== */
 
-    const filename =
-      `commandes-${new Date()
-        .toISOString()
-        .slice(0, 10)}.xlsx`;
+    const filename = `commandes-${new Date()
+      .toISOString()
+      .slice(0, 10)}.xlsx`;
 
     res.setHeader(
       "Content-Type",
@@ -3304,35 +2787,26 @@ async function exportExcel(
       `attachment; filename="${filename}"`
     );
 
-    await workbook.xlsx.write(
-      res
-    );
+    await workbook.xlsx.write(res);
 
     res.end();
   } catch (error) {
-    console.error(
-      "EXPORT EXCEL COMMANDES:",
-      error
-    );
+    console.error("EXPORT EXCEL COMMANDES:", error);
 
-    if (
-      !res.headersSent
-    ) {
+    if (!res.headersSent) {
       return res.status(500).json({
         ok: false,
 
-        message:
-          "Impossible de générer le fichier Excel.",
+        message: "Impossible de générer le fichier Excel.",
 
-        error:
-          error.message,
+        error: error.message,
       });
     }
   }
 }
 
 /* =========================================================
-   EXPORT
+EXPORT
 ========================================================= */
 
 module.exports = {
