@@ -290,7 +290,7 @@ const nav: NavItem[] = [
 
     ar: "الإصلاحات",
 
-    href: "/admin/reparations",
+    href: "/admin/reparation",
 
     icon: Wrench,
 
