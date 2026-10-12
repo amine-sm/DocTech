@@ -231,7 +231,7 @@ function HomePageContent() {
           aria-labelledby="hero-title"
           className="relative isolate flex min-h-[720px] items-center overflow-hidden bg-slate-950"
         >
-          {/* IMAGE DE FOND — Flou réduit */}
+          {/* IMAGE DE FOND — Flou réduit (défloutée) */}
           <div className="absolute inset-0 -z-20">
             <Image
               src="/images/hero5.png"
